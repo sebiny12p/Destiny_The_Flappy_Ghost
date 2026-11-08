@@ -1,0 +1,1321 @@
+#include "GhostGame.hpp"
+#include "raymath.h"
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <string>
+
+namespace FlappyGhost {
+
+namespace {
+void DrawTextWrapped(const char* text, int x, int y, int maxWidth, int fontSize, int lineHeight, Color color) {
+    if (!text || !text[0]) return;
+    std::string input(text);
+    std::string currentLine;
+    std::string word;
+    int curY = y;
+
+    auto flushLine = [&]() {
+        if (!currentLine.empty()) {
+            DrawText(currentLine.c_str(), x, curY, fontSize, color);
+            curY += lineHeight;
+            currentLine.clear();
+        }
+    };
+
+    for (size_t i = 0; i <= input.size(); ++i) {
+        char c = (i < input.size()) ? input[i] : ' ';
+        if (c == ' ' || c == '\n') {
+            if (!word.empty()) {
+                std::string candidate = currentLine.empty() ? word : (currentLine + " " + word);
+                if (MeasureText(candidate.c_str(), fontSize) > maxWidth && !currentLine.empty()) {
+                    flushLine();
+                    currentLine = word;
+                } else {
+                    currentLine = candidate;
+                }
+                word.clear();
+            }
+            if (c == '\n') {
+                flushLine();
+            }
+        } else {
+            word.push_back(c);
+        }
+    }
+    flushLine();
+}
+} // namespace
+
+void GhostGame::RenderFrame() {
+    BeginTextureMode(targetRenderTex_);
+    ClearBackground(BLACK);
+
+    Vector2 shakeOffset = { 0.0f, 0.0f };
+    if (screenShakeTrauma_ > 0.0f) {
+        float mag = screenShakeTrauma_ * screenShakeTrauma_ * 18.0f;
+        shakeOffset.x = std::sin(globalTime_ * 67.0f) * mag;
+        shakeOffset.y = std::cos(globalTime_ * 53.0f) * mag;
+    }
+
+    Camera2D cam{};
+    cam.offset = shakeOffset;
+    cam.target = { 0.0f, 0.0f };
+    cam.rotation = 0.0f;
+    cam.zoom = 1.0f;
+
+    BeginMode2D(cam);
+
+    RenderStarfieldAndBackdrop();
+
+    if (state_ == ScreenState::PLAYING || state_ == ScreenState::PAUSED || state_ == ScreenState::LIGHT_FADED) {
+        RenderBiomeEnvironment();
+        RenderObstacles();
+        RenderCollectibles();
+        RenderPatrolEnemies();
+        RenderBoss();
+        RenderProjectiles();
+        RenderParticles();
+
+        // Companion Turret Drone (Arc/Solar/Void Soul Buddy)
+        Vector2 dronePos = {
+            ghost_.pos.x + std::cos(ghost_.companionAngle) * 42.0f,
+            ghost_.pos.y + std::sin(ghost_.companionAngle) * 32.0f
+        };
+        Color companionCol = GetSubclassAccentColor();
+        DrawCircleGradient(static_cast<int>(dronePos.x), static_cast<int>(dronePos.y), 18.0f, companionCol, BLANK);
+        DrawPoly(dronePos, 4, 8.0f, globalTime_ * 180.0f, WHITE);
+        DrawPolyLinesEx(dronePos, 4, 11.0f, -globalTime_ * 140.0f, 2.0f, companionCol);
+
+        // Strand Grapple Tether Line
+        if (ghost_.grappleTimer > 0.0f) {
+            DrawLineEx(ghost_.pos, ghost_.grappleAnchor, 3.5f, { 65, 245, 130, 235 });
+            DrawPoly(ghost_.grappleAnchor, 6, 12.0f, globalTime_ * 160.0f, { 65, 245, 130, 255 });
+        }
+
+        // Chaos Reach Arc Beam visual when Arc Super is active
+        if (ghost_.superActiveTimer > 0.0f &&
+            static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::ARC_CALLER) {
+            float beamH = 38.0f + std::sin(globalTime_ * 45.0f) * 10.0f;
+            DrawRectangleGradientH(static_cast<int>(ghost_.pos.x + 15.0f),
+                                   static_cast<int>(ghost_.pos.y - beamH * 0.5f),
+                                   VIRTUAL_WIDTH, static_cast<int>(beamH),
+                                   { 80, 230, 255, 220 }, { 190, 250, 255, 160 });
+            DrawRectangle(static_cast<int>(ghost_.pos.x + 15.0f),
+                          static_cast<int>(ghost_.pos.y - beamH * 0.22f),
+                          VIRTUAL_WIDTH, static_cast<int>(beamH * 0.44f), WHITE);
+        }
+
+        // Solar Well Aura when Solar Super is active
+        if (ghost_.superActiveTimer > 0.0f &&
+            static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::SOLAR_DAWN) {
+            float r = 64.0f + std::sin(globalTime_ * 14.0f) * 6.0f;
+            DrawCircleGradient(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y),
+                               r, { 255, 180, 40, 140 }, { 255, 90, 10, 0 });
+            DrawCircleLines(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y), r, GOLD);
+        }
+
+        // Ghost Scan Cone when scanning Confluxes
+        if (ghost_.scanPulseTimer > 0.0f) {
+            Vector2 p1 = ghost_.pos;
+            Vector2 p2 = { ghost_.pos.x + 170.0f, ghost_.pos.y - 65.0f };
+            Vector2 p3 = { ghost_.pos.x + 170.0f, ghost_.pos.y + 65.0f };
+            DrawTriangle(p1, p3, p2, { 110, 240, 255, static_cast<unsigned char>(ghost_.scanPulseTimer * 220) });
+            DrawLineEx(p2, p3, 2.5f, SKYBLUE);
+        }
+
+        // Overshield ring around Ghost
+        if (ghost_.overshieldCharges > 0) {
+            DrawCircleLines(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y),
+                            ghost_.radius + 11.0f + std::sin(globalTime_ * 8.0f) * 2.0f,
+                            { 100, 225, 255, 210 });
+        }
+
+        float ghostAlpha = (ghost_.phaseTimer > 0.0f) ? 0.45f :
+                           (ghost_.invulnerableTimer > 0.0f && std::fmod(globalTime_, 0.14f) < 0.07f ? 0.5f : 1.0f);
+        RenderGhostRig(ghost_.pos, ghost_.radius, ghost_.rotation, ghost_.shellExpand,
+                       ghost_.shellSpinAngle, ghost_.eyeLookOffset, profile_.equippedShell, ghostAlpha);
+
+        RenderHud();
+    }
+
+    EndMode2D();
+
+    if (flashAlpha_ > 0.0f) {
+        Color fc = flashColor_;
+        fc.a = static_cast<unsigned char>(std::clamp(flashAlpha_ * 255.0f, 0.0f, 255.0f));
+        DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, fc);
+    }
+
+    if (state_ == ScreenState::TITLE_FRONT_PAGE) {
+        RenderParticles();
+        RenderTitleFrontPage();
+    } else if (state_ == ScreenState::TITLE_DIRECTOR) {
+        RenderParticles();
+        RenderTitleDirector();
+    } else if (state_ == ScreenState::SUBCLASS_ARMORY) {
+        RenderSubclassArmory();
+    } else if (state_ == ScreenState::SHELL_HANGAR) {
+        RenderShellHangar();
+    } else if (state_ == ScreenState::TRIUMPHS_LOG) {
+        RenderTriumphsLog();
+    } else if (state_ == ScreenState::PAUSED) {
+        RenderPauseOverlay();
+    } else if (state_ == ScreenState::LIGHT_FADED) {
+        RenderLightFadedOverlay();
+    }
+
+    RenderTriumphToast();
+
+    EndTextureMode();
+
+    BeginDrawing();
+    ClearBackground(BLACK);
+    Rectangle src = { 0.0f, 0.0f, static_cast<float>(targetRenderTex_.texture.width),
+                      -static_cast<float>(targetRenderTex_.texture.height) };
+    Rectangle dst = { 0.0f, 0.0f, static_cast<float>(GetScreenWidth()), static_cast<float>(GetScreenHeight()) };
+    DrawTexturePro(targetRenderTex_.texture, src, dst, { 0.0f, 0.0f }, 0.0f, WHITE);
+    EndDrawing();
+}
+
+void GhostGame::RenderStarfieldAndBackdrop() const {
+    BiomeSector b = (state_ == ScreenState::PLAYING || state_ == ScreenState::PAUSED || state_ == ScreenState::LIGHT_FADED)
+                    ? GetCurrentBiome() : BiomeSector::COSMODROME;
+
+    Color topBg = { 10, 15, 28, 255 };
+    Color botBg = { 22, 34, 58, 255 };
+    if (b == BiomeSector::VAULT_OF_GLASS) {
+        topBg = { 8, 22, 32, 255 };
+        botBg = { 18, 52, 68, 255 };
+    } else if (b == BiomeSector::HELLMOUTH) {
+        topBg = { 10, 20, 16, 255 };
+        botBg = { 24, 48, 34, 255 };
+    } else if (b == BiomeSector::ASCENDANT_PLANE) {
+        topBg = { 14, 10, 24, 255 };
+        botBg = { 36, 18, 48, 255 };
+    }
+
+    DrawRectangleGradientV(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, topBg, botBg);
+
+    for (const auto& s : stars_) {
+        DrawCircleV(s.pos, s.size, s.color);
+    }
+
+    Vector2 travelerCenter = { 980.0f, 220.0f };
+    DrawCircleLines(static_cast<int>(travelerCenter.x), static_cast<int>(travelerCenter.y), 240.0f, { 255, 255, 255, 18 });
+    DrawCircleLines(static_cast<int>(travelerCenter.x), static_cast<int>(travelerCenter.y), 185.0f, { 255, 255, 255, 25 });
+
+    DrawCircleGradient(static_cast<int>(travelerCenter.x), static_cast<int>(travelerCenter.y),
+                       115.0f, { 235, 242, 255, 75 }, { 160, 195, 230, 10 });
+    DrawCircle(static_cast<int>(travelerCenter.x), static_cast<int>(travelerCenter.y), 92.0f, { 215, 225, 238, 42 });
+    DrawCircleLines(static_cast<int>(travelerCenter.x), static_cast<int>(travelerCenter.y), 92.0f, { 255, 255, 255, 50 });
+}
+
+void GhostGame::RenderBiomeEnvironment() const {
+    BiomeSector b = GetCurrentBiome();
+    Color horizonColor = { 30, 44, 68, 180 };
+    if (b == BiomeSector::VAULT_OF_GLASS) horizonColor = { 20, 75, 95, 180 };
+    if (b == BiomeSector::HELLMOUTH)      horizonColor = { 28, 70, 48, 180 };
+    if (b == BiomeSector::ASCENDANT_PLANE) horizonColor = { 65, 25, 85, 180 };
+
+    float scrollOffset = std::fmod(distanceMeters_ * 14.0f, 160.0f);
+    for (int i = -1; i < 10; ++i) {
+        float x = i * 160.0f - scrollOffset;
+        float h = 95.0f + ((i * 53) % 85);
+        DrawRectangle(static_cast<int>(x), static_cast<int>(VIRTUAL_HEIGHT - h), 90, static_cast<int>(h), horizonColor);
+    }
+
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, 18, { 12, 16, 24, 240 });
+    DrawLineEx({ 0.0f, 18.0f }, { static_cast<float>(VIRTUAL_WIDTH), 18.0f }, 2.0f, GetSubclassAccentColor());
+
+    DrawRectangle(0, VIRTUAL_HEIGHT - 24, VIRTUAL_WIDTH, 24, { 12, 16, 24, 240 });
+    DrawLineEx({ 0.0f, VIRTUAL_HEIGHT - 24.0f }, { static_cast<float>(VIRTUAL_WIDTH), VIRTUAL_HEIGHT - 24.0f }, 2.0f, GetSubclassAccentColor());
+}
+
+void GhostGame::RenderObstacles() const {
+    for (const auto& o : obstacles_) {
+        if (!o.active) continue;
+
+        float gapTop = o.gapCenterY - o.gapHeight * 0.5f;
+        float gapBot = o.gapCenterY + o.gapHeight * 0.5f;
+
+        Color pillarMain = { 52, 64, 82, 255 };
+        Color pillarEdge = { 220, 115, 45, 255 };
+        if (o.biome == BiomeSector::VAULT_OF_GLASS) {
+            pillarMain = { 34, 62, 74, 255 };
+            pillarEdge = { 70, 235, 255, 255 };
+        } else if (o.biome == BiomeSector::HELLMOUTH) {
+            pillarMain = { 42, 54, 46, 255 };
+            pillarEdge = { 90, 250, 130, 255 };
+        } else if (o.biome == BiomeSector::ASCENDANT_PLANE) {
+            pillarMain = { 32, 24, 46, 255 };
+            pillarEdge = { 215, 90, 255, 255 };
+        }
+
+        if (o.frozenByStasis || ghost_.stasisFreezeTimer > 0.0f) {
+            pillarEdge = { 90, 165, 255, 255 };
+        }
+
+        DrawRectangle(static_cast<int>(o.x), 18, static_cast<int>(o.width), static_cast<int>(gapTop - 18.0f), pillarMain);
+        DrawRectangleLinesEx({ o.x, 18.0f, o.width, std::max(0.0f, gapTop - 18.0f) }, 2.5f, pillarEdge);
+        DrawRectangle(static_cast<int>(o.x - 5.0f), static_cast<int>(gapTop - 18.0f), static_cast<int>(o.width + 10.0f), 18, pillarEdge);
+
+        float botH = (VIRTUAL_HEIGHT - 24.0f) - gapBot;
+        DrawRectangle(static_cast<int>(o.x), static_cast<int>(gapBot), static_cast<int>(o.width), static_cast<int>(botH), pillarMain);
+        DrawRectangleLinesEx({ o.x, gapBot, o.width, std::max(0.0f, botH) }, 2.5f, pillarEdge);
+        DrawRectangle(static_cast<int>(o.x - 5.0f), static_cast<int>(gapBot), static_cast<int>(o.width + 10.0f), 18, pillarEdge);
+
+        Vector2 mid = { o.x + o.width * 0.5f, o.gapCenterY };
+        if (o.kind == ObstacleKind::MOVING_VEX_LASER) {
+            DrawLineEx({ mid.x, 18.0f }, { mid.x, gapTop }, 3.0f, RED);
+            DrawLineEx({ mid.x, gapBot }, { mid.x, VIRTUAL_HEIGHT - 24.0f }, 3.0f, RED);
+        } else if (o.kind == ObstacleKind::ROTATING_ORACLE && !o.oracleDestroyed) {
+            DrawPoly(mid, 6, o.hazardRadius, globalTime_ * 90.0f, { 255, 200, 50, 220 });
+            DrawPolyLinesEx(mid, 6, o.hazardRadius + 4.0f, -globalTime_ * 70.0f, 2.5f, WHITE);
+            DrawCircleV(mid, 8.0f, WHITE);
+        } else if (o.kind == ObstacleKind::TAKEN_BLIGHT_WELL && !o.oracleDestroyed) {
+            float pulse = std::fmod(globalTime_ * 65.0f, 55.0f);
+            DrawCircleLines(static_cast<int>(mid.x), static_cast<int>(mid.y), 65.0f - pulse, { 180, 120, 255, 120 });
+            DrawCircleGradient(static_cast<int>(mid.x), static_cast<int>(mid.y), o.hazardRadius + 8.0f, BLACK, { 140, 50, 230, 180 });
+            DrawCircleLines(static_cast<int>(mid.x), static_cast<int>(mid.y), o.hazardRadius, WHITE);
+        }
+    }
+}
+
+void GhostGame::RenderCollectibles() const {
+    for (const auto& c : collectibles_) {
+        if (!c.active) continue;
+        if (c.kind == CollectibleKind::MOTE_OF_LIGHT) {
+            DrawCircleGradient(static_cast<int>(c.pos.x), static_cast<int>(c.pos.y), c.radius * 1.7f,
+                               { 130, 230, 255, 160 }, { 80, 180, 255, 0 });
+            DrawPoly(c.pos, 4, c.radius, globalTime_ * 120.0f, WHITE);
+            DrawPolyLinesEx(c.pos, 4, c.radius + 3.0f, globalTime_ * 120.0f, 2.0f, SKYBLUE);
+        } else if (c.kind == CollectibleKind::EXOTIC_ENGRAM) {
+            DrawCircleGradient(static_cast<int>(c.pos.x), static_cast<int>(c.pos.y), c.radius * 2.1f,
+                               { 255, 215, 40, 190 }, { 255, 140, 0, 0 });
+            DrawPoly(c.pos, 6, c.radius, globalTime_ * 80.0f, GOLD);
+            DrawPolyLinesEx(c.pos, 6, c.radius + 2.0f, globalTime_ * 80.0f, 2.5f, WHITE);
+        } else if (c.kind == CollectibleKind::VEX_CONFLUX) {
+            DrawPoly(c.pos, 4, c.radius + 4.0f, 0.0f, { 80, 255, 220, 190 });
+            DrawPolyLinesEx(c.pos, 4, c.radius + 9.0f, globalTime_ * 95.0f, 2.5f, WHITE);
+            DrawText("SCAN", static_cast<int>(c.pos.x - 18), static_cast<int>(c.pos.y - 34), 14, SKYBLUE);
+        }
+    }
+}
+
+void GhostGame::RenderPatrolEnemies() const {
+    for (const auto& e : enemies_) {
+        if (!e.active) continue;
+        Vector2 ep = e.pos;
+
+        if (e.type == EnemyType::FALLEN_SHANK) {
+            // Hovering orange Fallen Shank drone with twin plasma vents
+            DrawRectangle(static_cast<int>(ep.x - 18), static_cast<int>(ep.y - 10), 36, 20, { 42, 46, 56, 255 });
+            DrawRectangleLines(static_cast<int>(ep.x - 18), static_cast<int>(ep.y - 10), 36, 20, e.color);
+            DrawCircleV({ ep.x, ep.y }, 6.0f, RED);
+            DrawRectangle(static_cast<int>(ep.x - 22), static_cast<int>(ep.y + 4), 6, 8, SKYBLUE);
+            DrawRectangle(static_cast<int>(ep.x + 16), static_cast<int>(ep.y + 4), 6, 8, SKYBLUE);
+        } else if (e.type == EnemyType::VEX_SUPPLICANT) {
+            // Explosive Vex Supplicant harpy with pulsing cyan chassis
+            DrawPoly(ep, 3, 20.0f, 0.0f, { 35, 50, 65, 255 });
+            DrawPolyLinesEx(ep, 3, 22.0f, 0.0f, 2.5f, e.color);
+            DrawCircleGradient(static_cast<int>(ep.x), static_cast<int>(ep.y), 8.0f, WHITE, e.color);
+        } else if (e.type == EnemyType::HIVE_THRALL) {
+            // Hive Thrall leaping shadow claw
+            DrawPoly(ep, 5, 17.0f, globalTime_ * 120.0f, { 25, 38, 28, 255 });
+            DrawPolyLinesEx(ep, 5, 19.0f, globalTime_ * 120.0f, 2.0f, e.color);
+            DrawCircleV({ ep.x - 4, ep.y - 3 }, 3.5f, e.color);
+            DrawCircleV({ ep.x + 4, ep.y - 3 }, 3.5f, e.color);
+            DrawCircleV({ ep.x, ep.y + 4 }, 3.5f, WHITE);
+        } else {
+            // Taken Psion with shadowy cyan warping aura
+            DrawCircleGradient(static_cast<int>(ep.x), static_cast<int>(ep.y), 24.0f, { 220, 245, 255, 120 }, BLANK);
+            DrawPoly(ep, 6, 17.0f, -globalTime_ * 60.0f, { 18, 22, 34, 255 });
+            DrawPolyLinesEx(ep, 6, 19.0f, -globalTime_ * 60.0f, 2.0f, e.color);
+            DrawCircleV(ep, 5.0f, WHITE);
+        }
+    }
+}
+
+void GhostGame::RenderBoss() const {
+    if (!boss_.active) return;
+
+    Vector2 bp = boss_.pos;
+    Color bossCol = (boss_.bossType == 0) ? PURPLE :
+                    (boss_.bossType == 1) ? GOLD :
+                    (boss_.bossType == 2) ? GREEN : MAGENTA;
+
+    if (boss_.shieldImmune) {
+        DrawCircleLines(static_cast<int>(bp.x), static_cast<int>(bp.y), 74.0f + std::sin(globalTime_ * 8.0f) * 4.0f, SKYBLUE);
+        DrawCircle(static_cast<int>(bp.x), static_cast<int>(bp.y), 72.0f, { 100, 210, 255, 45 });
+    }
+
+    DrawPoly(bp, 8, 56.0f, globalTime_ * 35.0f, { 28, 30, 42, 255 });
+    DrawPolyLinesEx(bp, 8, 56.0f, globalTime_ * 35.0f, 3.5f, bossCol);
+    DrawCircleGradient(static_cast<int>(bp.x), static_cast<int>(bp.y), 28.0f, WHITE, bossCol);
+
+    float barW = 540.0f;
+    float barX = (VIRTUAL_WIDTH - barW) * 0.5f;
+    float barY = 64.0f;
+    DrawRectangle(static_cast<int>(barX - 4), static_cast<int>(barY - 26), static_cast<int>(barW + 8), 52, { 10, 12, 20, 210 });
+    DrawText(boss_.name.c_str(), static_cast<int>(barX + 6), static_cast<int>(barY - 22), 18, GOLD);
+
+    float hpRatio = std::clamp(boss_.health / boss_.maxHealth, 0.0f, 1.0f);
+    DrawRectangle(static_cast<int>(barX), static_cast<int>(barY), static_cast<int>(barW), 16, { 45, 25, 25, 255 });
+    DrawRectangle(static_cast<int>(barX), static_cast<int>(barY), static_cast<int>(barW * hpRatio), 16,
+                  boss_.shieldImmune ? SKYBLUE : ORANGE);
+    DrawRectangleLinesEx({ barX, barY, barW, 16.0f }, 1.5f, WHITE);
+
+    if (boss_.shieldImmune) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "IMMUNE SHIELD // SCAN VEX CONFLUXES (%d / 3)", boss_.confluxesScanned);
+        DrawText(buf, static_cast<int>(barX + 85), static_cast<int>(barY + 20), 15, SKYBLUE);
+    } else {
+        DrawText("SHIELD BROKEN // CHANNELLING LIGHT STRIKE!", static_cast<int>(barX + 95), static_cast<int>(barY + 20), 15, GOLD);
+    }
+}
+
+void GhostGame::RenderProjectiles() const {
+    for (const auto& pr : projectiles_) {
+        if (!pr.active) continue;
+        DrawCircleGradient(static_cast<int>(pr.pos.x), static_cast<int>(pr.pos.y), pr.radius * 1.8f, pr.color, BLANK);
+        DrawCircleV(pr.pos, pr.radius * 0.7f, WHITE);
+    }
+}
+
+void GhostGame::RenderParticles() const {
+    for (const auto& p : particles_) {
+        if (!p.active) continue;
+        float ratio = std::clamp(p.life / p.maxLife, 0.0f, 1.0f);
+        Color c = p.color;
+        c.a = static_cast<unsigned char>(ratio * 240.0f);
+        DrawCircleV(p.pos, p.size * ratio, c);
+    }
+}
+
+void GhostGame::RenderGhostRig(Vector2 pos, float radius, float rotDeg, float expand, float spinAngle,
+                               Vector2 eyeOffset, int shellIdx, float alpha) const {
+    const auto& shell = GetShellCatalog()[std::clamp(shellIdx, 0, static_cast<int>(NUM_SHELLS) - 1)];
+
+    auto ApplyAlpha = [alpha](Color c) -> Color {
+        c.a = static_cast<unsigned char>(c.a * alpha);
+        return c;
+    };
+
+    Color primary = ApplyAlpha(shell.primaryColor);
+    Color secondary = ApplyAlpha(shell.secondaryColor);
+    Color coreCol = ApplyAlpha(shell.coreColor);
+
+    // If a custom shader is equipped, tint primary and secondary colors!
+    if (profile_.equippedShader > 0 && profile_.equippedShader < static_cast<int>(NUM_SHADERS)) {
+        const auto& shd = GetShaderCatalog()[profile_.equippedShader];
+        primary = ApplyAlpha(shd.primary);
+        secondary = ApplyAlpha(shd.secondary);
+        coreCol = ApplyAlpha(shd.core);
+    }
+
+    float rotRad = rotDeg * DEG2RAD;
+    float wingDist = radius * (1.18f + expand * 0.42f);
+
+    // Background / Halo accents per shell type
+    if (shell.finShape == 1) {
+        // Sagira's Shell: Geometric Osiris brass lattice ring
+        DrawPolyLinesEx(pos, 8, radius * (1.72f + expand * 0.25f), -spinAngle * 25.0f, 2.0f, primary);
+    } else if (shell.finShape == 5) {
+        // Flawless Trials Shell: Radiant golden Sun of Osiris disc
+        DrawCircleGradient(static_cast<int>(pos.x), static_cast<int>(pos.y), radius * 1.95f,
+                           ApplyAlpha({ 255, 215, 65, 110 }), BLANK);
+        DrawCircleLines(static_cast<int>(pos.x), static_cast<int>(pos.y), radius * 1.55f, primary);
+    } else if (shell.finShape == 7) {
+        // Cosmos Exotic Shell: Nebula glow + orbiting miniature moons
+        DrawCircleGradient(static_cast<int>(pos.x), static_cast<int>(pos.y), radius * 2.0f,
+                           ApplyAlpha({ 145, 70, 255, 130 }), BLANK);
+        for (int m = 0; m < 3; ++m) {
+            float ma = spinAngle * 1.8f + m * 2.094f;
+            Vector2 mp = { pos.x + std::cos(ma) * radius * 1.75f, pos.y + std::sin(ma) * radius * 1.15f };
+            DrawCircleV(mp, radius * 0.18f, secondary);
+            DrawCircleLines(static_cast<int>(mp.x), static_cast<int>(mp.y), radius * 0.26f, coreCol);
+        }
+    } else if (shell.finShape == 9) {
+        // Armory Forged Shell: Bergusia radiance phase rings
+        DrawPolyLinesEx(pos, 6, radius * (1.70f + expand * 0.25f), spinAngle * 35.0f, 2.2f, coreCol);
+        DrawPolyLinesEx(pos, 6, radius * (1.48f + expand * 0.15f), -spinAngle * 35.0f, 1.5f, secondary);
+    } else if (shell.finShape == 10) {
+        // Taken King Shell: Ascendant Blight shadow-fire aura
+        DrawCircleGradient(static_cast<int>(pos.x), static_cast<int>(pos.y), radius * 2.15f,
+                           ApplyAlpha({ 180, 245, 255, 135 }), ApplyAlpha({ 10, 18, 28, 0 }));
+    } else if (shell.finShape == 11) {
+        // Traveler's Chosen Shell: Pure Light golden filigree halo
+        DrawCircleGradient(static_cast<int>(pos.x), static_cast<int>(pos.y), radius * 2.1f,
+                           ApplyAlpha({ 200, 245, 255, 140 }), BLANK);
+        DrawCircleLines(static_cast<int>(pos.x), static_cast<int>(pos.y), radius * (1.68f + expand * 0.25f), secondary);
+    }
+
+    if (shell.finShape == 2) {
+        // Tyrant Shell: Rasputin Warmind heavy 4-plate octahedron + 4 IKELOS telemetry nodes
+        for (int i = 0; i < 4; ++i) {
+            float baseAngle = i * (3.14159265f * 0.5f) + 0.785398f + spinAngle * 0.2f + rotRad;
+            Vector2 dir = { std::cos(baseAngle), std::sin(baseAngle) };
+            Vector2 perp = { -dir.y, dir.x };
+            Vector2 finCenter = Vector2Add(pos, Vector2Scale(dir, wingDist * 1.05f));
+            Vector2 pTip = Vector2Add(finCenter, Vector2Scale(dir, radius * 0.85f));
+            Vector2 pIn  = Vector2Subtract(finCenter, Vector2Scale(dir, radius * 0.42f));
+            Vector2 pL   = Vector2Add(finCenter, Vector2Scale(perp, radius * 0.58f));
+            Vector2 pR   = Vector2Subtract(finCenter, Vector2Scale(perp, radius * 0.58f));
+            DrawTriangle(pTip, pR, pL, primary);
+            DrawTriangle(pIn, pL, pR, primary);
+            DrawLineEx(pTip, pL, 2.0f, secondary);
+            DrawLineEx(pTip, pR, 2.0f, secondary);
+        }
+    } else if (shell.finShape == 3) {
+        // Harpy Shell: 6 Vex brass curved fins + radiolarian conduits
+        for (int i = 0; i < 6; ++i) {
+            float baseAngle = i * (3.14159265f / 3.0f) + spinAngle * 0.28f + rotRad;
+            Vector2 dir = { std::cos(baseAngle), std::sin(baseAngle) };
+            Vector2 perp = { -dir.y, dir.x };
+            Vector2 finCenter = Vector2Add(pos, Vector2Scale(dir, wingDist * 1.08f));
+            Vector2 pTip = Vector2Add(finCenter, Vector2Scale(dir, radius * 0.82f));
+            Vector2 pBaseL = Vector2Add(Vector2Subtract(finCenter, Vector2Scale(dir, radius * 0.30f)), Vector2Scale(perp, radius * 0.44f));
+            Vector2 pBaseR = Vector2Subtract(Vector2Subtract(finCenter, Vector2Scale(dir, radius * 0.30f)), Vector2Scale(perp, radius * 0.22f));
+            DrawTriangle(pTip, pBaseR, pBaseL, (i % 2 == 0) ? primary : secondary);
+            DrawTriangleLines(pTip, pBaseR, pBaseL, coreCol);
+        }
+    } else if (shell.finShape == 6) {
+        // Nine Lives Shell (Cat Ghost): Smooth feline shell + Cat Ears on top + Whiskers!
+        for (int s = -1; s <= 1; s += 2) {
+            float earAngle = (-1.570796f + s * 0.62f) + rotRad;
+            Vector2 dir = { std::cos(earAngle), std::sin(earAngle) };
+            Vector2 perp = { -dir.y, dir.x };
+            Vector2 earBase = Vector2Add(pos, Vector2Scale(dir, radius * (0.95f + expand * 0.25f)));
+            Vector2 earTip  = Vector2Add(earBase, Vector2Scale(dir, radius * 0.92f));
+            Vector2 earL    = Vector2Add(earBase, Vector2Scale(perp, radius * 0.48f));
+            Vector2 earR    = Vector2Subtract(earBase, Vector2Scale(perp, radius * 0.48f));
+            DrawTriangle(earTip, earR, earL, primary);
+            // Pink inner ear
+            Vector2 inTip = Vector2Add(earBase, Vector2Scale(dir, radius * 0.68f));
+            Vector2 inL   = Vector2Add(earBase, Vector2Scale(perp, radius * 0.26f));
+            Vector2 inR   = Vector2Subtract(earBase, Vector2Scale(perp, radius * 0.26f));
+            DrawTriangle(inTip, inR, inL, ApplyAlpha({ 255, 155, 175, 255 }));
+
+            // Whiskers on cheeks
+            for (int w = -1; w <= 1; ++w) {
+                float wa = (s > 0 ? 0.0f : 3.14159265f) + w * 0.22f + rotRad;
+                Vector2 wd = { std::cos(wa), std::sin(wa) };
+                Vector2 wStart = Vector2Add(pos, Vector2Scale(wd, radius * 0.85f));
+                Vector2 wEnd   = Vector2Add(pos, Vector2Scale(wd, radius * 1.65f));
+                DrawLineEx(wStart, wEnd, 1.8f, secondary);
+            }
+        }
+        // Lower collar bell & cheek plates
+        for (int i = 0; i < 4; ++i) {
+            float a = (0.4f + i * 0.78f) + rotRad;
+            Vector2 p = Vector2Add(pos, { std::cos(a) * wingDist * 0.88f, std::sin(a) * wingDist * 0.88f });
+            DrawPoly(p, 4, radius * 0.36f, rotDeg, (i % 2 == 0) ? primary : secondary);
+        }
+        DrawCircleV({ pos.x, pos.y + radius * 0.95f }, radius * 0.24f, ApplyAlpha(GOLD));
+    } else {
+        // 8-fin radial shells with custom geometry per finShape
+        for (int i = 0; i < 8; ++i) {
+            float baseAngle = i * (3.14159265f * 0.25f) + spinAngle * ((i % 2 == 0) ? 0.35f : -0.25f) + rotRad;
+            Vector2 dir = { std::cos(baseAngle), std::sin(baseAngle) };
+            Vector2 perp = { -dir.y, dir.x };
+
+            float d = (i % 2 == 0) ? wingDist : wingDist * 0.88f;
+            Vector2 finCenter = Vector2Add(pos, Vector2Scale(dir, d));
+
+            float tipLen = radius * 0.58f;
+            float halfW = radius * 0.38f;
+            if (shell.finShape == 1 || shell.finShape == 5) {
+                tipLen = radius * 0.88f;
+                halfW = radius * 0.30f;
+            } else if (shell.finShape == 4 || shell.finShape == 10) {
+                tipLen = radius * ((i % 2 == 0) ? 0.95f : 0.52f);
+                halfW = radius * 0.28f;
+            } else if (shell.finShape == 8) {
+                tipLen = radius * 0.75f;
+                halfW = radius * 0.42f;
+            } else if (shell.finShape == 11) {
+                tipLen = radius * 0.46f;
+                halfW = radius * 0.48f;
+            }
+
+            Vector2 pTip = Vector2Add(finCenter, Vector2Scale(dir, tipLen));
+            Vector2 pBaseL = Vector2Add(Vector2Subtract(finCenter, Vector2Scale(dir, radius * 0.28f)), Vector2Scale(perp, halfW));
+            Vector2 pBaseR = Vector2Subtract(Vector2Subtract(finCenter, Vector2Scale(dir, radius * 0.28f)), Vector2Scale(perp, halfW));
+
+            Color finCol = (i % 2 == 0) ? primary : secondary;
+            DrawTriangle(pTip, pBaseR, pBaseL, finCol);
+            Color outlineCol = (shell.finShape == 8) ? secondary :
+                               (shell.finShape == 10) ? coreCol : ApplyAlpha({ 20, 28, 38, 220 });
+            DrawTriangleLines(pTip, pBaseR, pBaseL, outlineCol);
+
+            if (shell.finShape == 4 && (i % 2 == 0)) {
+                // Hive Soulfire rune orbs between bone spikes
+                DrawCircleV(Vector2Add(pTip, Vector2Scale(dir, radius * 0.16f)), radius * 0.12f, coreCol);
+            } else if (shell.finShape == 8) {
+                // SIVA crimson tendril lines from core to each nanite plate
+                DrawLineEx(pos, finCenter, 2.0f, secondary);
+            }
+        }
+    }
+
+    // Core Housing Sphere
+    Color housingCol = (shell.finShape == 10) ? ApplyAlpha({ 8, 10, 16, 255 }) :
+                       (shell.finShape == 11) ? ApplyAlpha({ 240, 244, 255, 255 }) :
+                       ApplyAlpha({ 20, 24, 32, 255 });
+    DrawCircleV(pos, radius * 0.72f, housingCol);
+    DrawCircleLines(static_cast<int>(pos.x), static_cast<int>(pos.y), radius * 0.74f, secondary);
+
+    // Iris & Pupil
+    Vector2 irisPos = Vector2Add(pos, eyeOffset);
+    DrawCircleGradient(static_cast<int>(irisPos.x), static_cast<int>(irisPos.y), radius * 0.55f, coreCol, BLANK);
+
+    if (shell.finShape == 6) {
+        // Cat vertical slit pupil
+        DrawCircleV(irisPos, radius * 0.34f, coreCol);
+        DrawRectanglePro({ irisPos.x, irisPos.y, radius * 0.14f, radius * 0.52f },
+                         { radius * 0.07f, radius * 0.26f }, rotDeg, ApplyAlpha(BLACK));
+    } else if (shell.finShape == 3 || shell.finShape == 1) {
+        // Vex / Osiris triangular eye
+        DrawPoly(irisPos, 3, radius * 0.38f, rotDeg - 90.0f, coreCol);
+        DrawPoly(irisPos, 3, radius * 0.19f, rotDeg - 90.0f, ApplyAlpha(WHITE));
+    } else if (shell.finShape == 4) {
+        // Hive 3-eye cluster
+        DrawCircleV({ irisPos.x - radius * 0.16f, irisPos.y + radius * 0.10f }, radius * 0.14f, coreCol);
+        DrawCircleV({ irisPos.x + radius * 0.16f, irisPos.y + radius * 0.10f }, radius * 0.14f, coreCol);
+        DrawCircleV({ irisPos.x, irisPos.y - radius * 0.16f }, radius * 0.16f, ApplyAlpha(WHITE));
+    } else {
+        DrawPoly(irisPos, 4, radius * 0.36f, rotDeg, coreCol);
+        DrawPoly(irisPos, 4, radius * 0.19f, rotDeg, ApplyAlpha(WHITE));
+    }
+}
+
+void GhostGame::RenderHud() const {
+    Color subCol = GetSubclassAccentColor();
+
+    DrawRectangle(22, 26, 350, 86, { 10, 14, 24, 200 });
+    DrawRectangleLinesEx({ 22.0f, 26.0f, 350.0f, 86.0f }, 1.5f, { 255, 255, 255, 65 });
+
+    Vector2 iconCenter = { 62.0f, 68.0f };
+    DrawPoly(iconCenter, 4, 26.0f, 0.0f, (ghost_.superEnergy >= 100.0f) ? GOLD : subCol);
+    DrawPolyLinesEx(iconCenter, 4, 29.0f, 0.0f, 2.0f, WHITE);
+
+    const char* subName = "VOIDWALKER // BLINK";
+    switch (static_cast<LightSubclass>(profile_.selectedSubclass)) {
+        case LightSubclass::VOID_WALKER:        subName = "VOIDWALKER // BLINK"; break;
+        case LightSubclass::SOLAR_DAWN:         subName = "DAWNBLADE // ICARUS"; break;
+        case LightSubclass::ARC_CALLER:         subName = "STORMCALLER // IONIC"; break;
+        case LightSubclass::STASIS_SHADEBINDER: subName = "SHADEBINDER // STASIS"; break;
+        case LightSubclass::STRAND_RUNNER:      subName = "THREADRUNNER // GRAPPLE"; break;
+    }
+    DrawText(subName, 102, 34, 16, WHITE);
+
+    float superRatio = std::clamp(ghost_.superEnergy / 100.0f, 0.0f, 1.0f);
+    DrawRectangle(102, 56, 245, 16, { 30, 36, 48, 255 });
+    Color superBarCol = (ghost_.superActiveTimer > 0.0f) ? WHITE :
+                        (superRatio >= 1.0f) ? GOLD : subCol;
+    DrawRectangle(102, 56, static_cast<int>(245.0f * superRatio), 16, superBarCol);
+    DrawRectangleLines(102, 56, 245, 16, WHITE);
+
+    if (ghost_.superActiveTimer > 0.0f) {
+        DrawText("SUPER ACTIVE!", 160, 57, 14, BLACK);
+    } else if (superRatio >= 1.0f) {
+        DrawText("SUPER READY [F / Q]", 145, 57, 14, BLACK);
+    }
+
+    float tacReady = 1.0f - std::clamp(ghost_.tacticalCooldown / ghost_.tacticalMaxCooldown, 0.0f, 1.0f);
+    DrawRectangle(102, 80, 140, 10, { 30, 36, 48, 255 });
+    DrawRectangle(102, 80, static_cast<int>(140.0f * tacReady), 10, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
+    DrawText((tacReady >= 1.0f) ? "TACTICAL: READY" : "RECHARGING...", 250, 78, 12, LIGHTGRAY);
+
+    for (int i = 0; i < ghost_.overshieldCharges; ++i) {
+        DrawPoly({ 36.0f + i * 24.0f, 126.0f }, 6, 9.0f, 0.0f, SKYBLUE);
+    }
+
+    // Top-Right Score, Glimmer & Streak Tracker
+    DrawRectangle(VIRTUAL_WIDTH - 295, 26, 273, 86, { 10, 14, 24, 200 });
+    DrawRectangleLinesEx({ VIRTUAL_WIDTH - 295.0f, 26.0f, 273.0f, 86.0f }, 1.5f, { 255, 255, 255, 65 });
+
+    char scoreBuf[64];
+    std::snprintf(scoreBuf, sizeof(scoreBuf), "GATES: %d  (x%d)", scoreGates_, streakGates_);
+    DrawText(scoreBuf, VIRTUAL_WIDTH - 278, 34, 24, WHITE);
+
+    char glimBuf[64];
+    std::snprintf(glimBuf, sizeof(glimBuf), "GLIMMER: %d (+%d)", profile_.glimmer, runGlimmerEarned_);
+    DrawText(glimBuf, VIRTUAL_WIDTH - 278, 66, 16, SKYBLUE);
+
+    DrawText(isNightfallMode_ ? "MODE: DAILY NIGHTFALL" : "MODE: VANGUARD PATROL",
+             VIRTUAL_WIDTH - 278, 88, 14, isNightfallMode_ ? GOLD : LIGHTGRAY);
+
+    // Vanguard Streak Medal Callout Popup
+    if (activeMedal_.active) {
+        char medTxt[128];
+        std::snprintf(medTxt, sizeof(medTxt), "%s  (+%d GLIMMER)", activeMedal_.medalName.c_str(), activeMedal_.bonusGlimmer);
+        int mw = MeasureText(medTxt, 20);
+        DrawRectangle(VIRTUAL_WIDTH / 2 - mw / 2 - 20, 28, mw + 40, 34, { 14, 20, 34, 235 });
+        DrawRectangleLines(VIRTUAL_WIDTH / 2 - mw / 2 - 20, 28, mw + 40, 34, activeMedal_.color);
+        DrawText(medTxt, VIRTUAL_WIDTH / 2 - mw / 2, 36, 20, activeMedal_.color);
+    }
+
+    // Touch / Mouse On-Screen Action Buttons (Bottom-Right)
+    Rectangle tacBtn = { VIRTUAL_WIDTH - 256.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+    Rectangle supBtn = { VIRTUAL_WIDTH - 134.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+
+    DrawRectangleRec(tacBtn, (tacReady >= 1.0f) ? Color{ 35, 65, 95, 210 } : Color{ 25, 28, 35, 180 });
+    DrawRectangleLinesEx(tacBtn, 2.0f, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
+    DrawText("BLINK / DASH", static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 14), 14, WHITE);
+    DrawText("[SHIFT / RMB]", static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 34), 12, LIGHTGRAY);
+
+    DrawRectangleRec(supBtn, (superRatio >= 1.0f) ? Color{ 95, 75, 20, 230 } : Color{ 25, 28, 35, 180 });
+    DrawRectangleLinesEx(supBtn, 2.0f, (superRatio >= 1.0f) ? GOLD : GRAY);
+    DrawText("CAST SUPER", static_cast<int>(supBtn.x + 12), static_cast<int>(supBtn.y + 14), 14, (superRatio >= 1.0f) ? GOLD : GRAY);
+    DrawText("[F / Q]", static_cast<int>(supBtn.x + 32), static_cast<int>(supBtn.y + 34), 12, LIGHTGRAY);
+
+    if (biomeBannerTimer_ > 0.0f) {
+        float a = std::min(1.0f, biomeBannerTimer_ * 1.2f);
+        unsigned char alphaByte = static_cast<unsigned char>(a * 235.0f);
+        const char* bName = GetBiomeName(GetCurrentBiome());
+        int tw = MeasureText(bName, 20);
+        DrawRectangle(VIRTUAL_WIDTH / 2 - tw / 2 - 24, 132, tw + 48, 38, { 10, 14, 24, static_cast<unsigned char>(a * 190) });
+        DrawLine(VIRTUAL_WIDTH / 2 - tw / 2 - 24, 132, VIRTUAL_WIDTH / 2 + tw / 2 + 24, 132, { 255, 255, 255, alphaByte });
+        DrawText(bName, VIRTUAL_WIDTH / 2 - tw / 2, 141, 20, { 255, 255, 255, alphaByte });
+    }
+}
+
+void GhostGame::RenderBottomBrandingFooter() const {
+    DrawRectangle(0, VIRTUAL_HEIGHT - 54, VIRTUAL_WIDTH, 54, { 6, 9, 16, 235 });
+    DrawLine(0, VIRTUAL_HEIGHT - 54, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - 54, { 120, 180, 230, 100 });
+
+    const char* studioLine = "SEBINY LABS";
+    int sw = MeasureText(studioLine, 18);
+    DrawText(studioLine, (VIRTUAL_WIDTH - sw) / 2, VIRTUAL_HEIGHT - 46, 18, GOLD);
+
+    const char* ipLine = "Non-commercial fan tribute. Destiny, Ghost, The Traveler, and related IP are trademarks and copyright of Bungie, Inc.";
+    int iw = MeasureText(ipLine, 14);
+    DrawText(ipLine, (VIRTUAL_WIDTH - iw) / 2, VIRTUAL_HEIGHT - 22, 14, { 175, 190, 210, 230 });
+}
+
+void GhostGame::RenderTitleFrontPage() {
+    // Destiny 2 Style Front Page (White Traveler Silhouette, Epic Title, Press Any Key prompt)
+    Vector2 center = { VIRTUAL_WIDTH * 0.5f, 260.0f };
+    float pulse = std::sin(globalTime_ * 1.8f);
+
+    // Traveler Paracausal Halo
+    DrawCircleGradient(static_cast<int>(center.x), static_cast<int>(center.y), 240.0f,
+                       { 240, 248, 255, static_cast<unsigned char>(50 + pulse * 15) }, BLANK);
+    DrawCircleLines(static_cast<int>(center.x), static_cast<int>(center.y), 220.0f, { 255, 255, 255, 30 });
+    DrawCircleLines(static_cast<int>(center.x), static_cast<int>(center.y), 160.0f, { 255, 255, 255, 45 });
+
+    // Ghost floating in front of Traveler
+    RenderGhostRig(center, 46.0f, std::sin(globalTime_ * 1.2f) * 6.0f,
+                   0.35f + pulse * 0.15f, globalTime_ * 1.2f, { 3.0f, pulse * 2.0f },
+                   profile_.equippedShell, 1.0f);
+
+    const char* subHead = "BUNGIE FAN TRIBUTE // VANGUARD PROTOCOL";
+    int shw = MeasureText(subHead, 16);
+    DrawText(subHead, (VIRTUAL_WIDTH - shw) / 2, 385, 16, { 180, 210, 245, 220 });
+
+    const char* mainTitle = "DESTINY: FLOPPY GHOST";
+    int mtw = MeasureText(mainTitle, 64);
+    DrawText(mainTitle, (VIRTUAL_WIDTH - mtw) / 2, 415, 64, WHITE);
+
+    DrawLine(VIRTUAL_WIDTH / 2 - 320, 495, VIRTUAL_WIDTH / 2 + 320, 495, { 255, 255, 255, 80 });
+
+    // Pulsing "Press Any Key / Tap to Enter" Call to Action
+    float blink = std::sin(globalTime_ * 4.0f) * 0.5f + 0.5f;
+    Color promptCol = { 255, 255, 255, static_cast<unsigned char>(140 + blink * 115) };
+    const char* prompt = "PRESS ANY KEY OR TAP SCREEN TO ENTER";
+    int pw = MeasureText(prompt, 22);
+    DrawText(prompt, (VIRTUAL_WIDTH - pw) / 2, 535, 22, promptCol);
+
+    const char* ostNotice = "PLAYING: DESTINY 2 ORIGINAL SOUNDTRACK - INNER LIGHT";
+    int onw = MeasureText(ostNotice, 14);
+    DrawText(ostNotice, (VIRTUAL_WIDTH - onw) / 2, 605, 14, { 140, 185, 225, 200 });
+
+    RenderBottomBrandingFooter();
+}
+
+void GhostGame::RenderTitleDirector() {
+    const char* preTitle = "DIRECTOR // VANGUARD FLIGHT TELEMETRY";
+    int ptw = MeasureText(preTitle, 16);
+    DrawText(preTitle, (VIRTUAL_WIDTH - ptw) / 2, 42, 16, { 170, 210, 240, 220 });
+
+    const char* mainTitle = "DESTINY: FLOPPY GHOST";
+    int mtw = MeasureText(mainTitle, 52);
+    DrawText(mainTitle, (VIRTUAL_WIDTH - mtw) / 2, 68, 52, WHITE);
+
+    DrawLine(VIRTUAL_WIDTH / 2 - 280, 128, VIRTUAL_WIDTH / 2 + 280, 128, { 255, 255, 255, 90 });
+
+    Vector2 previewPos = { VIRTUAL_WIDTH * 0.5f, 238.0f + std::sin(globalTime_ * 2.5f) * 8.0f };
+    DrawCircleLines(static_cast<int>(previewPos.x), static_cast<int>(previewPos.y), 78.0f, { 255, 255, 255, 45 });
+    RenderGhostRig(previewPos, 36.0f, std::sin(globalTime_ * 1.7f) * 8.0f,
+                   0.25f + 0.15f * std::sin(globalTime_ * 3.2f),
+                   globalTime_ * 1.4f, { std::cos(globalTime_ * 1.5f) * 5.0f, std::sin(globalTime_ * 2.1f) * 3.0f },
+                   profile_.equippedShell, 1.0f);
+
+    const auto& equippedShell = GetShellCatalog()[profile_.equippedShell];
+    int snw = MeasureText(equippedShell.name, 16);
+    DrawText(equippedShell.name, (VIRTUAL_WIDTH - snw) / 2, 326, 16, SKYBLUE);
+
+    char statLine[160];
+    std::snprintf(statLine, sizeof(statLine),
+                  "GLIMMER: %d   |   BEST PATROL: %d GATES   |   BEST NIGHTFALL: %d GATES   |   BOSSES SLAIN: %d",
+                  profile_.glimmer, profile_.bestScoreStandard, profile_.bestScoreNightfall, profile_.totalBossesDefeated);
+    int slw = MeasureText(statLine, 16);
+    DrawText(statLine, (VIRTUAL_WIDTH - slw) / 2, 355, 16, LIGHTGRAY);
+
+    auto DrawDirectorButton = [&](Rectangle r, const char* title, const char* sub, Color accent) -> bool {
+        bool hov = IsRectHovered(r);
+        DrawRectangleRec(r, hov ? Color{ 28, 42, 66, 235 } : Color{ 14, 20, 34, 215 });
+        DrawRectangleLinesEx(r, hov ? 2.5f : 1.5f, hov ? accent : Color{ 140, 165, 195, 140 });
+        DrawRectangle(static_cast<int>(r.x), static_cast<int>(r.y), 6, static_cast<int>(r.height), accent);
+
+        int maxW = static_cast<int>(r.width) - 28;
+        int titleFs = 20;
+        while (titleFs > 12 && MeasureText(title, titleFs) > maxW) titleFs--;
+        int subFs = 14;
+        while (subFs > 10 && MeasureText(sub, subFs) > maxW) subFs--;
+
+        DrawText(title, static_cast<int>(r.x + 18), static_cast<int>(r.y + 12), titleFs, WHITE);
+        DrawText(sub, static_cast<int>(r.x + 18), static_cast<int>(r.y + 38), subFs, LIGHTGRAY);
+        return IsButtonClicked(r);
+    };
+
+    Rectangle btnPatrol   = { 180.0f, 392.0f, 440.0f, 64.0f };
+    Rectangle btnNightfall= { 660.0f, 392.0f, 440.0f, 64.0f };
+    Rectangle btnSubclass = { 180.0f, 472.0f, 290.0f, 64.0f };
+    Rectangle btnHangar   = { 495.0f, 472.0f, 290.0f, 64.0f };
+    Rectangle btnTriumphs = { 810.0f, 472.0f, 290.0f, 64.0f };
+
+    if (DrawDirectorButton(btnPatrol, "LAUNCH VANGUARD PATROL", "Endless procedural run across 4 Destiny sectors", SKYBLUE) ||
+        IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER)) {
+        StartNewRun(false);
+    }
+
+    std::string nfSub = std::string("Daily Seed [") + PCG32::GetDailyDateString() + "] +1.5x Glimmer";
+    if (DrawDirectorButton(btnNightfall, "DAILY NIGHTFALL STRIKE", nfSub.c_str(), GOLD)) {
+        StartNewRun(true);
+    }
+
+    const char* curSubLabel = "Equipped: Voidwalker";
+    switch (static_cast<LightSubclass>(profile_.selectedSubclass)) {
+        case LightSubclass::VOID_WALKER:        curSubLabel = "Equipped: Voidwalker"; break;
+        case LightSubclass::SOLAR_DAWN:         curSubLabel = "Equipped: Dawnblade"; break;
+        case LightSubclass::ARC_CALLER:         curSubLabel = "Equipped: Stormcaller"; break;
+        case LightSubclass::STASIS_SHADEBINDER: curSubLabel = "Equipped: Shadebinder"; break;
+        case LightSubclass::STRAND_RUNNER:      curSubLabel = "Equipped: Threadrunner"; break;
+    }
+    if (DrawDirectorButton(btnSubclass, "SUBCLASS ARMORY", curSubLabel, GetSubclassAccentColor())) {
+        state_ = ScreenState::SUBCLASS_ARMORY;
+        audio_.PlayUiSelect();
+    }
+
+    if (DrawDirectorButton(btnHangar, "TOWER", "Shells, Mods & Exotic Curios", ORANGE)) {
+        state_ = ScreenState::SHELL_HANGAR;
+        audio_.PlayUiSelect();
+    }
+
+    int unlockedCount = 0;
+    for (bool b : profile_.unlockedTriumphs) if (b) unlockedCount++;
+    char triSub[64];
+    std::snprintf(triSub, sizeof(triSub), "Completed: %d / %d Triumphs", unlockedCount, static_cast<int>(NUM_TRIUMPHS));
+    if (DrawDirectorButton(btnTriumphs, "TRIUMPHS RECORD", triSub, GREEN)) {
+        state_ = ScreenState::TRIUMPHS_LOG;
+        audio_.PlayUiSelect();
+    }
+
+    const char* ctrlHint = "CONTROLS: [SPACE / L-CLICK] Flap  |  [SHIFT / R-CLICK] Blink/Dash  |  [F / Q] Cast Super  |  [M] Mute";
+    int chw = MeasureText(ctrlHint, 15);
+    DrawText(ctrlHint, (VIRTUAL_WIDTH - chw) / 2, 558, 15, { 180, 210, 235, 215 });
+
+    RenderBottomBrandingFooter();
+}
+
+void GhostGame::RenderSubclassArmory() {
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 225 });
+    DrawText("GUARDIAN SUBCLASS ARMORY // LIGHT & DARKNESS", 60, 38, 28, WHITE);
+    DrawText("Light Subclasses are unlocked by default. Darkness Subclasses (Stasis & Strand) cost 500 Glimmer each.", 60, 74, 17, LIGHTGRAY);
+
+    char glimHeader[64];
+    std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
+    DrawText(glimHeader, VIRTUAL_WIDTH - 340, 42, 20, SKYBLUE);
+
+    struct SubCard {
+        int idx;
+        const char* name;
+        const char* element;
+        const char* tacticalDesc;
+        const char* superDesc;
+        int glimmerCost;
+        Color col;
+    };
+
+    const SubCard cards[NUM_SUBCLASSES] = {
+        { 0, "VOIDWALKER", "VOID LIGHT",
+          "TACTICAL [BLINK]: Teleport forward through barriers with 0.55s phase intangibility.",
+          "SUPER [NOVA PULSE]: Vaporizes all active barriers on screen into Motes of Light.",
+          0, { 175, 85, 255, 255 } },
+        { 1, "DAWNBLADE", "SOLAR LIGHT",
+          "TACTICAL [ICARUS DASH]: Stabilize momentum, fire 3 Solar bolts, and hover glide.",
+          "SUPER [DAYBREAK WELL]: Radiant aura melts barriers on contact & fires Solar flares.",
+          0, { 255, 145, 35, 255 } },
+        { 2, "STORMCALLER", "ARC LIGHT",
+          "TACTICAL [IONIC BLINK]: High-voltage dash that fires a piercing Arc bolt ahead.",
+          "SUPER [CHAOS REACH]: Channels a continuous high-energy Arc beam across the screen.",
+          0, { 75, 220, 255, 255 } },
+        { 3, "SHADEBINDER", "STASIS DARKNESS",
+          "TACTICAL [FROST PULSE]: Freezes moving Vex lasers, Oracles & Boss shots for 2.5s.",
+          "SUPER [WINTER'S WRATH]: Shatters all frozen barriers on screen into Motes of Light.",
+          500, { 70, 130, 255, 255 } },
+        { 4, "THREADRUNNER", "STRAND DARKNESS",
+          "TACTICAL [GRAPPLE]: Launches a Strand grapple line ahead to swing & phase upward.",
+          "SUPER [NEEDLESTORM]: Unleashes 9 homing Strand Threadlings that seek out targets!",
+          500, { 65, 245, 130, 255 } },
+        { 5, "TRANSCENDENT", "PRISMATIC",
+          "TACTICAL [PRISMATIC SURGE]: Freezes obstacles & fires twin Light & Darkness piercing bolts.",
+          "SUPER [TRANSCENDENCE]: Screen-wide barrier purge + 12 homing prismatic missiles!",
+          1500, { 255, 125, 235, 255 } }
+    };
+
+    for (int i = 0; i < static_cast<int>(NUM_SUBCLASSES); ++i) {
+        Rectangle cardRect = { 35.0f + i * 202.0f, 118.0f, 192.0f, 445.0f };
+        bool unlocked = profile_.unlockedSubclasses[i];
+        bool selected = (profile_.selectedSubclass == i);
+        bool hov = IsRectHovered(cardRect);
+
+        DrawRectangleRec(cardRect, selected ? Color{ 28, 38, 60, 245 } : Color{ 16, 22, 34, 230 });
+        DrawRectangleLinesEx(cardRect, selected ? 3.0f : 1.5f, (selected || hov) ? cards[i].col : GRAY);
+
+        Vector2 crestPos = { cardRect.x + cardRect.width * 0.5f, cardRect.y + 52.0f };
+        DrawPoly(crestPos, 4, 28.0f, 0.0f, unlocked ? cards[i].col : DARKGRAY);
+        DrawPolyLinesEx(crestPos, 4, 32.0f, 0.0f, 2.0f, WHITE);
+        DrawPoly(crestPos, 4, 11.0f, 0.0f, unlocked ? WHITE : GRAY);
+
+        DrawText(cards[i].element, static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 98), 13, cards[i].col);
+        DrawText(cards[i].name, static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 116), 22, WHITE);
+
+        DrawRectangle(static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 146), 200, 2, cards[i].col);
+
+        DrawTextWrapped(cards[i].tacticalDesc,
+                        static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 160),
+                        200, 14, 19, LIGHTGRAY);
+
+        DrawTextWrapped(cards[i].superDesc,
+                        static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 266),
+                        200, 14, 19, LIGHTGRAY);
+
+        Rectangle equipBtn = { cardRect.x + 14.0f, cardRect.y + 382.0f, 200.0f, 42.0f };
+        if (selected) {
+            DrawRectangleRec(equipBtn, cards[i].col);
+            const char* btnLabel = "EQUIPPED";
+            int blw = MeasureText(btnLabel, 16);
+            DrawText(btnLabel, static_cast<int>(equipBtn.x + (equipBtn.width - blw) * 0.5f),
+                     static_cast<int>(equipBtn.y + 13), 16, BLACK);
+        } else if (unlocked) {
+            DrawRectangleRec(equipBtn, Color{ 35, 45, 65, 255 });
+            const char* btnLabel = "ATTUNE";
+            int blw = MeasureText(btnLabel, 16);
+            DrawText(btnLabel, static_cast<int>(equipBtn.x + (equipBtn.width - blw) * 0.5f),
+                     static_cast<int>(equipBtn.y + 13), 16, WHITE);
+        } else {
+            bool canAfford = (profile_.glimmer >= cards[i].glimmerCost);
+            DrawRectangleRec(equipBtn, canAfford ? Color{ 28, 82, 58, 255 } : Color{ 48, 30, 36, 255 });
+            char costTxt[48];
+            std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%d GLIMMER)", cards[i].glimmerCost);
+            int blw = MeasureText(costTxt, 14);
+            DrawText(costTxt, static_cast<int>(equipBtn.x + (equipBtn.width - blw) * 0.5f),
+                     static_cast<int>(equipBtn.y + 14), 14, canAfford ? GREEN : RED);
+        }
+
+        if (IsButtonClicked(cardRect)) {
+            if (unlocked) {
+                profile_.selectedSubclass = i;
+                SaveData();
+                audio_.PlayUiSelect();
+            } else if (profile_.glimmer >= cards[i].glimmerCost) {
+                profile_.glimmer -= cards[i].glimmerCost;
+                profile_.unlockedSubclasses[i] = true;
+                profile_.selectedSubclass = i;
+                SaveData();
+                audio_.PlayExoticPickup();
+            }
+        }
+    }
+
+    Rectangle backBtn = { 45.0f, 585.0f, 235.0f, 48.0f };
+    DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
+    DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
+    DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
+    if (IsButtonClicked(backBtn)) {
+        state_ = ScreenState::TITLE_DIRECTOR;
+        audio_.PlayUiSelect();
+    }
+
+    RenderBottomBrandingFooter();
+}
+
+void GhostGame::RenderShellHangar() {
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
+    DrawText("THE TOWER // GHOST SHELLS, MODS & XUR'S EXOTIC CURIOS", 60, 28, 26, WHITE);
+
+    char glimHeader[64];
+    std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
+    DrawText(glimHeader, VIRTUAL_WIDTH - 340, 32, 20, SKYBLUE);
+
+    // Sub-tabs inside The Tower: [0] Shells I | [1] Shells II | [2] Shaders | [3] Xur's Catalysts
+    Rectangle tab0 = { 60.0f, 64.0f, 215.0f, 36.0f };
+    Rectangle tab1 = { 285.0f, 64.0f, 215.0f, 36.0f };
+    Rectangle tab2 = { 510.0f, 64.0f, 215.0f, 36.0f };
+    Rectangle tab3 = { 735.0f, 64.0f, 235.0f, 36.0f };
+    DrawRectangleRec(tab0, (towerTab_ == 0) ? SKYBLUE : Color{ 22, 30, 48, 255 });
+    DrawText("SHELLS I: VANGUARD", static_cast<int>(tab0.x + 22), static_cast<int>(tab0.y + 10), 14, (towerTab_ == 0) ? BLACK : WHITE);
+    DrawRectangleRec(tab1, (towerTab_ == 1) ? ORANGE : Color{ 22, 30, 48, 255 });
+    DrawText("SHELLS II: EXOTIC", static_cast<int>(tab1.x + 30), static_cast<int>(tab1.y + 10), 14, (towerTab_ == 1) ? BLACK : WHITE);
+    DrawRectangleRec(tab2, (towerTab_ == 2) ? Color{ 255, 120, 220, 255 } : Color{ 22, 30, 48, 255 });
+    DrawText("EVA'S SHADERS", static_cast<int>(tab2.x + 40), static_cast<int>(tab2.y + 10), 14, (towerTab_ == 2) ? BLACK : WHITE);
+    DrawRectangleRec(tab3, (towerTab_ == 3) ? GOLD : Color{ 22, 30, 48, 255 });
+    DrawText("XUR'S CATALYSTS", static_cast<int>(tab3.x + 42), static_cast<int>(tab3.y + 10), 14, (towerTab_ == 3) ? BLACK : WHITE);
+
+    if (IsButtonClicked(tab0)) { towerTab_ = 0; audio_.PlayUiSelect(); }
+    if (IsButtonClicked(tab1)) { towerTab_ = 1; audio_.PlayUiSelect(); }
+    if (IsButtonClicked(tab2)) { towerTab_ = 2; audio_.PlayUiSelect(); }
+    if (IsButtonClicked(tab3)) { towerTab_ = 3; audio_.PlayUiSelect(); }
+
+    if (towerTab_ == 0 || towerTab_ == 1) {
+        const auto& catalog = GetShellCatalog();
+        int startIdx = (towerTab_ == 0) ? 0 : 6;
+        for (int localIdx = 0; localIdx < 6; ++localIdx) {
+            int i = startIdx + localIdx;
+            if (i >= static_cast<int>(NUM_SHELLS)) break;
+            int col = localIdx % 2;
+            int row = localIdx / 2;
+            Rectangle r = { 60.0f + col * 365.0f, 112.0f + row * 150.0f, 350.0f, 140.0f };
+            bool unlocked = profile_.unlockedShells[i];
+            bool equipped = (profile_.equippedShell == i);
+            bool hov = IsRectHovered(r);
+
+            DrawRectangleRec(r, equipped ? Color{ 28, 44, 68, 245 } : Color{ 16, 22, 34, 230 });
+            DrawRectangleLinesEx(r, equipped ? 2.5f : 1.5f, equipped ? GOLD : (hov ? SKYBLUE : GRAY));
+
+            RenderGhostRig({ r.x + 52.0f, r.y + 70.0f }, 22.0f, 0.0f, hov ? 0.35f : 0.1f,
+                           globalTime_ * 1.6f, { 3.0f, 0.0f }, i, 1.0f);
+
+            DrawText(catalog[i].name, static_cast<int>(r.x + 106), static_cast<int>(r.y + 12), 16, WHITE);
+            DrawTextWrapped(catalog[i].loreSubtitle,
+                            static_cast<int>(r.x + 106), static_cast<int>(r.y + 34),
+                            230, 13, 16, LIGHTGRAY);
+
+            Rectangle actBtn = { r.x + 106.0f, r.y + 94.0f, 228.0f, 34.0f };
+            if (equipped) {
+                DrawRectangleRec(actBtn, GOLD);
+                DrawText("EQUIPPED", static_cast<int>(actBtn.x + 74), static_cast<int>(actBtn.y + 10), 15, BLACK);
+            } else if (unlocked) {
+                DrawRectangleRec(actBtn, { 38, 68, 98, 255 });
+                DrawText("EQUIP SHELL", static_cast<int>(actBtn.x + 64), static_cast<int>(actBtn.y + 10), 15, WHITE);
+            } else {
+                bool canAfford = (profile_.glimmer >= catalog[i].glimmerCost);
+                DrawRectangleRec(actBtn, canAfford ? Color{ 30, 85, 60, 255 } : Color{ 45, 30, 35, 255 });
+                char costTxt[64];
+                std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%d GLIMMER)", catalog[i].glimmerCost);
+                DrawText(costTxt, static_cast<int>(actBtn.x + 26), static_cast<int>(actBtn.y + 10), 14, canAfford ? GREEN : RED);
+            }
+
+            if (IsButtonClicked(r)) {
+                if (unlocked) {
+                    profile_.equippedShell = i;
+                    SaveData();
+                    audio_.PlayUiSelect();
+                } else if (profile_.glimmer >= catalog[i].glimmerCost) {
+                    profile_.glimmer -= catalog[i].glimmerCost;
+                    profile_.unlockedShells[i] = true;
+                    profile_.equippedShell = i;
+                    SaveData();
+                    audio_.PlayExoticPickup();
+
+                    int countUnlocked = 0;
+                    for (bool u : profile_.unlockedShells) if (u) countUnlocked++;
+                    if (countUnlocked >= 3) UnlockTriumph(9);
+                }
+            }
+        }
+
+        DrawText("GHOST TELEMETRY MODS", 810, 84, 20, GOLD);
+
+        auto DrawUpgradeRow = [&](int idx, const char* title, const char* desc, int& level, int maxLvl, int baseCost) {
+            Rectangle ur = { 810.0f, 112.0f + idx * 110.0f, 410.0f, 98.0f };
+            int cost = baseCost * (level + 1);
+            bool maxed = (level >= maxLvl);
+            bool canBuy = (!maxed && profile_.glimmer >= cost);
+
+            DrawRectangleRec(ur, { 16, 22, 36, 235 });
+            DrawRectangleLinesEx(ur, 1.5f, canBuy ? SKYBLUE : GRAY);
+            DrawText(title, static_cast<int>(ur.x + 14), static_cast<int>(ur.y + 10), 16, WHITE);
+            DrawTextWrapped(desc, static_cast<int>(ur.x + 14), static_cast<int>(ur.y + 32), 382, 13, 16, LIGHTGRAY);
+
+            for (int p = 0; p < maxLvl; ++p) {
+                DrawRectangle(static_cast<int>(ur.x + 14 + p * 28), static_cast<int>(ur.y + 64), 22, 16,
+                              (p < level) ? GOLD : Color{ 40, 48, 62, 255 });
+            }
+
+            Rectangle buyBtn = { ur.x + 225.0f, ur.y + 54.0f, 170.0f, 34.0f };
+            DrawRectangleRec(buyBtn, maxed ? DARKGRAY : (canBuy ? Color{ 35, 85, 65, 255 } : Color{ 45, 35, 40, 255 }));
+            char btxt[48];
+            if (maxed) std::snprintf(btxt, sizeof(btxt), "MAX MASTERWORK");
+            else std::snprintf(btxt, sizeof(btxt), "UPGRADE (%d G)", cost);
+            DrawText(btxt, static_cast<int>(buyBtn.x + 14), static_cast<int>(buyBtn.y + 10), 14, maxed ? GOLD : (canBuy ? WHITE : GRAY));
+
+            if (IsButtonClicked(buyBtn) && canBuy) {
+                profile_.glimmer -= cost;
+                level++;
+                SaveData();
+                audio_.PlayMotePickup();
+            }
+        };
+
+        DrawUpgradeRow(0, "MOTE MAGNETISM COIL", "Increases Mote of Light attraction radius.", profile_.upgrades.lightMagnetLevel, 5, 100);
+        DrawUpgradeRow(1, "PARACAUSAL CAPACITOR", "Boosts Super energy per Mote & Super duration.", profile_.upgrades.superEfficiencyLevel, 5, 120);
+        DrawUpgradeRow(2, "PHASE BLINK ACCELERATOR", "Reduces Blink/Dash tactical cooldown.", profile_.upgrades.phaseCooldownLevel, 5, 120);
+        DrawUpgradeRow(3, "VANGUARD OVERSHIELD", "Start every run with extra Overshield charges.", profile_.upgrades.overshieldCapLevel, 3, 250);
+    } else if (towerTab_ == 2) {
+        // Tab 2: Eva Levante's Shaders
+        DrawText("EVA LEVANTE // GUARDIAN ARMOR & SHELL SHADERS", 60, 118, 22, Color{ 255, 120, 220, 255 });
+        DrawText("Apply legendary & exotic shader palettes to recolor all 12 Ghost shells.", 60, 146, 16, LIGHTGRAY);
+
+        const auto& shaders = GetShaderCatalog();
+        for (int i = 0; i < static_cast<int>(NUM_SHADERS); ++i) {
+            Rectangle sr = { 60.0f + (i % 2) * 580.0f, 185.0f + (i / 2) * 125.0f, 560.0f, 108.0f };
+            bool unlocked = profile_.unlockedShaders[i];
+            bool equipped = (profile_.equippedShader == i);
+
+            DrawRectangleRec(sr, equipped ? Color{ 34, 42, 62, 245 } : Color{ 16, 22, 34, 235 });
+            DrawRectangleLinesEx(sr, equipped ? 3.0f : 1.5f, equipped ? GOLD : Color{ 140, 160, 190, 160 });
+
+            // 4-quadrant shader swatch
+            Vector2 sw = { sr.x + 48.0f, sr.y + 54.0f };
+            DrawCircleV(sw, 24.0f, shaders[i].primary);
+            DrawPolyLinesEx(sw, 4, 28.0f, 0.0f, 2.5f, shaders[i].secondary);
+            DrawPoly(sw, 4, 12.0f, 0.0f, shaders[i].core);
+
+            DrawText(shaders[i].name, static_cast<int>(sr.x + 96), static_cast<int>(sr.y + 18), 18, WHITE);
+
+            Rectangle btn = { sr.x + 96.0f, sr.y + 54.0f, 220.0f, 36.0f };
+            if (equipped) {
+                DrawRectangleRec(btn, GOLD);
+                DrawText("EQUIPPED SHADER", static_cast<int>(btn.x + 36), static_cast<int>(btn.y + 10), 14, BLACK);
+            } else if (unlocked) {
+                DrawRectangleRec(btn, Color{ 38, 68, 98, 255 });
+                DrawText("APPLY SHADER", static_cast<int>(btn.x + 52), static_cast<int>(btn.y + 10), 14, WHITE);
+            } else {
+                bool canBuy = (profile_.glimmer >= shaders[i].glimmerCost);
+                DrawRectangleRec(btn, canBuy ? Color{ 30, 88, 60, 255 } : Color{ 48, 30, 35, 255 });
+                char cstr[64];
+                std::snprintf(cstr, sizeof(cstr), "PURCHASE (%d G)", shaders[i].glimmerCost);
+                DrawText(cstr, static_cast<int>(btn.x + 38), static_cast<int>(btn.y + 10), 14, canBuy ? GREEN : RED);
+            }
+
+            if (IsButtonClicked(sr)) {
+                if (unlocked) {
+                    profile_.equippedShader = i;
+                    SaveData();
+                    audio_.PlayUiSelect();
+                } else if (profile_.glimmer >= shaders[i].glimmerCost) {
+                    profile_.glimmer -= shaders[i].glimmerCost;
+                    profile_.unlockedShaders[i] = true;
+                    profile_.equippedShader = i;
+                    SaveData();
+                    audio_.PlayExoticPickup();
+                }
+            }
+        }
+    } else {
+        // Tab 3: Xur's Exotic Ghost Catalysts
+        DrawText("XUR, AGENT OF THE NINE // EXOTIC GHOST CATALYSTS", 60, 118, 22, GOLD);
+        DrawText("Equip an Exotic Catalyst into your Ghost core for passive paracausal combat effects.", 60, 146, 16, LIGHTGRAY);
+
+        const auto& exotics = GetExoticCatalog();
+        for (int i = 0; i < static_cast<int>(NUM_EXOTIC_PERKS); ++i) {
+            Rectangle er = { 60.0f + (i % 2) * 580.0f, 185.0f + (i / 2) * 180.0f, 560.0f, 160.0f };
+            bool unlocked = profile_.unlockedExotics[i];
+            bool equipped = (profile_.equippedExoticPerk == i);
+
+            DrawRectangleRec(er, equipped ? Color{ 34, 42, 62, 245 } : Color{ 16, 22, 34, 235 });
+            DrawRectangleLinesEx(er, equipped ? 3.0f : 1.5f, equipped ? GOLD : exotics[i].accentColor);
+
+            DrawPoly({ er.x + 48.0f, er.y + 80.0f }, 6, 28.0f, globalTime_ * 45.0f, exotics[i].accentColor);
+            DrawPolyLinesEx({ er.x + 48.0f, er.y + 80.0f }, 6, 32.0f, -globalTime_ * 45.0f, 2.0f, WHITE);
+
+            DrawText(exotics[i].name, static_cast<int>(er.x + 96), static_cast<int>(er.y + 18), 20, exotics[i].accentColor);
+            DrawTextWrapped(exotics[i].description, static_cast<int>(er.x + 96), static_cast<int>(er.y + 48), 440, 15, 20, WHITE);
+
+            Rectangle btn = { er.x + 96.0f, er.y + 106.0f, 240.0f, 38.0f };
+            if (equipped) {
+                DrawRectangleRec(btn, GOLD);
+                DrawText("EQUIPPED CATALYST", static_cast<int>(btn.x + 38), static_cast<int>(btn.y + 11), 15, BLACK);
+            } else if (unlocked) {
+                DrawRectangleRec(btn, { 38, 68, 98, 255 });
+                DrawText("EQUIP CATALYST", static_cast<int>(btn.x + 52), static_cast<int>(btn.y + 11), 15, WHITE);
+            } else {
+                bool canBuy = (profile_.glimmer >= exotics[i].glimmerCost);
+                DrawRectangleRec(btn, canBuy ? Color{ 30, 88, 60, 255 } : Color{ 48, 30, 35, 255 });
+                char cstr[64];
+                std::snprintf(cstr, sizeof(cstr), "ACQUIRE (%d GLIMMER)", exotics[i].glimmerCost);
+                DrawText(cstr, static_cast<int>(btn.x + 26), static_cast<int>(btn.y + 11), 15, canBuy ? GREEN : RED);
+            }
+
+            if (IsButtonClicked(er)) {
+                if (unlocked) {
+                    profile_.equippedExoticPerk = i;
+                    SaveData();
+                    audio_.PlayUiSelect();
+                } else if (profile_.glimmer >= exotics[i].glimmerCost) {
+                    profile_.glimmer -= exotics[i].glimmerCost;
+                    profile_.unlockedExotics[i] = true;
+                    profile_.equippedExoticPerk = i;
+                    SaveData();
+                    audio_.PlayExoticPickup();
+                }
+            }
+        }
+    }
+
+    Rectangle backBtn = { 60.0f, 585.0f, 235.0f, 48.0f };
+    DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
+    DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
+    DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
+    if (IsButtonClicked(backBtn)) {
+        state_ = ScreenState::TITLE_DIRECTOR;
+        audio_.PlayUiSelect();
+    }
+
+    RenderBottomBrandingFooter();
+}
+
+void GhostGame::RenderTriumphsLog() {
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
+    DrawText("VANGUARD TRIUMPHS & LORE RECORDS", 70, 42, 30, WHITE);
+
+    const auto& cat = GetTriumphCatalog();
+    for (int i = 0; i < static_cast<int>(NUM_TRIUMPHS); ++i) {
+        int col = i % 2;
+        int row = i / 2;
+        Rectangle tr = { 70.0f + col * 575.0f, 96.0f + row * 92.0f, 555.0f, 82.0f };
+        bool done = profile_.unlockedTriumphs[i];
+
+        DrawRectangleRec(tr, done ? Color{ 24, 42, 54, 240 } : Color{ 14, 18, 28, 220 });
+        DrawRectangleLinesEx(tr, 1.5f, done ? GOLD : Color{ 70, 80, 95, 180 });
+
+        DrawPoly({ tr.x + 34.0f, tr.y + 41.0f }, 4, 16.0f, 0.0f, done ? GOLD : DARKGRAY);
+        DrawText(cat[i].title, static_cast<int>(tr.x + 64), static_cast<int>(tr.y + 12), 17, done ? GOLD : LIGHTGRAY);
+        DrawTextWrapped(cat[i].description, static_cast<int>(tr.x + 64), static_cast<int>(tr.y + 36), 475, 14, 18, WHITE);
+
+        char rew[48];
+        std::snprintf(rew, sizeof(rew), done ? "CLAIMED (+%d G)" : "REWARD: +%d G", cat[i].rewardGlimmer);
+        DrawText(rew, static_cast<int>(tr.x + 400), static_cast<int>(tr.y + 12), 14, done ? GREEN : SKYBLUE);
+    }
+
+    Rectangle backBtn = { 70.0f, 585.0f, 235.0f, 48.0f };
+    DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
+    DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
+    DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
+    if (IsButtonClicked(backBtn)) {
+        state_ = ScreenState::TITLE_DIRECTOR;
+        audio_.PlayUiSelect();
+    }
+
+    RenderBottomBrandingFooter();
+}
+
+void GhostGame::RenderPauseOverlay() {
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 6, 10, 18, 195 });
+    const char* pTitle = "GHOST TELEMETRY PAUSED";
+    int pw = MeasureText(pTitle, 38);
+    DrawText(pTitle, (VIRTUAL_WIDTH - pw) / 2, 230, 38, WHITE);
+
+    Rectangle resumeBtn = { VIRTUAL_WIDTH / 2.0f - 160.0f, 310.0f, 320.0f, 54.0f };
+    Rectangle dirBtn    = { VIRTUAL_WIDTH / 2.0f - 160.0f, 382.0f, 320.0f, 54.0f };
+
+    DrawRectangleRec(resumeBtn, IsRectHovered(resumeBtn) ? Color{ 40, 75, 110, 255 } : Color{ 22, 36, 56, 255 });
+    DrawRectangleLinesEx(resumeBtn, 2.0f, SKYBLUE);
+    DrawText("RESUME PATROL [SPACE]", static_cast<int>(resumeBtn.x + 52), static_cast<int>(resumeBtn.y + 18), 18, WHITE);
+
+    DrawRectangleRec(dirBtn, IsRectHovered(dirBtn) ? Color{ 75, 35, 45, 255 } : Color{ 38, 22, 30, 255 });
+    DrawRectangleLinesEx(dirBtn, 2.0f, ORANGE);
+    DrawText("RETURN TO DIRECTOR", static_cast<int>(dirBtn.x + 62), static_cast<int>(dirBtn.y + 18), 18, WHITE);
+
+    if (IsButtonClicked(resumeBtn)) {
+        state_ = ScreenState::PLAYING;
+        audio_.PlayUiSelect();
+    }
+    if (IsButtonClicked(dirBtn)) {
+        SaveData();
+        state_ = ScreenState::TITLE_DIRECTOR;
+        audio_.PlayUiSelect();
+    }
+}
+
+void GhostGame::RenderLightFadedOverlay() {
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 12, 6, 10, 215 });
+    DrawRectangle(0, 175, VIRTUAL_WIDTH, 115, { 45, 12, 16, 230 });
+    DrawLine(0, 175, VIRTUAL_WIDTH, 175, { 220, 55, 55, 255 });
+    DrawLine(0, 290, VIRTUAL_WIDTH, 290, { 220, 55, 55, 255 });
+
+    const char* skullHeader = "DARKNESS ZONE // GUARDIAN DOWN";
+    int shw = MeasureText(skullHeader, 18);
+    DrawText(skullHeader, (VIRTUAL_WIDTH - shw) / 2, 192, 18, { 240, 110, 110, 255 });
+
+    const char* fadedText = "YOUR LIGHT FADES AWAY...";
+    int ftw = MeasureText(fadedText, 44);
+    DrawText(fadedText, (VIRTUAL_WIDTH - ftw) / 2, 224, 44, WHITE);
+
+    DrawRectangle(VIRTUAL_WIDTH / 2 - 230, 318, 460, 140, { 16, 20, 32, 235 });
+    DrawRectangleLinesEx({ VIRTUAL_WIDTH / 2.0f - 230.0f, 318.0f, 460.0f, 140.0f }, 1.5f, GRAY);
+
+    char line1[96], line2[96], line3[96];
+    std::snprintf(line1, sizeof(line1), "BARRIERS CLEARED: %d   (BEST: %d)",
+                  scoreGates_, isNightfallMode_ ? profile_.bestScoreNightfall : profile_.bestScoreStandard);
+    std::snprintf(line2, sizeof(line2), "MOTES OF LIGHT HARVESTED: %d", runMotes_);
+    std::snprintf(line3, sizeof(line3), "GLIMMER EARNED THIS RUN: +%d", runGlimmerEarned_);
+
+    DrawText(line1, VIRTUAL_WIDTH / 2 - 190, 338, 20, GOLD);
+    DrawText(line2, VIRTUAL_WIDTH / 2 - 190, 374, 18, SKYBLUE);
+    DrawText(line3, VIRTUAL_WIDTH / 2 - 190, 408, 18, WHITE);
+
+    Rectangle revBtn = { VIRTUAL_WIDTH / 2.0f - 230.0f, 482.0f, 220.0f, 56.0f };
+    Rectangle dirBtn = { VIRTUAL_WIDTH / 2.0f + 10.0f,  482.0f, 220.0f, 56.0f };
+
+    DrawRectangleRec(revBtn, IsRectHovered(revBtn) ? Color{ 45, 95, 75, 255 } : Color{ 25, 62, 48, 255 });
+    DrawRectangleLinesEx(revBtn, 2.0f, GREEN);
+    DrawText("REVIVE [SPACE]", static_cast<int>(revBtn.x + 38), static_cast<int>(revBtn.y + 19), 18, WHITE);
+
+    DrawRectangleRec(dirBtn, IsRectHovered(dirBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 38, 58, 255 });
+    DrawRectangleLinesEx(dirBtn, 2.0f, SKYBLUE);
+    DrawText("DIRECTOR [ESC]", static_cast<int>(dirBtn.x + 38), static_cast<int>(dirBtn.y + 19), 18, WHITE);
+
+    if (IsButtonClicked(revBtn)) {
+        StartNewRun(isNightfallMode_);
+    }
+    if (IsButtonClicked(dirBtn)) {
+        state_ = ScreenState::TITLE_DIRECTOR;
+        audio_.PlayUiSelect();
+    }
+
+    RenderBottomBrandingFooter();
+}
+
+void GhostGame::RenderTriumphToast() const {
+    if (!activeToast_.active) return;
+
+    float w = 620.0f;
+    float x = (VIRTUAL_WIDTH - w) * 0.5f;
+    float y = VIRTUAL_HEIGHT - 125.0f;
+
+    DrawRectangle(static_cast<int>(x), static_cast<int>(y), static_cast<int>(w), 64, { 14, 22, 34, 245 });
+    DrawRectangleLinesEx({ x, y, w, 64.0f }, 2.5f, GOLD);
+    DrawPoly({ x + 34.0f, y + 32.0f }, 4, 18.0f, 0.0f, GOLD);
+
+    DrawText(activeToast_.title.c_str(), static_cast<int>(x + 66), static_cast<int>(y + 12), 18, GOLD);
+    DrawText(activeToast_.subtitle.c_str(), static_cast<int>(x + 66), static_cast<int>(y + 36), 14, WHITE);
+}
+
+} // namespace FlappyGhost

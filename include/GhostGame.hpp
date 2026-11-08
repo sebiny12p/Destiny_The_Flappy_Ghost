@@ -1,0 +1,131 @@
+#pragma once
+#include "Types.hpp"
+#include "DeterministicRNG.hpp"
+#include "SoundSynth.hpp"
+#include <array>
+#include <string>
+
+namespace FlappyGhost {
+
+class GhostGame {
+public:
+    GhostGame();
+    ~GhostGame();
+
+    void Init();
+    void RunFrame();
+    void Shutdown();
+
+    static const std::array<GhostShellDef, NUM_SHELLS>& GetShellCatalog();
+    static const std::array<ExoticPerkDef, NUM_EXOTIC_PERKS>& GetExoticCatalog();
+    static const std::array<TriumphDef, NUM_TRIUMPHS>& GetTriumphCatalog();
+    static const std::array<ShaderDef, NUM_SHADERS>& GetShaderCatalog();
+
+private:
+    // Persistence
+    void LoadSaveData();
+    void SaveData() const;
+    void UnlockTriumph(int triumphIdx);
+    void TriggerVanguardMedal(const char* medalName, int glimmerBonus, Color col = GOLD);
+
+    // Run lifecycle
+    void StartNewRun(bool dailyNightfall);
+    void TriggerFlap();
+    void TriggerBlasterShot(); // Killable enemies for all players
+    void TriggerTacticalAbility();
+    void TriggerSuperAbility();
+    void TriggerScanPulse();
+    void HandleFatalImpact();
+
+    // Simulation (Fixed Timestep)
+    void UpdateFrameInput();
+    void UpdateFixed(float dt);
+    void UpdatePlayingFixed(float dt);
+    void UpdateBossFixed(float dt);
+    void UpdateParticlesFixed(float dt);
+
+    // Procedural generation
+    void SpawnNextObstacle();
+    void SpawnCollectible(Vector2 pos, CollectibleKind kind);
+    void SpawnPatrolEnemy(Vector2 pos, EnemyType type);
+    void SpawnBossEncounter();
+    void SpawnParticleBurst(Vector2 pos, int count, Color color, float speedMin, float speedMax, float size, float life);
+    void SpawnProjectile(Vector2 pos, Vector2 vel, float radius, Color color, bool friendly, bool homing = false);
+
+    // Helpers
+    BiomeSector GetCurrentBiome() const;
+    Color GetSubclassAccentColor() const;
+    const char* GetBiomeName(BiomeSector b) const;
+    Vector2 GetVirtualMousePos() const;
+    bool IsButtonClicked(Rectangle rect) const;
+    bool IsRectHovered(Rectangle rect) const;
+
+    // Rendering (implemented in GhostRenderer.cpp)
+    void RenderFrame();
+    void RenderStarfieldAndBackdrop() const;
+    void RenderBiomeEnvironment() const;
+    void RenderObstacles() const;
+    void RenderCollectibles() const;
+    void RenderPatrolEnemies() const;
+    void RenderBoss() const;
+    void RenderProjectiles() const;
+    void RenderParticles() const;
+    void RenderGhostRig(Vector2 pos, float radius, float rotDeg, float expand, float spinAngle, Vector2 eyeOffset, int shellIdx, float alpha = 1.0f) const;
+    void RenderHud() const;
+    void RenderTitleFrontPage();
+    void RenderTitleDirector();
+    void RenderSubclassArmory();
+    void RenderShellHangar();
+    void RenderTriumphsLog();
+    void RenderPauseOverlay();
+    void RenderLightFadedOverlay();
+    void RenderBottomBrandingFooter() const;
+    void RenderTriumphToast() const;
+
+private:
+    RenderTexture2D targetRenderTex_{};
+    SoundSynth audio_{};
+    SaveProfile profile_{};
+    PCG32 rng_{};
+
+    ScreenState state_ = ScreenState::TITLE_FRONT_PAGE;
+    int towerTab_ = 0; // 0 = Shells I, 1 = Shells II, 2 = Shaders, 3 = Xur Exotic Curios
+    bool isNightfallMode_ = false;
+    uint64_t activeSeed_ = 0;
+
+    float accumulator_ = 0.0f;
+    float globalTime_ = 0.0f;
+    float runTime_ = 0.0f;
+    float distanceMeters_ = 0.0f;
+    float scrollSpeed_ = 310.0f;
+    float nextObstacleSpawnX_ = 0.0f;
+    int scoreGates_ = 0;
+    int streakGates_ = 0;
+    int runMotes_ = 0;
+    int runGlimmerEarned_ = 0;
+    int gatesSinceLastBoss_ = 0;
+
+    // Screen juice
+    float screenShakeTrauma_ = 0.0f;
+    float flashAlpha_ = 0.0f;
+    Color flashColor_ = WHITE;
+    float biomeBannerTimer_ = 0.0f;
+    BiomeSector lastBiome_ = BiomeSector::COSMODROME;
+
+    float lastTapTime_ = -10.0f;
+
+    GhostPlayer ghost_{};
+    BossState boss_{};
+    TriumphToast activeToast_{};
+    VanguardMedalBanner activeMedal_{};
+
+    // Pre-allocated Object Pools
+    std::array<Obstacle, MAX_OBSTACLES> obstacles_{};
+    std::array<Collectible, MAX_MOTES> collectibles_{};
+    std::array<PatrolEnemy, MAX_PATROL_ENEMIES> enemies_{};
+    std::array<Particle, MAX_PARTICLES> particles_{};
+    std::array<Projectile, MAX_PROJECTILES> projectiles_{};
+    std::array<StarBg, MAX_STARS> stars_{};
+};
+
+} // namespace FlappyGhost
