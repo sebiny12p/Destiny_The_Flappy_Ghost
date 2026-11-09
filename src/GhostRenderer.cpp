@@ -801,8 +801,7 @@ void GhostGame::RenderTitleDirector() {
     Rectangle btnHangar   = { 495.0f, 472.0f, 290.0f, 64.0f };
     Rectangle btnTriumphs = { 810.0f, 472.0f, 290.0f, 64.0f };
 
-    if (DrawDirectorButton(btnPatrol, "LAUNCH VANGUARD PATROL", "Pure flight & abilities mode (no weapons or drones)", SKYBLUE) ||
-        IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER)) {
+    if (DrawDirectorButton(btnPatrol, "LAUNCH VANGUARD PATROL", "Pure flight & abilities mode (no weapons or drones)", SKYBLUE)) {
         StartNewRun(false);
     }
 
