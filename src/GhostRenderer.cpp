@@ -659,8 +659,14 @@ void GhostGame::RenderHud() const {
     }
 
     // Touch / Mouse On-Screen Action Buttons (Bottom-Right)
+    Rectangle scnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
     Rectangle tacBtn = { VIRTUAL_WIDTH - 256.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
     Rectangle supBtn = { VIRTUAL_WIDTH - 134.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+
+    DrawRectangleRec(scnBtn, Color{ 22, 42, 60, 210 });
+    DrawRectangleLinesEx(scnBtn, 2.0f, SKYBLUE);
+    DrawText("PULSE SCAN", static_cast<int>(scnBtn.x + 10), static_cast<int>(scnBtn.y + 14), 14, WHITE);
+    DrawText("[C / DISRUPT]", static_cast<int>(scnBtn.x + 10), static_cast<int>(scnBtn.y + 34), 12, LIGHTGRAY);
 
     DrawRectangleRec(tacBtn, (tacReady >= 1.0f) ? Color{ 35, 65, 95, 210 } : Color{ 25, 28, 35, 180 });
     DrawRectangleLinesEx(tacBtn, 2.0f, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
@@ -725,9 +731,13 @@ void GhostGame::RenderTitleFrontPage() {
     // Pulsing "Press Any Key / Tap to Enter" Call to Action
     float blink = std::sin(globalTime_ * 4.0f) * 0.5f + 0.5f;
     Color promptCol = { 255, 255, 255, static_cast<unsigned char>(140 + blink * 115) };
-    const char* prompt = "PRESS ANY KEY OR TAP SCREEN TO ENTER";
-    int pw = MeasureText(prompt, 22);
-    DrawText(prompt, (VIRTUAL_WIDTH - pw) / 2, 535, 22, promptCol);
+    Rectangle enterBtn = { VIRTUAL_WIDTH / 2.0f - 260.0f, 520.0f, 520.0f, 56.0f };
+    bool hovEnter = IsRectHovered(enterBtn);
+    DrawRectangleRec(enterBtn, hovEnter ? Color{ 35, 55, 85, 240 } : Color{ 14, 20, 34, 210 });
+    DrawRectangleLinesEx(enterBtn, 2.0f, hovEnter ? SKYBLUE : Color{ 120, 160, 210, 150 });
+    const char* prompt = "PRESS SPACE / ENTER OR CLICK TO ENTER";
+    int pw = MeasureText(prompt, 20);
+    DrawText(prompt, (VIRTUAL_WIDTH - pw) / 2, 538, 20, promptCol);
 
     const char* ostNotice = "PLAYING: DESTINY 2 ORIGINAL SOUNDTRACK - INNER LIGHT";
     int onw = MeasureText(ostNotice, 14);
@@ -964,18 +974,18 @@ void GhostGame::RenderShellHangar() {
     DrawText(glimHeader, VIRTUAL_WIDTH - 340, 32, 20, SKYBLUE);
 
     // Sub-tabs inside The Tower: [0] Shells I | [1] Shells II | [2] Shaders | [3] Xur's Catalysts
-    Rectangle tab0 = { 60.0f, 64.0f, 215.0f, 36.0f };
-    Rectangle tab1 = { 285.0f, 64.0f, 215.0f, 36.0f };
-    Rectangle tab2 = { 510.0f, 64.0f, 215.0f, 36.0f };
-    Rectangle tab3 = { 735.0f, 64.0f, 235.0f, 36.0f };
+    Rectangle tab0 = { 60.0f, 60.0f, 215.0f, 32.0f };
+    Rectangle tab1 = { 285.0f, 60.0f, 215.0f, 32.0f };
+    Rectangle tab2 = { 510.0f, 60.0f, 215.0f, 32.0f };
+    Rectangle tab3 = { 735.0f, 60.0f, 235.0f, 32.0f };
     DrawRectangleRec(tab0, (towerTab_ == 0) ? SKYBLUE : Color{ 22, 30, 48, 255 });
-    DrawText("SHELLS I: VANGUARD", static_cast<int>(tab0.x + 22), static_cast<int>(tab0.y + 10), 14, (towerTab_ == 0) ? BLACK : WHITE);
+    DrawText("SHELLS I: VANGUARD", static_cast<int>(tab0.x + 22), static_cast<int>(tab0.y + 8), 14, (towerTab_ == 0) ? BLACK : WHITE);
     DrawRectangleRec(tab1, (towerTab_ == 1) ? ORANGE : Color{ 22, 30, 48, 255 });
-    DrawText("SHELLS II: EXOTIC", static_cast<int>(tab1.x + 30), static_cast<int>(tab1.y + 10), 14, (towerTab_ == 1) ? BLACK : WHITE);
+    DrawText("SHELLS II: EXOTIC", static_cast<int>(tab1.x + 30), static_cast<int>(tab1.y + 8), 14, (towerTab_ == 1) ? BLACK : WHITE);
     DrawRectangleRec(tab2, (towerTab_ == 2) ? Color{ 255, 120, 220, 255 } : Color{ 22, 30, 48, 255 });
-    DrawText("EVA'S SHADERS", static_cast<int>(tab2.x + 40), static_cast<int>(tab2.y + 10), 14, (towerTab_ == 2) ? BLACK : WHITE);
+    DrawText("EVA'S SHADERS", static_cast<int>(tab2.x + 40), static_cast<int>(tab2.y + 8), 14, (towerTab_ == 2) ? BLACK : WHITE);
     DrawRectangleRec(tab3, (towerTab_ == 3) ? GOLD : Color{ 22, 30, 48, 255 });
-    DrawText("XUR'S CATALYSTS", static_cast<int>(tab3.x + 42), static_cast<int>(tab3.y + 10), 14, (towerTab_ == 3) ? BLACK : WHITE);
+    DrawText("XUR'S CATALYSTS", static_cast<int>(tab3.x + 42), static_cast<int>(tab3.y + 8), 14, (towerTab_ == 3) ? BLACK : WHITE);
 
     if (IsButtonClicked(tab0)) { towerTab_ = 0; audio_.PlayUiSelect(); }
     if (IsButtonClicked(tab1)) { towerTab_ = 1; audio_.PlayUiSelect(); }
@@ -990,7 +1000,7 @@ void GhostGame::RenderShellHangar() {
             if (i >= static_cast<int>(NUM_SHELLS)) break;
             int col = localIdx % 2;
             int row = localIdx / 2;
-            Rectangle r = { 60.0f + col * 365.0f, 112.0f + row * 150.0f, 350.0f, 140.0f };
+            Rectangle r = { 60.0f + col * 365.0f, 138.0f + row * 142.0f, 350.0f, 132.0f };
             bool unlocked = profile_.unlockedShells[i];
             bool equipped = (profile_.equippedShell == i);
             bool hov = IsRectHovered(r);
@@ -998,7 +1008,7 @@ void GhostGame::RenderShellHangar() {
             DrawRectangleRec(r, equipped ? Color{ 28, 44, 68, 245 } : Color{ 16, 22, 34, 230 });
             DrawRectangleLinesEx(r, equipped ? 2.5f : 1.5f, equipped ? GOLD : (hov ? SKYBLUE : GRAY));
 
-            RenderGhostRig({ r.x + 52.0f, r.y + 70.0f }, 22.0f, 0.0f, hov ? 0.35f : 0.1f,
+            RenderGhostRig({ r.x + 52.0f, r.y + 66.0f }, 22.0f, 0.0f, hov ? 0.35f : 0.1f,
                            globalTime_ * 1.6f, { 3.0f, 0.0f }, i, 1.0f);
 
             DrawText(catalog[i].name, static_cast<int>(r.x + 106), static_cast<int>(r.y + 12), 16, WHITE);
@@ -1006,19 +1016,19 @@ void GhostGame::RenderShellHangar() {
                             static_cast<int>(r.x + 106), static_cast<int>(r.y + 34),
                             230, 13, 16, LIGHTGRAY);
 
-            Rectangle actBtn = { r.x + 106.0f, r.y + 94.0f, 228.0f, 34.0f };
+            Rectangle actBtn = { r.x + 106.0f, r.y + 90.0f, 228.0f, 32.0f };
             if (equipped) {
                 DrawRectangleRec(actBtn, GOLD);
-                DrawText("EQUIPPED", static_cast<int>(actBtn.x + 74), static_cast<int>(actBtn.y + 10), 15, BLACK);
+                DrawText("EQUIPPED", static_cast<int>(actBtn.x + 74), static_cast<int>(actBtn.y + 9), 15, BLACK);
             } else if (unlocked) {
                 DrawRectangleRec(actBtn, { 38, 68, 98, 255 });
-                DrawText("EQUIP SHELL", static_cast<int>(actBtn.x + 64), static_cast<int>(actBtn.y + 10), 15, WHITE);
+                DrawText("EQUIP SHELL", static_cast<int>(actBtn.x + 64), static_cast<int>(actBtn.y + 9), 15, WHITE);
             } else {
                 bool canAfford = (profile_.glimmer >= catalog[i].glimmerCost);
                 DrawRectangleRec(actBtn, canAfford ? Color{ 30, 85, 60, 255 } : Color{ 45, 30, 35, 255 });
                 char costTxt[64];
                 std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%d GLIMMER)", catalog[i].glimmerCost);
-                DrawText(costTxt, static_cast<int>(actBtn.x + 26), static_cast<int>(actBtn.y + 10), 14, canAfford ? GREEN : RED);
+                DrawText(costTxt, static_cast<int>(actBtn.x + 26), static_cast<int>(actBtn.y + 9), 14, canAfford ? GREEN : RED);
             }
 
             if (IsButtonClicked(r)) {
@@ -1040,10 +1050,10 @@ void GhostGame::RenderShellHangar() {
             }
         }
 
-        DrawText("GHOST TELEMETRY MODS", 810, 84, 20, GOLD);
+        DrawText("GHOST TELEMETRY MODS", 810, 108, 20, GOLD);
 
         auto DrawUpgradeRow = [&](int idx, const char* title, const char* desc, int& level, int maxLvl, int baseCost) {
-            Rectangle ur = { 810.0f, 112.0f + idx * 110.0f, 410.0f, 98.0f };
+            Rectangle ur = { 810.0f, 138.0f + idx * 105.0f, 410.0f, 96.0f };
             int cost = baseCost * (level + 1);
             bool maxed = (level >= maxLvl);
             bool canBuy = (!maxed && profile_.glimmer >= cost);

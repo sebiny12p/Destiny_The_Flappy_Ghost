@@ -265,19 +265,10 @@ bool GhostGame::IsButtonClicked(Rectangle rect) const {
     return false;
 }
 
-void GhostGame::TriggerBlasterShot() {
-    SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y }, { 820.0f, 0.0f }, 9.0f, GetSubclassAccentColor(), true, false);
-    audio_.PlayLaserShot();
-    SpawnParticleBurst({ ghost_.pos.x + 18.0f, ghost_.pos.y }, 6, GetSubclassAccentColor(), 40.0f, 180.0f, 3.5f, 0.22f);
-}
-
 void GhostGame::TriggerFlap() {
     ghost_.vel.y = -435.0f;
     ghost_.shellExpand = 1.0f;
     audio_.PlayFlap();
-
-    // Every flap also fires a light telemetry dart forward so enemies are naturally killable by ALL players!
-    TriggerBlasterShot();
 
     const auto& shell = SHELL_CATALOG[profile_.equippedShell];
     SpawnParticleBurst({ ghost_.pos.x - 14.0f, ghost_.pos.y + 6.0f }, 9, shell.trailColor, 40.0f, 160.0f, 4.5f, 0.38f);
@@ -432,6 +423,19 @@ void GhostGame::TriggerScanPulse() {
     ghost_.scanPulseTimer = 0.45f;
     ghost_.shellExpand = 1.3f;
     audio_.PlayUiSelect();
+
+    // Telemetry Scan Pulse purges nearby enemy combatants (Fallen Shanks, Vex, Thrall, Psions) in front of Ghost!
+    for (auto& e : enemies_) {
+        if (e.active && e.pos.x > ghost_.pos.x - 20.0f && e.pos.x < ghost_.pos.x + 240.0f &&
+            std::abs(e.pos.y - ghost_.pos.y) < 120.0f) {
+            e.active = false;
+            SpawnParticleBurst(e.pos, 30, SKYBLUE, 80.0f, 260.0f, 5.0f, 0.4f);
+            SpawnCollectible(e.pos, CollectibleKind::MOTE_OF_LIGHT);
+            runGlimmerEarned_ += 10;
+            profile_.glimmer += 10;
+            TriggerVanguardMedal("SCANNED & DISRUPTED", 10, SKYBLUE);
+        }
+    }
 }
 
 void GhostGame::HandleFatalImpact() {
@@ -655,9 +659,13 @@ void GhostGame::UpdateFrameInput() {
         bool tapInput = IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             Vector2 vm = GetVirtualMousePos();
+            Rectangle scnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
             Rectangle tacBtn = { VIRTUAL_WIDTH - 256.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
             Rectangle supBtn = { VIRTUAL_WIDTH - 134.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-            if (CheckCollisionPointRec(vm, tacBtn)) {
+            if (CheckCollisionPointRec(vm, scnBtn)) {
+                TriggerScanPulse();
+                return;
+            } else if (CheckCollisionPointRec(vm, tacBtn)) {
                 TriggerTacticalAbility();
                 return;
             } else if (CheckCollisionPointRec(vm, supBtn)) {
@@ -681,14 +689,20 @@ void GhostGame::UpdateFrameInput() {
             TriggerSuperAbility();
         }
 
-        if (IsKeyPressed(KEY_C)) {
+        if (IsKeyPressed(KEY_C) || IsKeyPressed(KEY_X)) {
             TriggerScanPulse();
         }
     } else if (state_ == ScreenState::TITLE_FRONT_PAGE) {
-        if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT) ||
-            GetKeyPressed() > 0) {
+        if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_E)) {
             state_ = ScreenState::TITLE_DIRECTOR;
             audio_.PlayUiSelect();
+        } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            // Only transition to Director when clicking the center prompt button area, not by accidental clicks that overlap Patrol!
+            Rectangle enterArea = { VIRTUAL_WIDTH / 2.0f - 260.0f, 520.0f, 520.0f, 60.0f };
+            if (CheckCollisionPointRec(GetVirtualMousePos(), enterArea)) {
+                state_ = ScreenState::TITLE_DIRECTOR;
+                audio_.PlayUiSelect();
+            }
         }
     } else if (state_ == ScreenState::PAUSED) {
         if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P) || IsKeyPressed(KEY_SPACE)) {
