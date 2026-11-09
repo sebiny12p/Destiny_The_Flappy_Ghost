@@ -38,6 +38,11 @@ set(SOURCES
     src/SoundSynth.cpp
 )
 
+if (WIN32 AND NOT ANDROID)
+    set(RC_FILE src/res/resource.rc)
+    set(SOURCES ${SOURCES} ${RC_FILE})
+endif()
+
 if (ANDROID)
     add_library(main SHARED ${SOURCES})
     target_include_directories(main PRIVATE include "${ANDROID_NDK}/sources/android/native_app_glue")
@@ -47,6 +52,12 @@ else()
     add_executable(FlappyGhost ${SOURCES})
     target_include_directories(FlappyGhost PRIVATE include)
     target_link_libraries(FlappyGhost PRIVATE raylib)
+    add_custom_target(copy_assets ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/assets
+            ${CMAKE_CURRENT_BINARY_DIR}/assets
+    )
+    add_dependencies(FlappyGhost copy_assets)
 endif()
 
 if (WIN32)

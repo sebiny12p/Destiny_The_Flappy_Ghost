@@ -9,6 +9,12 @@ int main() {
     SetExitKey(KEY_NULL); // Let ESC navigate in-game Director menus & Pause screen
     SetTargetFPS(120);
 
+    Image appIcon = LoadImage("assets/icon.png");
+    if (appIcon.data != nullptr) {
+        SetWindowIcon(appIcon);
+        UnloadImage(appIcon);
+    }
+
     FlappyGhost::GhostGame game;
     game.Init();
 

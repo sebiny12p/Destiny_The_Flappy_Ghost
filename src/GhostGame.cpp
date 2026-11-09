@@ -122,6 +122,13 @@ void GhostGame::Init() {
     audio_.Init();
     LoadSaveData();
 
+    const char* splashPath = FileExists("assets/sebiny_splash_logo.png") ? "assets/sebiny_splash_logo.png"
+                           : FileExists("../assets/sebiny_splash_logo.png") ? "../assets/sebiny_splash_logo.png" : nullptr;
+    if (splashPath) {
+        splashLogo_ = LoadTexture(splashPath);
+    }
+    RefreshDailyBounties();
+
     PCG32 starRng(0xCAFEBABE1234ULL);
     for (auto& star : stars_) {
         star.pos = { starRng.RangeFloat(0.0f, static_cast<float>(VIRTUAL_WIDTH)),
@@ -139,6 +146,10 @@ void GhostGame::Init() {
 void GhostGame::Shutdown() {
     SaveData();
     audio_.Shutdown();
+    if (splashLogo_.id != 0) {
+        UnloadTexture(splashLogo_);
+        splashLogo_.id = 0;
+    }
     if (targetRenderTex_.id != 0) {
         UnloadRenderTexture(targetRenderTex_);
     }
@@ -191,6 +202,76 @@ void GhostGame::UnlockTriumph(int triumphIdx) {
     activeToast_.subtitle = std::string(def.description) + " (+" + std::to_string(def.rewardGlimmer) + " Glimmer)";
     activeToast_.timer = 4.2f;
     audio_.PlayExoticPickup();
+}
+
+void GhostGame::RefreshDailyBounties() {
+    std::time_t t = std::time(nullptr);
+    std::tm* lt = std::localtime(&t);
+    int dateKey = (lt->tm_year + 1900) * 10000 + (lt->tm_mon + 1) * 100 + lt->tm_mday;
+    if (activeBountyDateSeed_ == dateKey) return;
+    activeBountyDateSeed_ = dateKey;
+
+    PCG32 bountyRng(static_cast<uint64_t>(dateKey) * 987654321ULL);
+
+    struct BountyTemplate {
+        const char* title;
+        const char* desc;
+        int target;
+        int reward;
+    };
+    static const BountyTemplate POOL[] = {
+        { "SURGE OPERATIVE", "Unleash Super abilities 3 times during flight.", 3, 60 },
+        { "QUANTUM NAVIGATOR", "Clear 20 barrier gateways without wipeout.", 20, 75 },
+        { "MOTE SYNTHESIS", "Harvest 35 Motes of Light in Patrol or Nightfall.", 35, 60 },
+        { "PHASE DRIFTER", "Execute 6 successful Blink or Dash tactical maneuvers.", 6, 50 },
+        { "DRONE ARTILLERY", "Eliminate 8 combatants or drones in Nightfall.", 8, 80 },
+        { "LIGHT BEARER", "Survive a single run past 150 meters.", 150, 70 },
+        { "PARACAUSAL WARPING", "Trigger 4 Stasis Frost Pulses or Strand Grapples.", 4, 60 },
+        { "VANGUARD INITIATE", "Earn a 5x or higher barrier streak.", 5, 50 }
+    };
+    constexpr int POOL_SIZE = sizeof(POOL) / sizeof(POOL[0]);
+    int chosen[NUM_DAILY_BOUNTIES];
+    for (size_t i = 0; i < NUM_DAILY_BOUNTIES; ++i) {
+        int idx = 0;
+        bool duplicate = false;
+        do {
+            idx = bountyRng.RangeInt(0, POOL_SIZE - 1);
+            duplicate = false;
+            for (size_t j = 0; j < i; ++j) {
+                if (chosen[j] == idx) { duplicate = true; break; }
+            }
+        } while (duplicate);
+        chosen[i] = idx;
+        dailyBounties_[i].id = idx;
+        dailyBounties_[i].title = POOL[idx].title;
+        dailyBounties_[i].description = POOL[idx].desc;
+        dailyBounties_[i].targetCount = POOL[idx].target;
+        dailyBounties_[i].currentProgress = 0;
+        dailyBounties_[i].rewardGlimmer = POOL[idx].reward;
+        dailyBounties_[i].completed = false;
+        dailyBounties_[i].claimed = false;
+    }
+}
+
+void GhostGame::ProgressDailyBounty(int bountyType, int count) {
+    for (auto& b : dailyBounties_) {
+        if (b.completed || b.claimed) continue;
+        if (b.id == bountyType) {
+            b.currentProgress += count;
+            if (b.currentProgress >= b.targetCount) {
+                b.currentProgress = b.targetCount;
+                b.completed = true;
+                b.claimed = true;
+                profile_.glimmer += b.rewardGlimmer;
+                SaveData();
+                activeToast_.active = true;
+                activeToast_.title = std::string("BOUNTY CLAIMED: ") + b.title;
+                activeToast_.subtitle = std::string("+") + std::to_string(b.rewardGlimmer) + " Glimmer deposited!";
+                activeToast_.timer = 4.0f;
+                audio_.PlayExoticPickup();
+            }
+        }
+    }
 }
 
 void GhostGame::TriggerVanguardMedal(const char* medalName, int glimmerBonus, Color col) {
@@ -315,8 +396,12 @@ void GhostGame::TriggerTacticalAbility() {
     ghost_.tacticalCooldown = ghost_.tacticalMaxCooldown;
     ghost_.shellExpand = 1.6f;
     audio_.PlayBlink();
-
+    ProgressDailyBounty(3, 1); // PHASE DRIFTER
     LightSubclass sub = static_cast<LightSubclass>(profile_.selectedSubclass);
+    if (sub == LightSubclass::STASIS_SHADEBINDER || sub == LightSubclass::STRAND_RUNNER) {
+        ProgressDailyBounty(6, 1); // PARACAUSAL WARPING
+    }
+
     Color accent = GetSubclassAccentColor();
 
     // Exotic Perk: Gjallarhorn Wolfpack spawns 3 homing micro-rockets on every tactical ability in Nightfall!
@@ -405,6 +490,7 @@ void GhostGame::TriggerSuperAbility() {
 
     audio_.PlaySuperActivate();
     UnlockTriumph(4);
+    ProgressDailyBounty(0, 1); // SURGE OPERATIVE
 
     LightSubclass sub = static_cast<LightSubclass>(profile_.selectedSubclass);
     SpawnParticleBurst(ghost_.pos, 60, GetSubclassAccentColor(), 120.0f, 520.0f, 8.0f, 0.8f);
@@ -783,6 +869,12 @@ void GhostGame::UpdateFrameInput() {
         if (isNightfallMode_ && (IsKeyPressed(KEY_C) || IsKeyPressed(KEY_X))) {
             TriggerDroneFire();
         }
+    } else if (state_ == ScreenState::SPLASH_INTRO) {
+        splashTimer_ += GetFrameTime();
+        if (splashTimer_ >= 2.4f || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) ||
+            IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetKeyPressed() > 0) {
+            state_ = ScreenState::TITLE_FRONT_PAGE;
+        }
     } else if (state_ == ScreenState::TITLE_FRONT_PAGE) {
         if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_E)) {
             state_ = ScreenState::TITLE_DIRECTOR;
@@ -971,8 +1063,10 @@ void GhostGame::UpdatePlayingFixed(float dt) {
             streakGates_++;
             gatesSinceLastBoss_++;
             profile_.totalGatesCleared++;
-            runGlimmerEarned_ += isNightfallMode_ ? 3 : 2;
-            profile_.glimmer += isNightfallMode_ ? 3 : 2;
+            ProgressDailyBounty(1, 1); // QUANTUM NAVIGATOR
+            if (streakGates_ >= 5) ProgressDailyBounty(7, 1); // VANGUARD INITIATE
+            runGlimmerEarned_ += isNightfallMode_ ? 2 : 1;
+            profile_.glimmer += isNightfallMode_ ? 2 : 1;
 
             if (scoreGates_ >= 10) UnlockTriumph(0);
 
@@ -1048,7 +1142,8 @@ void GhostGame::UpdatePlayingFixed(float dt) {
             if (c.kind == CollectibleKind::MOTE_OF_LIGHT) {
                 runMotes_++;
                 profile_.totalMotesCollected++;
-                int glim = isNightfallMode_ ? 6 : 4;
+                ProgressDailyBounty(2, 1); // MOTE SYNTHESIS
+                int glim = isNightfallMode_ ? 3 : 2;
                 runGlimmerEarned_ += glim;
                 profile_.glimmer += glim;
                 float superGain = 14.0f + profile_.upgrades.superEfficiencyLevel * 2.2f;
@@ -1266,7 +1361,7 @@ void GhostGame::RunFrame() {
 
     UpdateFrameInput();
 
-    int musicMode = (state_ == ScreenState::TITLE_FRONT_PAGE) ? 0 :
+    int musicMode = (state_ == ScreenState::SPLASH_INTRO || state_ == ScreenState::TITLE_FRONT_PAGE) ? 0 :
                     (state_ == ScreenState::PLAYING || state_ == ScreenState::PAUSED || state_ == ScreenState::LIGHT_FADED) ? 2 : 1;
     audio_.UpdateMusic(musicMode);
 

@@ -145,7 +145,9 @@ void GhostGame::RenderFrame() {
         DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, fc);
     }
 
-    if (state_ == ScreenState::TITLE_FRONT_PAGE) {
+    if (state_ == ScreenState::SPLASH_INTRO) {
+        RenderSplashIntro();
+    } else if (state_ == ScreenState::TITLE_FRONT_PAGE) {
         RenderParticles();
         RenderTitleFrontPage();
     } else if (state_ == ScreenState::TITLE_DIRECTOR) {
@@ -688,6 +690,50 @@ void GhostGame::RenderHud() const {
     }
 }
 
+void GhostGame::RenderSplashIntro() {
+    // Fill screen with vibrant Sebio sky-blue background
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, Color{ 128, 219, 255, 255 });
+
+    float t = splashTimer_;
+    // Total splash duration: 2.4s (fade in 0.5s, flash 0.6s, hold, fade out 0.5s)
+    float alpha = 1.0f;
+    if (t < 0.5f) {
+        alpha = t / 0.5f;
+    } else if (t > 1.9f) {
+        alpha = std::clamp((2.4f - t) / 0.5f, 0.0f, 1.0f);
+    }
+
+    // Flash glow pulse
+    float flash = 0.0f;
+    if (t >= 0.5f && t <= 1.1f) {
+        flash = std::sin((t - 0.5f) / 0.6f * 3.14159265f);
+    }
+
+    if (splashLogo_.id != 0) {
+        float scale = 0.92f + flash * 0.05f;
+        float w = splashLogo_.width * scale;
+        float h = splashLogo_.height * scale;
+        Rectangle dest = { (VIRTUAL_WIDTH - w) * 0.5f, (VIRTUAL_HEIGHT - h) * 0.5f, w, h };
+        Color logoCol = { 255, 255, 255, static_cast<unsigned char>(255 * alpha) };
+        DrawTexturePro(splashLogo_, { 0, 0, (float)splashLogo_.width, (float)splashLogo_.height }, dest, { 0, 0 }, 0.0f, logoCol);
+    } else {
+        const char* l1 = "SEBINY LABS";
+        int w1 = MeasureText(l1, 56);
+        DrawText(l1, (VIRTUAL_WIDTH - w1) / 2, 310, 56, Color{ 235, 30, 45, static_cast<unsigned char>(255 * alpha) });
+        const char* l2 = "Discover new adventures";
+        int w2 = MeasureText(l2, 22);
+        DrawText(l2, (VIRTUAL_WIDTH - w2) / 2, 385, 22, Color{ 20, 60, 180, static_cast<unsigned char>(255 * alpha) });
+    }
+
+    if (flash > 0.0f) {
+        DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, Color{ 255, 255, 255, static_cast<unsigned char>(flash * 140) });
+    }
+
+    const char* skipHint = "TAP OR PRESS SPACE TO SKIP";
+    int shw = MeasureText(skipHint, 13);
+    DrawText(skipHint, (VIRTUAL_WIDTH - shw) / 2, VIRTUAL_HEIGHT - 38, 13, Color{ 40, 80, 140, static_cast<unsigned char>(160 * alpha) });
+}
+
 void GhostGame::RenderBottomBrandingFooter() const {
     DrawRectangle(0, VIRTUAL_HEIGHT - 54, VIRTUAL_WIDTH, 54, { 6, 9, 16, 235 });
     DrawLine(0, VIRTUAL_HEIGHT - 54, VIRTUAL_WIDTH, VIRTUAL_HEIGHT - 54, { 120, 180, 230, 100 });
@@ -983,8 +1029,6 @@ void GhostGame::RenderSubclassArmory() {
         state_ = ScreenState::TITLE_DIRECTOR;
         audio_.PlayUiSelect();
     }
-
-    RenderBottomBrandingFooter();
 }
 
 void GhostGame::RenderShellHangar() {
@@ -1295,34 +1339,65 @@ void GhostGame::RenderShellHangar() {
         state_ = ScreenState::TITLE_DIRECTOR;
         audio_.PlayUiSelect();
     }
-
-    RenderBottomBrandingFooter();
 }
 
 void GhostGame::RenderTriumphsLog() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
-    DrawText("VANGUARD TRIUMPHS & LORE RECORDS", 70, 42, 30, WHITE);
+    DrawText("VANGUARD RECORD // DAILY BOUNTIES & TRIUMPHS", 70, 32, 26, WHITE);
 
+    char glimHeader[64];
+    std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
+    int ghw = MeasureText(glimHeader, 18);
+    DrawText(glimHeader, VIRTUAL_WIDTH - 70 - ghw, 36, 18, SKYBLUE);
+
+    // --- SECTION 1: ROTATING DAILY VANGUARD BOUNTIES (3 ACTIVE) ---
+    DrawText("ACTIVE DAILY BOUNTIES (RESETS EVERY 24H)", 70, 72, 16, GOLD);
+    for (size_t b = 0; b < NUM_DAILY_BOUNTIES; ++b) {
+        const auto& bounty = dailyBounties_[b];
+        Rectangle br = { 70.0f + b * 380.0f, 96.0f, 365.0f, 95.0f };
+        bool done = bounty.completed;
+        DrawRectangleRec(br, done ? Color{ 22, 46, 38, 235 } : Color{ 14, 20, 32, 220 });
+        DrawRectangleLinesEx(br, 1.5f, done ? GREEN : (bounty.currentProgress > 0 ? SKYBLUE : Color{ 60, 75, 95, 200 }));
+
+        DrawText(bounty.title, static_cast<int>(br.x + 14), static_cast<int>(br.y + 10), 16, done ? GREEN : GOLD);
+        DrawTextWrapped(bounty.description, static_cast<int>(br.x + 14), static_cast<int>(br.y + 30), 335, 12, 16, LIGHTGRAY);
+
+        // Progress bar
+        float ratio = std::clamp(static_cast<float>(bounty.currentProgress) / std::max(1, bounty.targetCount), 0.0f, 1.0f);
+        DrawRectangle(static_cast<int>(br.x + 14), static_cast<int>(br.y + 68), 220, 14, { 25, 32, 45, 255 });
+        DrawRectangle(static_cast<int>(br.x + 14), static_cast<int>(br.y + 68), static_cast<int>(220 * ratio), 14, done ? GREEN : SKYBLUE);
+
+        char pStr[48];
+        std::snprintf(pStr, sizeof(pStr), "%d / %d", bounty.currentProgress, bounty.targetCount);
+        DrawText(pStr, static_cast<int>(br.x + 242), static_cast<int>(br.y + 68), 13, WHITE);
+
+        char rStr[32];
+        std::snprintf(rStr, sizeof(rStr), done ? "CLAIMED" : "+%d G", bounty.rewardGlimmer);
+        DrawText(rStr, static_cast<int>(br.x + 300), static_cast<int>(br.y + 68), 13, done ? GREEN : GOLD);
+    }
+
+    // --- SECTION 2: PERMANENT VANGUARD TRIUMPHS ---
+    DrawText("LIFETIME TRIUMPHS & RECORDS", 70, 204, 16, SKYBLUE);
     const auto& cat = GetTriumphCatalog();
     for (int i = 0; i < static_cast<int>(NUM_TRIUMPHS); ++i) {
         int col = i % 2;
         int row = i / 2;
-        Rectangle tr = { 70.0f + col * 575.0f, 96.0f + row * 92.0f, 555.0f, 82.0f };
+        Rectangle tr = { 70.0f + col * 575.0f, 228.0f + row * 66.0f, 555.0f, 60.0f };
         bool done = profile_.unlockedTriumphs[i];
 
         DrawRectangleRec(tr, done ? Color{ 24, 42, 54, 240 } : Color{ 14, 18, 28, 220 });
-        DrawRectangleLinesEx(tr, 1.5f, done ? GOLD : Color{ 70, 80, 95, 180 });
+        DrawRectangleLinesEx(tr, 1.2f, done ? GOLD : Color{ 60, 70, 85, 180 });
 
-        DrawPoly({ tr.x + 34.0f, tr.y + 41.0f }, 4, 16.0f, 0.0f, done ? GOLD : DARKGRAY);
-        DrawText(cat[i].title, static_cast<int>(tr.x + 64), static_cast<int>(tr.y + 12), 17, done ? GOLD : LIGHTGRAY);
-        DrawTextWrapped(cat[i].description, static_cast<int>(tr.x + 64), static_cast<int>(tr.y + 36), 475, 14, 18, WHITE);
+        DrawPoly({ tr.x + 24.0f, tr.y + 30.0f }, 4, 12.0f, 0.0f, done ? GOLD : DARKGRAY);
+        DrawText(cat[i].title, static_cast<int>(tr.x + 46), static_cast<int>(tr.y + 8), 15, done ? GOLD : LIGHTGRAY);
+        DrawTextWrapped(cat[i].description, static_cast<int>(tr.x + 46), static_cast<int>(tr.y + 28), 380, 12, 15, WHITE);
 
         char rew[48];
-        std::snprintf(rew, sizeof(rew), done ? "CLAIMED (+%d G)" : "REWARD: +%d G", cat[i].rewardGlimmer);
-        DrawText(rew, static_cast<int>(tr.x + 400), static_cast<int>(tr.y + 12), 14, done ? GREEN : SKYBLUE);
+        std::snprintf(rew, sizeof(rew), done ? "CLAIMED" : "+%d G", cat[i].rewardGlimmer);
+        DrawText(rew, static_cast<int>(tr.x + 450), static_cast<int>(tr.y + 20), 14, done ? GREEN : SKYBLUE);
     }
 
-    Rectangle backBtn = { 70.0f, 585.0f, 235.0f, 48.0f };
+    Rectangle backBtn = { 70.0f, 580.0f, 235.0f, 48.0f };
     DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
@@ -1330,8 +1405,6 @@ void GhostGame::RenderTriumphsLog() {
         state_ = ScreenState::TITLE_DIRECTOR;
         audio_.PlayUiSelect();
     }
-
-    RenderBottomBrandingFooter();
 }
 
 void GhostGame::RenderPauseOverlay() {
@@ -1407,8 +1480,6 @@ void GhostGame::RenderLightFadedOverlay() {
         state_ = ScreenState::TITLE_DIRECTOR;
         audio_.PlayUiSelect();
     }
-
-    RenderBottomBrandingFooter();
 }
 
 void GhostGame::RenderTriumphToast() const {

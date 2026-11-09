@@ -27,6 +27,8 @@ private:
     void LoadSaveData();
     void SaveData() const;
     void UnlockTriumph(int triumphIdx);
+    void RefreshDailyBounties();
+    void ProgressDailyBounty(int bountyType, int count = 1);
     void TriggerVanguardMedal(const char* medalName, int glimmerBonus, Color col = GOLD);
     bool HasUnlockedAnyDrone() const;
 
@@ -73,6 +75,7 @@ private:
     void RenderParticles() const;
     void RenderGhostRig(Vector2 pos, float radius, float rotDeg, float expand, float spinAngle, Vector2 eyeOffset, int shellIdx, float alpha = 1.0f) const;
     void RenderHud() const;
+    void RenderSplashIntro();
     void RenderTitleFrontPage();
     void RenderTitleDirector();
     void RenderSubclassArmory();
@@ -89,7 +92,11 @@ private:
     SaveProfile profile_{};
     PCG32 rng_{};
 
-    ScreenState state_ = ScreenState::TITLE_FRONT_PAGE;
+    ScreenState state_ = ScreenState::SPLASH_INTRO;
+    float splashTimer_ = 0.0f;
+    Texture2D splashLogo_{};
+    std::array<DailyBounty, NUM_DAILY_BOUNTIES> dailyBounties_{};
+    int activeBountyDateSeed_ = 0;
     int towerTab_ = 0; // 0 = Shells I, 1 = Shells II, 2 = Shaders, 3 = Xur Exotic Curios
     bool isNightfallMode_ = false;
     uint64_t activeSeed_ = 0;

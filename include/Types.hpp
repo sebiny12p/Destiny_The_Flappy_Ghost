@@ -22,8 +22,21 @@ constexpr size_t NUM_TRIUMPHS = 10;
 constexpr size_t MAX_PATROL_ENEMIES = 16;
 constexpr size_t NUM_SHADERS = 6;
 constexpr size_t NUM_DRONES = 4;
+constexpr size_t NUM_DAILY_BOUNTIES = 3;
+
+struct DailyBounty {
+    int id = 0;
+    const char* title = "";
+    const char* description = "";
+    int targetCount = 10;
+    int currentProgress = 0;
+    int rewardGlimmer = 60;
+    bool completed = false;
+    bool claimed = false;
+};
 
 enum class ScreenState {
+    SPLASH_INTRO,      // Sebiny Labs Logo Flash Intro
     TITLE_FRONT_PAGE,  // "Press Any Key / Tap to Enter Destiny" Title Page
     TITLE_DIRECTOR,    // Vanguard Director Navigation
     SUBCLASS_ARMORY,
@@ -142,7 +155,7 @@ struct CombatDroneDef {
 
 struct SaveProfile {
     uint32_t magic = 0x47485358; // 'GHSX' v5
-    int glimmer = 250;
+    int glimmer = 60;
     int bestScoreStandard = 0;
     int bestScoreNightfall = 0;
     int totalMotesCollected = 0;
