@@ -83,6 +83,7 @@ private:
     void RenderShellHangar();
     void RenderTriumphsLog();
     void RenderSettingsView();
+    void RenderCareerStats();
     void RenderPauseOverlay();
     void RenderLightFadedOverlay();
     void RenderBottomBrandingFooter() const;

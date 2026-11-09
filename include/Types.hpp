@@ -43,6 +43,7 @@ enum class ScreenState {
     SHELL_HANGAR,
     TRIUMPHS_LOG,
     SETTINGS_VIEW,
+    CAREER_STATS,      // Vanguard Career Dossier & Lifetime Flight Telemetry
     PLAYING,
     PAUSED,
     LIGHT_FADED // Game Over screen
@@ -193,6 +194,15 @@ struct SaveProfile {
     int targetFps = 120; // 30, 60, 120
     int touchOpacity = 2; // 0 = 40%, 1 = 70%, 2 = 100%
     bool leftHandedControls = false;
+    int musicTrackChoice = 0; // 0 = Auto-Shuffle, 1 = Last Array, 2 = Sepiks, 3 = Shadowkeep, 4 = Deep Stone Crypt
+
+    // Lifetime Career Telemetry
+    int totalRunsStarted = 0;
+    int totalDistanceFlown = 0;
+    int totalGlimmerEarnedLifetime = 60;
+    int totalSupersActivated = 0;
+    int totalBlinkTeleports = 0;
+    int totalBountiesCompleted = 0;
 };
 
 struct GhostPlayer {

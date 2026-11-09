@@ -180,6 +180,11 @@ void GhostGame::LoadSaveData() {
                     profile_.equippedDrone = -1;
                 }
             }
+            audio_.SetMasterVolume(profile_.masterVolume);
+            audio_.SetMusicVolume(profile_.musicVolume);
+            audio_.SetSfxVolume(profile_.sfxVolume);
+            audio_.SetMusicTrackPreference(profile_.musicTrackChoice);
+            SetTargetFPS(profile_.targetFps);
             return;
         }
     }
@@ -268,6 +273,8 @@ void GhostGame::ProgressDailyBounty(int bountyType, int count) {
                 b.completed = true;
                 b.claimed = true;
                 profile_.glimmer += b.rewardGlimmer;
+                profile_.totalGlimmerEarnedLifetime += b.rewardGlimmer;
+                profile_.totalBountiesCompleted++;
                 SaveData();
                 activeToast_.active = true;
                 activeToast_.title = std::string("BOUNTY CLAIMED: ") + b.title;
@@ -300,6 +307,7 @@ void GhostGame::StartNewRun(bool dailyNightfall) {
     rng_.Seed(activeSeed_, isNightfallMode_ ? 777ULL : 101ULL);
 
     SetScreenState(ScreenState::PLAYING);
+    profile_.totalRunsStarted++;
     runTime_ = 0.0f;
     distanceMeters_ = 0.0f;
     scrollSpeed_ = isNightfallMode_ ? 345.0f : 310.0f;
@@ -426,6 +434,7 @@ void GhostGame::TriggerFlap() {
 void GhostGame::TriggerTacticalAbility() {
     if (ghost_.tacticalCooldown > 0.0f) return;
 
+    profile_.totalBlinkTeleports++;
     ghost_.tacticalCooldown = ghost_.tacticalMaxCooldown;
     ghost_.shellExpand = 1.6f;
     audio_.PlayBlink();
@@ -512,6 +521,7 @@ void GhostGame::TriggerTacticalAbility() {
 void GhostGame::TriggerSuperAbility() {
     if (ghost_.superEnergy < 100.0f || ghost_.superActiveTimer > 0.0f) return;
 
+    profile_.totalSupersActivated++;
     ghost_.superEnergy = 0.0f;
     float durationBonus = profile_.upgrades.superEfficiencyLevel * 0.45f;
     ghost_.superActiveTimer = 4.8f + durationBonus;
@@ -672,6 +682,7 @@ void GhostGame::HandleFatalImpact() {
     audio_.PlayDeath();
     SpawnParticleBurst(ghost_.pos, 75, WHITE, 60.0f, 420.0f, 7.0f, 1.1f);
 
+    profile_.totalDistanceFlown += scoreGates_;
     if (isNightfallMode_) {
         if (scoreGates_ > profile_.bestScoreNightfall) profile_.bestScoreNightfall = scoreGates_;
         if (scoreGates_ >= 20) UnlockTriumph(7);
@@ -870,6 +881,16 @@ void GhostGame::UpdateFrameInput() {
     }
 
     if (state_ == ScreenState::PLAYING) {
+        // Music Jukebox Skip: N or Gamepad Right Stick Click
+        if (IsKeyPressed(KEY_N) || (IsGamepadAvailable(0) && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_THUMB))) {
+            int nextIdx = audio_.CycleNextActionTrack();
+            activeToast_.title = "NOW PLAYING:";
+            activeToast_.subtitle = audio_.GetActionTrackName(nextIdx);
+            activeToast_.timer = 2.8f;
+            activeToast_.active = true;
+            audio_.PlayUiSelect();
+        }
+
         // Collect new touch points & mouse click
         struct TouchEvent {
             Vector2 pos;
@@ -1028,6 +1049,11 @@ void GhostGame::UpdateFrameInput() {
             // Triumphs Record: R or Gamepad (RB)
             else if (IsKeyPressed(KEY_R) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1))) {
                 SetScreenState(ScreenState::TRIUMPHS_LOG);
+                audio_.PlayUiSelect();
+            }
+            // Career Stats: C
+            else if (IsKeyPressed(KEY_C)) {
+                SetScreenState(ScreenState::CAREER_STATS);
                 audio_.PlayUiSelect();
             }
             // Settings: S or Gamepad Select/Back (MIDDLE_LEFT)

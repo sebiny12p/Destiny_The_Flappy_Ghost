@@ -161,6 +161,8 @@ void GhostGame::RenderFrame() {
         RenderTriumphsLog();
     } else if (state_ == ScreenState::SETTINGS_VIEW) {
         RenderSettingsView();
+    } else if (state_ == ScreenState::CAREER_STATS) {
+        RenderCareerStats();
     } else if (state_ == ScreenState::PAUSED) {
         RenderPauseOverlay();
     } else if (state_ == ScreenState::LIGHT_FADED) {
@@ -869,10 +871,11 @@ void GhostGame::RenderTitleDirector() {
 
     Rectangle btnPatrol   = { 180.0f, 392.0f, 440.0f, 62.0f };
     Rectangle btnNightfall= { 660.0f, 392.0f, 440.0f, 62.0f };
-    Rectangle btnSubclass = { 100.0f, 464.0f, 255.0f, 58.0f };
-    Rectangle btnHangar   = { 375.0f, 464.0f, 255.0f, 58.0f };
-    Rectangle btnTriumphs = { 650.0f, 464.0f, 255.0f, 58.0f };
-    Rectangle btnSettings = { 925.0f, 464.0f, 255.0f, 58.0f };
+    Rectangle btnSubclass = { 72.0f, 464.0f, 216.0f, 58.0f };
+    Rectangle btnHangar   = { 304.0f, 464.0f, 216.0f, 58.0f };
+    Rectangle btnTriumphs = { 536.0f, 464.0f, 216.0f, 58.0f };
+    Rectangle btnCareer   = { 768.0f, 464.0f, 216.0f, 58.0f };
+    Rectangle btnSettings = { 1000.0f, 464.0f, 216.0f, 58.0f };
 
     const char* patrolLabel = hasGamepad ? "LAUNCH VANGUARD PATROL [(A)]" : "LAUNCH VANGUARD PATROL [SPACE]";
     if (DrawDirectorButton(btnPatrol, patrolLabel, "Pure flight & abilities mode (no weapons/drones)", SKYBLUE)) {
@@ -908,14 +911,14 @@ void GhostGame::RenderTitleDirector() {
         case LightSubclass::STRAND_RUNNER:          curSubLabel = "Equipped: Threadrunner"; break;
         case LightSubclass::PRISMATIC_TRANSCENDENT: curSubLabel = "Equipped: Transcendent"; break;
     }
-    const char* subBtnTitle = hasGamepad ? "SUBCLASS ARMORY [(LB)]" : "SUBCLASS ARMORY [U]";
+    const char* subBtnTitle = hasGamepad ? "SUBCLASS [(LB)]" : "SUBCLASS [U]";
     if (DrawDirectorButton(btnSubclass, subBtnTitle, curSubLabel, GetSubclassAccentColor())) {
         SetScreenState(ScreenState::SUBCLASS_ARMORY);
         audio_.PlayUiSelect();
     }
 
-    const char* towerTitle = hasGamepad ? "THE TOWER [(Y)]" : "THE TOWER [T]";
-    if (DrawDirectorButton(btnHangar, towerTitle, "Shells, Drones, Shaders & Exotics", ORANGE)) {
+    const char* towerTitle = hasGamepad ? "TOWER [(Y)]" : "TOWER [T]";
+    if (DrawDirectorButton(btnHangar, towerTitle, "Shells & Drones", ORANGE)) {
         SetScreenState(ScreenState::SHELL_HANGAR);
         audio_.PlayUiSelect();
     }
@@ -923,15 +926,22 @@ void GhostGame::RenderTitleDirector() {
     int unlockedCount = 0;
     for (bool b : profile_.unlockedTriumphs) if (b) unlockedCount++;
     char triSub[64];
-    std::snprintf(triSub, sizeof(triSub), "Completed: %d / %d Triumphs", unlockedCount, static_cast<int>(NUM_TRIUMPHS));
+    std::snprintf(triSub, sizeof(triSub), "%d / %d Triumphs", unlockedCount, static_cast<int>(NUM_TRIUMPHS));
     const char* triTitle = hasGamepad ? "TRIUMPHS [(RB)]" : "TRIUMPHS [R]";
     if (DrawDirectorButton(btnTriumphs, triTitle, triSub, GREEN)) {
         SetScreenState(ScreenState::TRIUMPHS_LOG);
         audio_.PlayUiSelect();
     }
 
+    char carSub[64];
+    std::snprintf(carSub, sizeof(carSub), "Runs: %d | Gates: %d", profile_.totalRunsStarted, profile_.totalDistanceFlown);
+    if (DrawDirectorButton(btnCareer, "CAREER [C]", carSub, GOLD)) {
+        SetScreenState(ScreenState::CAREER_STATS);
+        audio_.PlayUiSelect();
+    }
+
     const char* setBtnTitle = hasGamepad ? "SETTINGS [BACK]" : "SETTINGS [S]";
-    if (DrawDirectorButton(btnSettings, setBtnTitle, "Audio, Visuals & Controls", PURPLE)) {
+    if (DrawDirectorButton(btnSettings, setBtnTitle, "Audio & Controls", PURPLE)) {
         settingsPrevState_ = ScreenState::TITLE_DIRECTOR;
         SetScreenState(ScreenState::SETTINGS_VIEW);
         audio_.PlayUiSelect();
@@ -939,7 +949,7 @@ void GhostGame::RenderTitleDirector() {
 
     const char* ctrlHint = hasGamepad
                          ? "CONTROLS: [(A) / START] Launch Patrol  |  [(X)] Nightfall  |  [(Y)] Tower  |  [(B)] Back"
-                         : "CONTROLS: [SPACE / ENTER] Launch Patrol  |  [N] Nightfall  |  [T] Tower  |  [ESC] Back";
+                         : "CONTROLS: [SPACE] Patrol  |  [N] Nightfall  |  [T] Tower  |  [C] Career  |  [N-Key in run] Next OST Track";
     int chw = MeasureText(ctrlHint, 14);
     DrawText(ctrlHint, (VIRTUAL_WIDTH - chw) / 2, 545, 14, { 180, 210, 235, 215 });
 
@@ -1440,6 +1450,40 @@ void GhostGame::RenderSettingsView() {
         audio_.ApplyVolumes();
     }
 
+    // --- GAMEPLAY SOUNDTRACK JUKEBOX SELECTOR ---
+    DrawText("GAMEPLAY SOUNDTRACK JUKEBOX [N]:", 70, 390, 15, WHITE);
+    Rectangle prevTrackBtn = { 70.0f, 412.0f, 42.0f, 38.0f };
+    Rectangle nextTrackBtn = { 508.0f, 412.0f, 42.0f, 38.0f };
+    Rectangle trackCardRec = { 118.0f, 412.0f, 384.0f, 38.0f };
+
+    DrawRectangleRec(prevTrackBtn, IsRectHovered(prevTrackBtn) ? Color{ 40, 65, 100, 255 } : Color{ 20, 28, 44, 220 });
+    DrawRectangleLinesEx(prevTrackBtn, 1.5f, SKYBLUE);
+    DrawText("<", static_cast<int>(prevTrackBtn.x + 15), static_cast<int>(prevTrackBtn.y + 9), 18, WHITE);
+    if (IsButtonClicked(prevTrackBtn)) {
+        profile_.musicTrackChoice = (profile_.musicTrackChoice + 4) % 5;
+        audio_.SetMusicTrackPreference(profile_.musicTrackChoice);
+        audio_.PlayUiSelect();
+    }
+
+    DrawRectangleRec(nextTrackBtn, IsRectHovered(nextTrackBtn) ? Color{ 40, 65, 100, 255 } : Color{ 20, 28, 44, 220 });
+    DrawRectangleLinesEx(nextTrackBtn, 1.5f, SKYBLUE);
+    DrawText(">", static_cast<int>(nextTrackBtn.x + 16), static_cast<int>(nextTrackBtn.y + 9), 18, WHITE);
+    if (IsButtonClicked(nextTrackBtn)) {
+        profile_.musicTrackChoice = (profile_.musicTrackChoice + 1) % 5;
+        audio_.SetMusicTrackPreference(profile_.musicTrackChoice);
+        audio_.PlayUiSelect();
+    }
+
+    DrawRectangleRec(trackCardRec, { 16, 24, 38, 240 });
+    DrawRectangleLinesEx(trackCardRec, 1.5f, profile_.musicTrackChoice == 0 ? GOLD : SKYBLUE);
+    const char* tLabel = (profile_.musicTrackChoice == 0)
+        ? "AUTO-SHUFFLE ALL 4 TRACKS [DEFAULT]"
+        : audio_.GetActionTrackName(profile_.musicTrackChoice - 1);
+    int tlw = MeasureText(tLabel, 12);
+    DrawText(tLabel, static_cast<int>(trackCardRec.x + (trackCardRec.width - tlw) / 2.0f), static_cast<int>(trackCardRec.y + 12), 12, profile_.musicTrackChoice == 0 ? GOLD : WHITE);
+
+    DrawText("* Press [N] during flights to skip track instantly", 70, 458, 12, { 140, 180, 220, 200 });
+
     // --- RIGHT COLUMN: VISUALS, TOUCH & ACCESSIBILITY ---
     DrawText("VISUALS & ACCESSIBILITY", 660, 92, 18, SKYBLUE);
 
@@ -1504,14 +1548,11 @@ void GhostGame::RenderSettingsView() {
     DrawText("LEFT-HANDED (MIRRORED)", static_cast<int>(handLeft.x + 12), static_cast<int>(handLeft.y + 11), 13, profile_.leftHandedControls ? GOLD : LIGHTGRAY);
     if (IsButtonClicked(handLeft)) { profile_.leftHandedControls = true; audio_.PlayUiSelect(); }
 
-    // --- BOTTOM ROW: DATA RESET & BACK ---
-    DrawLine(70, 460, VIRTUAL_WIDTH - 70, 460, { 255, 255, 255, 55 });
-
-    // Clear Save Data Button
-    Rectangle resetBtn = { 70.0f, 480.0f, 320.0f, 48.0f };
+    // Clear Save Data Button (Right Column)
+    Rectangle resetBtn = { 660.0f, 468.0f, 310.0f, 42.0f };
     DrawRectangleRec(resetBtn, showResetConfirm_ ? Color{ 110, 30, 35, 255 } : Color{ 48, 20, 26, 230 });
     DrawRectangleLinesEx(resetBtn, 2.0f, RED);
-    DrawText(showResetConfirm_ ? "CONFIRM RESET PROGRESS?" : "CLEAR SAVE DATA (RESET)", static_cast<int>(resetBtn.x + 22), static_cast<int>(resetBtn.y + 15), 15, WHITE);
+    DrawText(showResetConfirm_ ? "CONFIRM RESET PROGRESS?" : "CLEAR SAVE DATA (RESET)", static_cast<int>(resetBtn.x + 18), static_cast<int>(resetBtn.y + 13), 14, WHITE);
     if (IsButtonClicked(resetBtn)) {
         if (!showResetConfirm_) {
             showResetConfirm_ = true;
@@ -1526,6 +1567,7 @@ void GhostGame::RenderSettingsView() {
             fresh.screenFlashes = profile_.screenFlashes;
             fresh.targetFps = profile_.targetFps;
             fresh.leftHandedControls = profile_.leftHandedControls;
+            fresh.musicTrackChoice = profile_.musicTrackChoice;
             profile_ = fresh;
             SaveData();
             showResetConfirm_ = false;
@@ -1533,17 +1575,20 @@ void GhostGame::RenderSettingsView() {
         }
     }
     if (showResetConfirm_) {
-        Rectangle cancelReset = { 400.0f, 480.0f, 130.0f, 48.0f };
+        Rectangle cancelReset = { 985.0f, 468.0f, 110.0f, 42.0f };
         DrawRectangleRec(cancelReset, { 28, 38, 52, 240 });
         DrawRectangleLinesEx(cancelReset, 1.5f, SKYBLUE);
-        DrawText("CANCEL", static_cast<int>(cancelReset.x + 28), static_cast<int>(cancelReset.y + 15), 15, WHITE);
+        DrawText("CANCEL", static_cast<int>(cancelReset.x + 20), static_cast<int>(cancelReset.y + 13), 14, WHITE);
         if (IsButtonClicked(cancelReset)) { showResetConfirm_ = false; audio_.PlayUiSelect(); }
     }
 
+    // --- BOTTOM ROW: FOOTER & BACK ---
+    DrawLine(70, 545, VIRTUAL_WIDTH - 70, 545, { 255, 255, 255, 45 });
+
     // Engine & Build Info
-    const char* bInfo = "DESTINY: THE FLAPPY GHOST  |  v1.2.0  |  SEBINY LABS ENGINE";
+    const char* bInfo = "DESTINY: THE FLAPPY GHOST  |  v1.3.0 EXPANSION  |  SEBINY LABS ENGINE";
     int biw = MeasureText(bInfo, 13);
-    DrawText(bInfo, (VIRTUAL_WIDTH - biw) / 2, 545, 13, { 140, 175, 215, 180 });
+    DrawText(bInfo, (VIRTUAL_WIDTH - biw) / 2, 555, 13, { 140, 175, 215, 180 });
 
     // Back to Previous Screen Button
     Rectangle backBtn = { 70.0f, 580.0f, 260.0f, 48.0f };
@@ -1553,6 +1598,115 @@ void GhostGame::RenderSettingsView() {
     if (IsButtonClicked(backBtn) || IsKeyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) {
         SaveData();
         SetScreenState(settingsPrevState_);
+        audio_.PlayUiSelect();
+    }
+}
+
+void GhostGame::RenderCareerStats() {
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 24, 245 });
+
+    const char* sTitle = "VANGUARD CAREER DOSSIER // LIFETIME GUARDIAN TELEMETRY";
+    DrawText(sTitle, 70, 30, 24, GOLD);
+
+    char glimBuf[128];
+    std::snprintf(glimBuf, sizeof(glimBuf), "CURRENT GLIMMER IN VAULT: %d G", profile_.glimmer);
+    int gbw = MeasureText(glimBuf, 15);
+    DrawText(glimBuf, VIRTUAL_WIDTH - 70 - gbw, 36, 15, SKYBLUE);
+
+    DrawLine(70, 68, VIRTUAL_WIDTH - 70, 68, { 255, 255, 255, 55 });
+
+    auto DrawStatRow = [](float x, float y, float w, const char* label, const std::string& val, Color valCol) {
+        DrawText(label, static_cast<int>(x), static_cast<int>(y), 15, WHITE);
+        int vw = MeasureText(val.c_str(), 15);
+        DrawText(val.c_str(), static_cast<int>(x + w - vw), static_cast<int>(y), 15, valCol);
+        DrawLine(static_cast<int>(x), static_cast<int>(y + 24), static_cast<int>(x + w), static_cast<int>(y + 24), { 255, 255, 255, 20 });
+    };
+
+    // LEFT CARD: FLIGHT & NIGHTFALL COMBAT METRICS
+    Rectangle leftCard = { 70.0f, 84.0f, 550.0f, 475.0f };
+    DrawRectangleRec(leftCard, { 14, 20, 36, 230 });
+    DrawRectangleLinesEx(leftCard, 2.0f, ORANGE);
+    DrawRectangle(static_cast<int>(leftCard.x), static_cast<int>(leftCard.y), static_cast<int>(leftCard.width), 34, { 38, 22, 16, 240 });
+    DrawText("VANGUARD FLIGHT & NIGHTFALL COMBAT RECORDS", static_cast<int>(leftCard.x + 18), static_cast<int>(leftCard.y + 9), 15, GOLD);
+
+    float sy = leftCard.y + 48.0f;
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Total Distance Flown (Lifetime Gates):", std::to_string(profile_.totalDistanceFlown) + " Gates", SKYBLUE);
+    sy += 38.0f;
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Best Vanguard Patrol Score:", std::to_string(profile_.bestScoreStandard) + " Gates", GOLD);
+    sy += 38.0f;
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Best Nightfall Strike Score:", std::to_string(profile_.bestScoreNightfall) + " Gates", GOLD);
+    sy += 38.0f;
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Total Flight Sorties Launched:", std::to_string(profile_.totalRunsStarted), WHITE);
+    sy += 38.0f;
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Paracausal Super Abilities Unleashed:", std::to_string(profile_.totalSupersActivated), ORANGE);
+    sy += 38.0f;
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Quantum Blink Teleports Executed:", std::to_string(profile_.totalBlinkTeleports), PURPLE);
+    sy += 38.0f;
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "High-Value Boss Entities Slain:", std::to_string(profile_.totalBossesDefeated), RED);
+    sy += 38.0f;
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Light & Dark Motes Synthesized:", std::to_string(profile_.totalMotesCollected), GREEN);
+    sy += 38.0f;
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Daily Vanguard Bounties Completed:", std::to_string(profile_.totalBountiesCompleted), GOLD);
+    sy += 38.0f;
+    const char* subName = "Voidwalker";
+    switch (static_cast<LightSubclass>(profile_.selectedSubclass)) {
+        case LightSubclass::VOID_WALKER: subName = "Voidwalker (Void)"; break;
+        case LightSubclass::SOLAR_DAWN: subName = "Dawnblade (Solar)"; break;
+        case LightSubclass::ARC_CALLER: subName = "Stormcaller (Arc)"; break;
+        case LightSubclass::STASIS_SHADEBINDER: subName = "Shadebinder (Stasis)"; break;
+        case LightSubclass::STRAND_RUNNER: subName = "Threadrunner (Strand)"; break;
+        case LightSubclass::PRISMATIC_TRANSCENDENT: subName = "Transcendent (Prismatic)"; break;
+    }
+    DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Active Combat Subclass:", subName, SKYBLUE);
+
+    // RIGHT CARD: GUARDIAN INVENTORY & SYSTEM ACCREDITATION
+    Rectangle rightCard = { 660.0f, 84.0f, 550.0f, 475.0f };
+    DrawRectangleRec(rightCard, { 14, 20, 36, 230 });
+    DrawRectangleLinesEx(rightCard, 2.0f, SKYBLUE);
+    DrawRectangle(static_cast<int>(rightCard.x), static_cast<int>(rightCard.y), static_cast<int>(rightCard.width), 34, { 18, 28, 48, 240 });
+    DrawText("GUARDIAN ARSENAL & SYSTEM ACCREDITATION", static_cast<int>(rightCard.x + 18), static_cast<int>(rightCard.y + 9), 15, SKYBLUE);
+
+    int shellCount = 0;
+    for (bool b : profile_.unlockedShells) if (b) shellCount++;
+    int subCount = 0;
+    for (bool b : profile_.unlockedSubclasses) if (b) subCount++;
+    int droneCount = 0;
+    for (bool b : profile_.unlockedDrones) if (b) droneCount++;
+    int shaderCount = 0;
+    for (bool b : profile_.unlockedShaders) if (b) shaderCount++;
+    int triCount = 0;
+    for (bool b : profile_.unlockedTriumphs) if (b) triCount++;
+
+    sy = rightCard.y + 48.0f;
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "All-Time Glimmer Synthesized:", std::to_string(profile_.totalGlimmerEarnedLifetime) + " G", GOLD);
+    sy += 38.0f;
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Exotic Ghost Shells Acquired:", std::to_string(shellCount) + " / " + std::to_string(NUM_SHELLS), SKYBLUE);
+    sy += 38.0f;
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Paracausal Subclasses Mastered:", std::to_string(subCount) + " / " + std::to_string(NUM_SUBCLASSES), PURPLE);
+    sy += 38.0f;
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Tactical Combat Drones Requisitioned:", std::to_string(droneCount) + " / " + std::to_string(NUM_DRONES), ORANGE);
+    sy += 38.0f;
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Cosmetic Armor Shaders Collected:", std::to_string(shaderCount) + " / " + std::to_string(NUM_SHADERS), WHITE);
+    sy += 38.0f;
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Vanguard Triumphs Sealed:", std::to_string(triCount) + " / " + std::to_string(NUM_TRIUMPHS), GREEN);
+    sy += 38.0f;
+    std::string droneName = (profile_.equippedDrone >= 0) ? GetDroneCatalog()[profile_.equippedDrone].name : "NONE (LOCKED)";
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Equipped Combat Drone:", droneName, (profile_.equippedDrone >= 0) ? GOLD : RED);
+    sy += 38.0f;
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Active Ghost Shell Chassis:", GetShellCatalog()[profile_.equippedShell].name, GOLD);
+    sy += 38.0f;
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Current Audio Soundtrack Selection:", audio_.GetCurrentActionTrackName(), ORANGE);
+    sy += 38.0f;
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Engine Runtime Platform:", "PC / ANDROID OPENGL HYBRID", LIGHTGRAY);
+
+    // Bottom Navigation Bar
+    DrawLine(70, 580, VIRTUAL_WIDTH - 70, 580, { 255, 255, 255, 45 });
+    Rectangle statsBackBtn = { 70.0f, 600.0f, 260.0f, 48.0f };
+    DrawRectangleRec(statsBackBtn, IsRectHovered(statsBackBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
+    DrawRectangleLinesEx(statsBackBtn, 2.0f, ORANGE);
+    DrawText("< BACK TO DIRECTOR [ESC]", static_cast<int>(statsBackBtn.x + 26), static_cast<int>(statsBackBtn.y + 16), 16, WHITE);
+    if (IsButtonClicked(statsBackBtn) || IsKeyPressed(KEY_ESCAPE) || (IsGamepadAvailable(0) && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))) {
+        SetScreenState(ScreenState::TITLE_DIRECTOR);
         audio_.PlayUiSelect();
     }
 }

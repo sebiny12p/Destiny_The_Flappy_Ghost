@@ -151,6 +151,8 @@ void SoundSynth::Init() {
     hasOrbitMusic_   = TryLoadTrack("music_orbit.mp3",   bgmOrbit_);
     hasActionMusic1_ = TryLoadTrack("music_action.mp3",  bgmAction1_);
     hasActionMusic2_ = TryLoadTrack("music_action2.mp3", bgmAction2_);
+    hasActionMusic3_ = TryLoadTrack("music_action3.mp3", bgmAction3_);
+    hasActionMusic4_ = TryLoadTrack("music_action4.mp3", bgmAction4_);
 
     ApplyVolumes();
 }
@@ -164,6 +166,8 @@ void SoundSynth::ApplyVolumes() {
     if (hasOrbitMusic_)   ::SetMusicVolume(bgmOrbit_, effectiveMusic);
     if (hasActionMusic1_) ::SetMusicVolume(bgmAction1_, effectiveMusic);
     if (hasActionMusic2_) ::SetMusicVolume(bgmAction2_, effectiveMusic);
+    if (hasActionMusic3_) ::SetMusicVolume(bgmAction3_, effectiveMusic);
+    if (hasActionMusic4_) ::SetMusicVolume(bgmAction4_, effectiveMusic);
 
     SetSoundVolume(sndFlap_, effectiveSfx * 0.90f);
     SetSoundVolume(sndBlink_, effectiveSfx * 0.85f);
@@ -183,6 +187,8 @@ void SoundSynth::Shutdown() {
     if (hasOrbitMusic_)   UnloadMusicStream(bgmOrbit_);
     if (hasActionMusic1_) UnloadMusicStream(bgmAction1_);
     if (hasActionMusic2_) UnloadMusicStream(bgmAction2_);
+    if (hasActionMusic3_) UnloadMusicStream(bgmAction3_);
+    if (hasActionMusic4_) UnloadMusicStream(bgmAction4_);
     UnloadSound(sndFlap_);
     UnloadSound(sndBlink_);
     UnloadSound(sndMote_);
@@ -197,6 +203,44 @@ void SoundSynth::Shutdown() {
     initialized_ = false;
 }
 
+const char* SoundSynth::GetActionTrackName(int idx) const {
+    switch (idx) {
+        case 0: return "THE LAST ARRAY (DESTINY OST)";
+        case 1: return "SEPIKS PRIME (DESTINY OST)";
+        case 2: return "SHADOWKEEP (SPOOKY DESCENT)";
+        case 3: return "DEEP STONE CRYPT (DARK AMBIENT)";
+        default: return "UNKNOWN SOUNDTRACK";
+    }
+}
+
+const char* SoundSynth::GetCurrentActionTrackName() const {
+    if (trackPreference_ > 0 && trackPreference_ <= 4) {
+        return GetActionTrackName(trackPreference_ - 1);
+    }
+    return GetActionTrackName(currentActionTrackIdx_);
+}
+
+void SoundSynth::SetMusicTrackPreference(int pref) {
+    trackPreference_ = pref;
+    if (trackPreference_ >= 1 && trackPreference_ <= 4) {
+        currentActionTrackIdx_ = trackPreference_ - 1;
+    }
+    if (hasActionMusic1_ && IsMusicStreamPlaying(bgmAction1_)) StopMusicStream(bgmAction1_);
+    if (hasActionMusic2_ && IsMusicStreamPlaying(bgmAction2_)) StopMusicStream(bgmAction2_);
+    if (hasActionMusic3_ && IsMusicStreamPlaying(bgmAction3_)) StopMusicStream(bgmAction3_);
+    if (hasActionMusic4_ && IsMusicStreamPlaying(bgmAction4_)) StopMusicStream(bgmAction4_);
+}
+
+int SoundSynth::CycleNextActionTrack() {
+    if (hasActionMusic1_ && IsMusicStreamPlaying(bgmAction1_)) StopMusicStream(bgmAction1_);
+    if (hasActionMusic2_ && IsMusicStreamPlaying(bgmAction2_)) StopMusicStream(bgmAction2_);
+    if (hasActionMusic3_ && IsMusicStreamPlaying(bgmAction3_)) StopMusicStream(bgmAction3_);
+    if (hasActionMusic4_ && IsMusicStreamPlaying(bgmAction4_)) StopMusicStream(bgmAction4_);
+
+    currentActionTrackIdx_ = (currentActionTrackIdx_ + 1) % 4;
+    return currentActionTrackIdx_;
+}
+
 void SoundSynth::UpdateMusic(int musicMode) {
     if (!initialized_) return;
     if (muted_) {
@@ -204,18 +248,20 @@ void SoundSynth::UpdateMusic(int musicMode) {
         if (hasOrbitMusic_   && IsMusicStreamPlaying(bgmOrbit_))   PauseMusicStream(bgmOrbit_);
         if (hasActionMusic1_ && IsMusicStreamPlaying(bgmAction1_)) PauseMusicStream(bgmAction1_);
         if (hasActionMusic2_ && IsMusicStreamPlaying(bgmAction2_)) PauseMusicStream(bgmAction2_);
+        if (hasActionMusic3_ && IsMusicStreamPlaying(bgmAction3_)) PauseMusicStream(bgmAction3_);
+        if (hasActionMusic4_ && IsMusicStreamPlaying(bgmAction4_)) PauseMusicStream(bgmAction4_);
         return;
     }
 
     // Music mode changed (0 = Title, 1 = Orbit/Director, 2 = Action/Gameplay)
     if (musicMode != currentMode_) {
-        // Stop previous non-matching tracks
         if (musicMode != 0 && hasTitleMusic_ && IsMusicStreamPlaying(bgmTitle_)) StopMusicStream(bgmTitle_);
         if (musicMode != 1 && hasOrbitMusic_ && IsMusicStreamPlaying(bgmOrbit_)) StopMusicStream(bgmOrbit_);
-        // If exiting action mode, pause action so it doesn't restart from beginning on next run
         if (musicMode != 2) {
             if (hasActionMusic1_ && IsMusicStreamPlaying(bgmAction1_)) PauseMusicStream(bgmAction1_);
             if (hasActionMusic2_ && IsMusicStreamPlaying(bgmAction2_)) PauseMusicStream(bgmAction2_);
+            if (hasActionMusic3_ && IsMusicStreamPlaying(bgmAction3_)) PauseMusicStream(bgmAction3_);
+            if (hasActionMusic4_ && IsMusicStreamPlaying(bgmAction4_)) PauseMusicStream(bgmAction4_);
         }
         currentMode_ = musicMode;
     }
@@ -231,9 +277,14 @@ void SoundSynth::UpdateMusic(int musicMode) {
             UpdateMusicStream(bgmOrbit_);
         }
     } else if (musicMode == 2) {
-        // Continuous rotating action tracks (does NOT restart on death / respawn)
-        Music& activeAction = (currentActionTrackIdx_ == 0 || !hasActionMusic2_) ? bgmAction1_ : bgmAction2_;
-        bool& hasActive = (currentActionTrackIdx_ == 0 || !hasActionMusic2_) ? hasActionMusic1_ : hasActionMusic2_;
+        int trackIdx = (trackPreference_ >= 1 && trackPreference_ <= 4)
+                       ? (trackPreference_ - 1) : currentActionTrackIdx_;
+
+        Music* actionList[4] = { &bgmAction1_, &bgmAction2_, &bgmAction3_, &bgmAction4_ };
+        bool hasList[4] = { hasActionMusic1_, hasActionMusic2_, hasActionMusic3_, hasActionMusic4_ };
+
+        Music& activeAction = *actionList[trackIdx];
+        bool hasActive = hasList[trackIdx];
 
         if (hasActive) {
             if (!IsMusicStreamPlaying(activeAction)) {
@@ -241,14 +292,12 @@ void SoundSynth::UpdateMusic(int musicMode) {
             }
             UpdateMusicStream(activeAction);
 
-            // Rotate track when current track completes its playback cycle
             float played = GetMusicTimePlayed(activeAction);
             float total = GetMusicTimeLength(activeAction);
-            if (total > 5.0f && played >= total - 0.25f && hasActionMusic2_) {
+            if (total > 5.0f && played >= total - 0.25f && trackPreference_ == 0) {
                 StopMusicStream(activeAction);
-                currentActionTrackIdx_ = 1 - currentActionTrackIdx_;
-                Music& nextAction = (currentActionTrackIdx_ == 0) ? bgmAction1_ : bgmAction2_;
-                PlayMusicStream(nextAction);
+                currentActionTrackIdx_ = (currentActionTrackIdx_ + 1) % 4;
+                PlayMusicStream(*actionList[currentActionTrackIdx_]);
             }
         }
     }

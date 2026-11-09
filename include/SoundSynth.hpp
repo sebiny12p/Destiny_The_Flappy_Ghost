@@ -20,6 +20,12 @@ public:
     void PlayUiSelect() const;
     void UpdateMusic(int musicMode); // 0 = Title Theme, 1 = Orbit/Menu, 2 = Action/Gameplay
 
+    void SetMusicTrackPreference(int pref); // 0 = Auto Shuffle, 1..4 = Explicit Track
+    int GetMusicTrackPreference() const { return trackPreference_; }
+    int CycleNextActionTrack();
+    const char* GetCurrentActionTrackName() const;
+    const char* GetActionTrackName(int idx) const;
+
     bool IsMuted() const { return muted_; }
     void ToggleMute() { muted_ = !muted_; }
     void SetMasterVolume(float vol) { masterVol_ = vol; ApplyVolumes(); }
@@ -38,11 +44,14 @@ private:
     float sfxVol_ = 0.80f;
     int currentMode_ = -1;
     int currentActionTrackIdx_ = 0;
+    int trackPreference_ = 0;
 
     bool hasTitleMusic_ = false;
     bool hasOrbitMusic_ = false;
     bool hasActionMusic1_ = false;
     bool hasActionMusic2_ = false;
+    bool hasActionMusic3_ = false;
+    bool hasActionMusic4_ = false;
 
     Sound sndFlap_{};
     Sound sndBlink_{};
@@ -58,6 +67,8 @@ private:
     Music bgmOrbit_{};
     Music bgmAction1_{};
     Music bgmAction2_{};
+    Music bgmAction3_{};
+    Music bgmAction4_{};
 };
 
 } // namespace FlappyGhost
