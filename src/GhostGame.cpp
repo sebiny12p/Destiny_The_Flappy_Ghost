@@ -328,14 +328,13 @@ void GhostGame::TriggerTacticalAbility() {
     }
 
     if (sub == LightSubclass::VOID_WALKER) {
-        ghost_.phaseTimer = 0.55f;
-        ghost_.vel.y = -110.0f;
-        SpawnParticleBurst(ghost_.pos, 28, accent, 80.0f, 320.0f, 6.0f, 0.45f);
-        for (auto& o : obstacles_) if (o.active) o.x -= 95.0f;
-        for (auto& c : collectibles_) if (c.active) c.pos.x -= 95.0f;
-        nextObstacleSpawnX_ -= 95.0f;
+        // Voidwalker Blink: Focused short phase through an immediate hazard (0.32s phase, slight vertical nudge)
+        // No longer warps entire world back or teleports past multiple obstacles automatically
+        ghost_.phaseTimer = 0.32f;
+        ghost_.vel.y = -90.0f;
+        SpawnParticleBurst(ghost_.pos, 22, accent, 70.0f, 240.0f, 5.0f, 0.35f);
         flashColor_ = accent;
-        flashAlpha_ = 0.35f;
+        flashAlpha_ = 0.25f;
     } else if (sub == LightSubclass::SOLAR_DAWN) {
         ghost_.phaseTimer = 0.65f;
         ghost_.vel.y = 0.0f;
@@ -410,9 +409,27 @@ void GhostGame::TriggerSuperAbility() {
     LightSubclass sub = static_cast<LightSubclass>(profile_.selectedSubclass);
     SpawnParticleBurst(ghost_.pos, 60, GetSubclassAccentColor(), 120.0f, 520.0f, 8.0f, 0.8f);
 
-    if (sub == LightSubclass::VOID_WALKER || sub == LightSubclass::STASIS_SHADEBINDER ||
-        (!isNightfallMode_ && sub == LightSubclass::STRAND_RUNNER)) {
-        // Nova Pulse / Winter's Wrath Shatter vaporizes active barriers into Motes of Light!
+    if (sub == LightSubclass::VOID_WALKER) {
+        // Nova Bomb: Fires a concentrated heavy Void singularity projectile ahead that detonates on the nearest obstacle/enemy/boss
+        // Clears a single focused hazard area rather than wiping the entire screen
+        Color subCol = GetSubclassAccentColor();
+        SpawnProjectile({ ghost_.pos.x + 24.0f, ghost_.pos.y }, { 680.0f, 0.0f }, 22.0f, subCol, true, true);
+        for (auto& o : obstacles_) {
+            if (o.active && o.x > ghost_.pos.x && o.x < ghost_.pos.x + 280.0f) {
+                SpawnParticleBurst({ o.x + o.width * 0.5f, o.gapCenterY }, 25, subCol, 70.0f, 260.0f, 5.5f, 0.45f);
+                SpawnCollectible({ o.x + o.width * 0.5f, o.gapCenterY }, CollectibleKind::MOTE_OF_LIGHT);
+                o.active = false;
+                scoreGates_++;
+                profile_.totalGatesCleared++;
+                break; // Only destroys the immediate obstacle ahead
+            }
+        }
+        if (boss_.active) {
+            boss_.health -= 28.0f;
+            if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) boss_.shieldImmune = false;
+        }
+    } else if (sub == LightSubclass::STASIS_SHADEBINDER || (!isNightfallMode_ && sub == LightSubclass::STRAND_RUNNER)) {
+        // Winter's Wrath Shatter vaporizes active barriers into Motes of Light!
         for (auto& o : obstacles_) {
             if (o.active && o.x > 0.0f && o.x < VIRTUAL_WIDTH + 100.0f) {
                 SpawnParticleBurst({ o.x + o.width * 0.5f, o.gapCenterY }, 35, GetSubclassAccentColor(), 90.0f, 350.0f, 7.0f, 0.6f);

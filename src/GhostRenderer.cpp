@@ -882,8 +882,8 @@ void GhostGame::RenderSubclassArmory() {
 
     const SubCard cards[NUM_SUBCLASSES] = {
         { 0, "VOIDWALKER", "VOID LIGHT",
-          "TACTICAL [BLINK]: Teleport forward through barriers with 0.55s phase intangibility.",
-          "SUPER [NOVA PULSE]: Vaporizes all active barriers on screen into Motes of Light.",
+          "TACTICAL [BLINK]: Short phase teleport (0.32s) through an immediate barrier ahead.",
+          "SUPER [NOVA BOMB]: Launches a heavy Void singularity that clears the next obstacle ahead.",
           0, { 175, 85, 255, 255 } },
         { 1, "DAWNBLADE", "SOLAR LIGHT",
           "TACTICAL [ICARUS DASH]: Stabilize momentum, hover glide & phase through hazards.",
