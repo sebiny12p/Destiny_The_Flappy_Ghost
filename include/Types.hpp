@@ -42,6 +42,7 @@ enum class ScreenState {
     SUBCLASS_ARMORY,
     SHELL_HANGAR,
     TRIUMPHS_LOG,
+    SETTINGS_VIEW,
     PLAYING,
     PAUSED,
     LIGHT_FADED // Game Over screen
@@ -182,6 +183,16 @@ struct SaveProfile {
     std::array<bool, NUM_EXOTIC_PERKS> unlockedExotics = { true, false, false, false };
     std::array<bool, NUM_TRIUMPHS> unlockedTriumphs = { false };
     UpgradeLevels upgrades{};
+
+    // User Settings & Accessibility (Persisted)
+    float masterVolume = 1.0f;
+    float musicVolume = 0.55f;
+    float sfxVolume = 0.80f;
+    float screenShakeScale = 1.0f; // 0.0f = Off, 0.5f = 50%, 1.0f = 100%
+    bool screenFlashes = true;
+    int targetFps = 120; // 30, 60, 120
+    int touchOpacity = 2; // 0 = 40%, 1 = 70%, 2 = 100%
+    bool leftHandedControls = false;
 };
 
 struct GhostPlayer {

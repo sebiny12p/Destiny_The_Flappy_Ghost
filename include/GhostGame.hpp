@@ -82,6 +82,7 @@ private:
     void RenderSubclassArmory();
     void RenderShellHangar();
     void RenderTriumphsLog();
+    void RenderSettingsView();
     void RenderPauseOverlay();
     void RenderLightFadedOverlay();
     void RenderBottomBrandingFooter() const;
@@ -130,6 +131,10 @@ private:
     float touchFeedbackSup_ = 0.0f;
     float touchFeedbackDrn_ = 0.0f;
     float touchFeedbackPause_ = 0.0f;
+    // Settings state & confirmation modal
+    bool showResetConfirm_ = false;
+    ScreenState settingsPrevState_ = ScreenState::TITLE_DIRECTOR;
+    std::string activeInputDevice_ = "KEYBOARD & MOUSE";
 
     GhostPlayer ghost_{};
     BossState boss_{};

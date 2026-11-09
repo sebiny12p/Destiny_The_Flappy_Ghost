@@ -122,6 +122,10 @@ void GhostGame::Init() {
 
     audio_.Init();
     LoadSaveData();
+    audio_.SetMasterVolume(profile_.masterVolume);
+    audio_.SetMusicVolume(profile_.musicVolume);
+    audio_.SetSfxVolume(profile_.sfxVolume);
+    SetTargetFPS(profile_.targetFps > 0 ? profile_.targetFps : 120);
 
     const char* splashPath = FileExists("assets/sebiny_splash_logo.png") ? "assets/sebiny_splash_logo.png"
                            : FileExists("../assets/sebiny_splash_logo.png") ? "../assets/sebiny_splash_logo.png" : nullptr;
@@ -877,13 +881,25 @@ void GhostGame::UpdateFrameInput() {
             }
         }
 
+        // Gamepad Controller Integration (Player 0)
+        bool hasGamepad = IsGamepadAvailable(0);
+        if (hasGamepad) {
+            activeInputDevice_ = GetGamepadName(0);
+            if (activeInputDevice_.empty()) activeInputDevice_ = "GAMEPAD CONTROLLER";
+        } else if (GetTouchPointCount() > 0) {
+            activeInputDevice_ = "TOUCH SCREEN";
+        } else if (GetKeyPressed() > 0 || IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            activeInputDevice_ = "KEYBOARD & MOUSE";
+        }
+
         // On-screen HUD Touch Buttons & Hitboxes (with generous touch-padding)
         Rectangle pauseBtn = { VIRTUAL_WIDTH - 362.0f, 26.0f, 54.0f, 54.0f };
         Rectangle pauseHitbox = { pauseBtn.x - 14.0f, pauseBtn.y - 14.0f, pauseBtn.width + 28.0f, pauseBtn.height + 28.0f };
 
-        Rectangle drnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-        Rectangle tacBtn = { VIRTUAL_WIDTH - 256.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-        Rectangle supBtn = { VIRTUAL_WIDTH - 134.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+        float btnStartX = profile_.leftHandedControls ? 20.0f : (VIRTUAL_WIDTH - 378.0f);
+        Rectangle drnBtn = { btnStartX, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+        Rectangle tacBtn = { btnStartX + 122.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+        Rectangle supBtn = { btnStartX + 244.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
         float pad = 16.0f;
         Rectangle drnHitbox = { drnBtn.x - pad, drnBtn.y - pad, drnBtn.width + pad * 2.0f, drnBtn.height + pad * 2.0f };
         Rectangle tacHitbox = { tacBtn.x - pad, tacBtn.y - pad, tacBtn.width + pad * 2.0f, tacBtn.height + pad * 2.0f };
@@ -916,27 +932,32 @@ void GhostGame::UpdateFrameInput() {
             touchedFlap = true;
         }
 
-        if (touchedPause || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) {
+        bool padPause = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT);
+        if (touchedPause || padPause || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) {
             state_ = ScreenState::PAUSED;
             audio_.PlayUiSelect();
             return;
         }
 
-        if (touchedFlap || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
+        bool padFlap = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN);
+        if (touchedFlap || padFlap || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
             TriggerFlap();
             lastTapTime_ = globalTime_;
         }
 
-        if (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT) ||
+        bool padTac = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1));
+        if (padTac || IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT) ||
             IsKeyPressed(KEY_E) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
             TriggerTacticalAbility();
         }
 
-        if (IsKeyPressed(KEY_F) || IsKeyPressed(KEY_Q)) {
+        bool padSup = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1));
+        if (padSup || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_Q)) {
             TriggerSuperAbility();
         }
 
-        if (isNightfallMode_ && (IsKeyPressed(KEY_C) || IsKeyPressed(KEY_X))) {
+        bool padDrn = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_2));
+        if (isNightfallMode_ && (padDrn || IsKeyPressed(KEY_C) || IsKeyPressed(KEY_X))) {
             TriggerDroneFire();
         }
     } else if (state_ == ScreenState::SPLASH_INTRO) {
@@ -1074,8 +1095,10 @@ void GhostGame::UpdatePlayingFixed(float dt) {
 
     // Ghost Physics
     float gravity = 1180.0f;
+    bool holdGlide = IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0 ||
+                     (IsGamepadAvailable(0) && IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN));
     if (static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::SOLAR_DAWN &&
-        ghost_.vel.y > 40.0f && (IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0)) {
+        ghost_.vel.y > 40.0f && holdGlide) {
         gravity = 420.0f;
     }
     if (ghost_.phaseTimer > 0.0f) {

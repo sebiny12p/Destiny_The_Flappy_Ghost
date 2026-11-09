@@ -139,7 +139,7 @@ void SoundSynth::Init() {
             Music m = LoadMusicStream(path.c_str());
             if (m.stream.buffer != nullptr) {
                 m.looping = true;
-                SetMusicVolume(m, 0.55f);
+                ::SetMusicVolume(m, 0.55f);
                 outMusic = m;
                 return true;
             }
@@ -151,6 +151,30 @@ void SoundSynth::Init() {
     hasOrbitMusic_   = TryLoadTrack("music_orbit.mp3",   bgmOrbit_);
     hasActionMusic1_ = TryLoadTrack("music_action.mp3",  bgmAction1_);
     hasActionMusic2_ = TryLoadTrack("music_action2.mp3", bgmAction2_);
+
+    ApplyVolumes();
+}
+
+void SoundSynth::ApplyVolumes() {
+    if (!initialized_) return;
+    float effectiveMusic = muted_ ? 0.0f : (masterVol_ * musicVol_);
+    float effectiveSfx = muted_ ? 0.0f : (masterVol_ * sfxVol_);
+
+    if (hasTitleMusic_)   ::SetMusicVolume(bgmTitle_, effectiveMusic);
+    if (hasOrbitMusic_)   ::SetMusicVolume(bgmOrbit_, effectiveMusic);
+    if (hasActionMusic1_) ::SetMusicVolume(bgmAction1_, effectiveMusic);
+    if (hasActionMusic2_) ::SetMusicVolume(bgmAction2_, effectiveMusic);
+
+    SetSoundVolume(sndFlap_, effectiveSfx * 0.90f);
+    SetSoundVolume(sndBlink_, effectiveSfx * 0.85f);
+    SetSoundVolume(sndMote_, effectiveSfx * 0.80f);
+    SetSoundVolume(sndExotic_, effectiveSfx * 0.95f);
+    SetSoundVolume(sndSuper_, effectiveSfx * 1.0f);
+    SetSoundVolume(sndShieldBreak_, effectiveSfx * 0.90f);
+    SetSoundVolume(sndDeath_, effectiveSfx * 0.95f);
+    SetSoundVolume(sndBossAlert_, effectiveSfx * 0.90f);
+    SetSoundVolume(sndLaser_, effectiveSfx * 0.85f);
+    SetSoundVolume(sndUi_, effectiveSfx * 0.80f);
 }
 
 void SoundSynth::Shutdown() {

@@ -53,8 +53,8 @@ void GhostGame::RenderFrame() {
     ClearBackground(BLACK);
 
     Vector2 shakeOffset = { 0.0f, 0.0f };
-    if (screenShakeTrauma_ > 0.0f) {
-        float mag = screenShakeTrauma_ * screenShakeTrauma_ * 18.0f;
+    if (screenShakeTrauma_ > 0.0f && profile_.screenShakeScale > 0.0f) {
+        float mag = screenShakeTrauma_ * screenShakeTrauma_ * 18.0f * profile_.screenShakeScale;
         shakeOffset.x = std::sin(globalTime_ * 67.0f) * mag;
         shakeOffset.y = std::cos(globalTime_ * 53.0f) * mag;
     }
@@ -139,7 +139,7 @@ void GhostGame::RenderFrame() {
 
     EndMode2D();
 
-    if (flashAlpha_ > 0.0f) {
+    if (flashAlpha_ > 0.0f && profile_.screenFlashes) {
         Color fc = flashColor_;
         fc.a = static_cast<unsigned char>(std::clamp(flashAlpha_ * 255.0f, 0.0f, 255.0f));
         DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, fc);
@@ -159,6 +159,8 @@ void GhostGame::RenderFrame() {
         RenderShellHangar();
     } else if (state_ == ScreenState::TRIUMPHS_LOG) {
         RenderTriumphsLog();
+    } else if (state_ == ScreenState::SETTINGS_VIEW) {
+        RenderSettingsView();
     } else if (state_ == ScreenState::PAUSED) {
         RenderPauseOverlay();
     } else if (state_ == ScreenState::LIGHT_FADED) {
@@ -662,11 +664,17 @@ void GhostGame::RenderHud() const {
         DrawText(medTxt, VIRTUAL_WIDTH / 2 - mw / 2, 36, 20, activeMedal_.color);
     }
 
-    // Touch / Mouse On-Screen Action Buttons (Bottom-Right)
+    // Touch / Mouse On-Screen Action Buttons (Bottom-Right or Bottom-Left if left-handed)
     // Patrol mode has NO weapons or scan; Nightfall mode shows the manual [FIRE DRONE] button!
-    Rectangle drnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-    Rectangle tacBtn = { VIRTUAL_WIDTH - 256.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-    Rectangle supBtn = { VIRTUAL_WIDTH - 134.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+    float btnStartX = profile_.leftHandedControls ? 20.0f : (VIRTUAL_WIDTH - 378.0f);
+    Rectangle drnBtn = { btnStartX, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+    Rectangle tacBtn = { btnStartX + 122.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+    Rectangle supBtn = { btnStartX + 244.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+
+    bool hasGamepad = IsGamepadAvailable(0);
+    const char* drnHint = hasGamepad ? "[(B) / RT]" : "[C / X]";
+    const char* tacHint = hasGamepad ? "[(X) / LB]" : "[SHIFT / RMB]";
+    const char* supHint = hasGamepad ? "[(Y) / RB]" : "[F / Q]";
 
     if (isNightfallMode_ && profile_.equippedDrone >= 0 && profile_.equippedDrone < static_cast<int>(NUM_DRONES)) {
         const auto& droneDef = GetDroneCatalog()[profile_.equippedDrone];
@@ -675,7 +683,7 @@ void GhostGame::RenderHud() const {
         DrawRectangleRec(drnBtn, drnFeedback ? Color{ 45, 85, 120, 255 } : ((drnReady >= 1.0f) ? Color{ 28, 52, 74, 225 } : Color{ 22, 26, 34, 185 }));
         DrawRectangleLinesEx(drnBtn, drnFeedback ? 2.5f : 2.0f, drnFeedback ? WHITE : ((drnReady >= 1.0f) ? droneDef.color : GRAY));
         DrawText("FIRE DRONE", static_cast<int>(drnBtn.x + 12), static_cast<int>(drnBtn.y + 12), 14, WHITE);
-        DrawText("[C / X]", static_cast<int>(drnBtn.x + 30), static_cast<int>(drnBtn.y + 30), 12, LIGHTGRAY);
+        DrawText(drnHint, static_cast<int>(drnBtn.x + (hasGamepad ? 22 : 30)), static_cast<int>(drnBtn.y + 30), 12, LIGHTGRAY);
         DrawRectangle(static_cast<int>(drnBtn.x + 10), static_cast<int>(drnBtn.y + 48), 92, 6, { 18, 22, 30, 255 });
         DrawRectangle(static_cast<int>(drnBtn.x + 10), static_cast<int>(drnBtn.y + 48), static_cast<int>(92.0f * drnReady), 6, droneDef.color);
     }
@@ -684,13 +692,13 @@ void GhostGame::RenderHud() const {
     DrawRectangleRec(tacBtn, tacFeedback ? Color{ 55, 105, 155, 255 } : ((tacReady >= 1.0f) ? Color{ 35, 65, 95, 210 } : Color{ 25, 28, 35, 180 }));
     DrawRectangleLinesEx(tacBtn, tacFeedback ? 2.5f : 2.0f, tacFeedback ? WHITE : ((tacReady >= 1.0f) ? SKYBLUE : GRAY));
     DrawText("BLINK / DASH", static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 14), 14, WHITE);
-    DrawText("[SHIFT / RMB]", static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 34), 12, LIGHTGRAY);
+    DrawText(tacHint, static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 34), 12, LIGHTGRAY);
 
     bool supFeedback = (touchFeedbackSup_ > 0.0f);
     DrawRectangleRec(supBtn, supFeedback ? Color{ 145, 115, 35, 255 } : ((superRatio >= 1.0f) ? Color{ 95, 75, 20, 230 } : Color{ 25, 28, 35, 180 }));
     DrawRectangleLinesEx(supBtn, supFeedback ? 2.5f : 2.0f, supFeedback ? WHITE : ((superRatio >= 1.0f) ? GOLD : GRAY));
     DrawText("CAST SUPER", static_cast<int>(supBtn.x + 12), static_cast<int>(supBtn.y + 14), 14, (superRatio >= 1.0f || supFeedback) ? GOLD : GRAY);
-    DrawText("[F / Q]", static_cast<int>(supBtn.x + 32), static_cast<int>(supBtn.y + 34), 12, LIGHTGRAY);
+    DrawText(supHint, static_cast<int>(supBtn.x + (hasGamepad ? 24 : 32)), static_cast<int>(supBtn.y + 34), 12, LIGHTGRAY);
 
     if (biomeBannerTimer_ > 0.0f) {
         float a = std::min(1.0f, biomeBannerTimer_ * 1.2f);
@@ -856,9 +864,10 @@ void GhostGame::RenderTitleDirector() {
 
     Rectangle btnPatrol   = { 180.0f, 392.0f, 440.0f, 64.0f };
     Rectangle btnNightfall= { 660.0f, 392.0f, 440.0f, 64.0f };
-    Rectangle btnSubclass = { 180.0f, 472.0f, 290.0f, 64.0f };
-    Rectangle btnHangar   = { 495.0f, 472.0f, 290.0f, 64.0f };
-    Rectangle btnTriumphs = { 810.0f, 472.0f, 290.0f, 64.0f };
+    Rectangle btnSubclass = { 100.0f, 472.0f, 255.0f, 64.0f };
+    Rectangle btnHangar   = { 375.0f, 472.0f, 255.0f, 64.0f };
+    Rectangle btnTriumphs = { 650.0f, 472.0f, 255.0f, 64.0f };
+    Rectangle btnSettings = { 925.0f, 472.0f, 255.0f, 64.0f };
 
     if (DrawDirectorButton(btnPatrol, "LAUNCH VANGUARD PATROL", "Pure flight & abilities mode (no weapons or drones)", SKYBLUE)) {
         StartNewRun(false);
@@ -908,6 +917,12 @@ void GhostGame::RenderTitleDirector() {
     std::snprintf(triSub, sizeof(triSub), "Completed: %d / %d Triumphs", unlockedCount, static_cast<int>(NUM_TRIUMPHS));
     if (DrawDirectorButton(btnTriumphs, "TRIUMPHS RECORD", triSub, GREEN)) {
         state_ = ScreenState::TRIUMPHS_LOG;
+        audio_.PlayUiSelect();
+    }
+
+    if (DrawDirectorButton(btnSettings, "SYSTEM SETTINGS", "Audio, Visuals & Controls", PURPLE)) {
+        settingsPrevState_ = ScreenState::TITLE_DIRECTOR;
+        state_ = ScreenState::SETTINGS_VIEW;
         audio_.PlayUiSelect();
     }
 
@@ -1354,6 +1369,181 @@ void GhostGame::RenderShellHangar() {
     }
 }
 
+void GhostGame::RenderSettingsView() {
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 245 });
+
+    const char* sTitle = "SYSTEM SETTINGS // AUDIO, VISUALS & CONTROLS";
+    DrawText(sTitle, 70, 32, 26, WHITE);
+
+    // Active Input Device Readout
+    char devBuf[128];
+    std::snprintf(devBuf, sizeof(devBuf), "ACTIVE INPUT: %s", activeInputDevice_.c_str());
+    int dw = MeasureText(devBuf, 16);
+    DrawText(devBuf, VIRTUAL_WIDTH - 70 - dw, 38, 16, GOLD);
+
+    DrawLine(70, 72, VIRTUAL_WIDTH - 70, 72, { 255, 255, 255, 55 });
+
+    // --- LEFT COLUMN: AUDIO CONTROLS ---
+    DrawText("AUDIO BALANCING", 70, 92, 18, SKYBLUE);
+
+    auto DrawSlider = [&](float y, const char* label, float& val, Color barCol) {
+        DrawText(label, 70, static_cast<int>(y), 16, WHITE);
+        Rectangle track = { 70.0f, y + 26.0f, 480.0f, 22.0f };
+        DrawRectangleRec(track, { 18, 24, 38, 255 });
+        DrawRectangleLinesEx(track, 1.5f, { 80, 110, 150, 200 });
+
+        float fillW = std::clamp(val, 0.0f, 1.0f) * track.width;
+        DrawRectangle(static_cast<int>(track.x), static_cast<int>(track.y), static_cast<int>(fillW), static_cast<int>(track.height), barCol);
+
+        char pct[16];
+        std::snprintf(pct, sizeof(pct), "%d%%", static_cast<int>(val * 100.0f));
+        DrawText(pct, static_cast<int>(track.x + track.width + 16.0f), static_cast<int>(track.y + 2.0f), 16, WHITE);
+
+        // Interaction
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0) {
+            Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
+            Rectangle hit = { track.x - 10.0f, track.y - 10.0f, track.width + 20.0f, track.height + 20.0f };
+            if (CheckCollisionPointRec(p, hit)) {
+                val = std::clamp((p.x - track.x) / track.width, 0.0f, 1.0f);
+                audio_.SetMasterVolume(profile_.masterVolume);
+                audio_.SetMusicVolume(profile_.musicVolume);
+                audio_.SetSfxVolume(profile_.sfxVolume);
+            }
+        }
+    };
+
+    DrawSlider(124.0f, "MASTER VOLUME", profile_.masterVolume, GOLD);
+    DrawSlider(188.0f, "MUSIC VOLUME (BGM)", profile_.musicVolume, SKYBLUE);
+    DrawSlider(252.0f, "SOUND EFFECTS (SFX)", profile_.sfxVolume, ORANGE);
+
+    // Mute Toggle Button
+    Rectangle muteBtn = { 70.0f, 324.0f, 240.0f, 44.0f };
+    bool isMuted = audio_.IsMuted();
+    DrawRectangleRec(muteBtn, isMuted ? Color{ 75, 25, 30, 255 } : Color{ 22, 45, 38, 255 });
+    DrawRectangleLinesEx(muteBtn, 1.8f, isMuted ? RED : GREEN);
+    DrawText(isMuted ? "MUTED [M]" : "AUDIO ACTIVE [M]", static_cast<int>(muteBtn.x + 38), static_cast<int>(muteBtn.y + 13), 16, WHITE);
+    if (IsButtonClicked(muteBtn)) {
+        audio_.ToggleMute();
+        audio_.ApplyVolumes();
+    }
+
+    // --- RIGHT COLUMN: VISUALS, TOUCH & ACCESSIBILITY ---
+    DrawText("VISUALS & ACCESSIBILITY", 660, 92, 18, SKYBLUE);
+
+    // Screen Shake Scale
+    DrawText("SCREEN SHAKE INTENSITY:", 660, 124, 16, WHITE);
+    const char* shakeLabels[3] = { "OFF (0%)", "NORMAL (50%)", "INTENSE (100%)" };
+    float shakeVals[3] = { 0.0f, 0.5f, 1.0f };
+    for (int i = 0; i < 3; ++i) {
+        Rectangle sb = { 660.0f + i * 168.0f, 150.0f, 156.0f, 38.0f };
+        bool sel = (std::abs(profile_.screenShakeScale - shakeVals[i]) < 0.15f);
+        DrawRectangleRec(sb, sel ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
+        DrawRectangleLinesEx(sb, sel ? 2.0f : 1.2f, sel ? GOLD : GRAY);
+        DrawText(shakeLabels[i], static_cast<int>(sb.x + 16), static_cast<int>(sb.y + 11), 14, sel ? GOLD : LIGHTGRAY);
+        if (IsButtonClicked(sb)) {
+            profile_.screenShakeScale = shakeVals[i];
+            audio_.PlayUiSelect();
+        }
+    }
+
+    // Screen Flash Pulses Toggle
+    DrawText("SOLAR / EXPLOSION SCREEN FLASHES:", 660, 206, 16, WHITE);
+    Rectangle flashOnBtn  = { 660.0f, 232.0f, 160.0f, 38.0f };
+    Rectangle flashOffBtn = { 832.0f, 232.0f, 160.0f, 38.0f };
+    DrawRectangleRec(flashOnBtn, profile_.screenFlashes ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
+    DrawRectangleLinesEx(flashOnBtn, profile_.screenFlashes ? 2.0f : 1.2f, profile_.screenFlashes ? GOLD : GRAY);
+    DrawText("ENABLED", static_cast<int>(flashOnBtn.x + 44), static_cast<int>(flashOnBtn.y + 11), 14, profile_.screenFlashes ? GOLD : LIGHTGRAY);
+    if (IsButtonClicked(flashOnBtn)) { profile_.screenFlashes = true; audio_.PlayUiSelect(); }
+
+    DrawRectangleRec(flashOffBtn, !profile_.screenFlashes ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
+    DrawRectangleLinesEx(flashOffBtn, !profile_.screenFlashes ? 2.0f : 1.2f, !profile_.screenFlashes ? GOLD : GRAY);
+    DrawText("DISABLED", static_cast<int>(flashOffBtn.x + 40), static_cast<int>(flashOffBtn.y + 11), 14, !profile_.screenFlashes ? GOLD : LIGHTGRAY);
+    if (IsButtonClicked(flashOffBtn)) { profile_.screenFlashes = false; audio_.PlayUiSelect(); }
+
+    // Target Framerate Mode
+    DrawText("PERFORMANCE / TARGET FPS:", 660, 288, 16, WHITE);
+    int fpsVals[3] = { 60, 120, 30 };
+    const char* fpsLabels[3] = { "60 FPS (BALANCED)", "120 FPS (ULTRA)", "30 FPS (SAVER)" };
+    for (int f = 0; f < 3; ++f) {
+        Rectangle fb = { 660.0f + f * 168.0f, 314.0f, 156.0f, 38.0f };
+        bool sel = (profile_.targetFps == fpsVals[f]);
+        DrawRectangleRec(fb, sel ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
+        DrawRectangleLinesEx(fb, sel ? 2.0f : 1.2f, sel ? GOLD : GRAY);
+        DrawText(fpsLabels[f], static_cast<int>(fb.x + 8), static_cast<int>(fb.y + 11), 12, sel ? GOLD : LIGHTGRAY);
+        if (IsButtonClicked(fb)) {
+            profile_.targetFps = fpsVals[f];
+            SetTargetFPS(profile_.targetFps);
+            audio_.PlayUiSelect();
+        }
+    }
+
+    // Touch Button Handedness Mode
+    DrawText("MOBILE TOUCH CONTROLS HANDEDNESS:", 660, 370, 16, WHITE);
+    Rectangle handRight = { 660.0f, 396.0f, 210.0f, 38.0f };
+    Rectangle handLeft  = { 882.0f, 396.0f, 210.0f, 38.0f };
+    DrawRectangleRec(handRight, !profile_.leftHandedControls ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
+    DrawRectangleLinesEx(handRight, !profile_.leftHandedControls ? 2.0f : 1.2f, !profile_.leftHandedControls ? GOLD : GRAY);
+    DrawText("RIGHT-HANDED (DEFAULT)", static_cast<int>(handRight.x + 12), static_cast<int>(handRight.y + 11), 13, !profile_.leftHandedControls ? GOLD : LIGHTGRAY);
+    if (IsButtonClicked(handRight)) { profile_.leftHandedControls = false; audio_.PlayUiSelect(); }
+
+    DrawRectangleRec(handLeft, profile_.leftHandedControls ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
+    DrawRectangleLinesEx(handLeft, profile_.leftHandedControls ? 2.0f : 1.2f, profile_.leftHandedControls ? GOLD : GRAY);
+    DrawText("LEFT-HANDED (MIRRORED)", static_cast<int>(handLeft.x + 12), static_cast<int>(handLeft.y + 11), 13, profile_.leftHandedControls ? GOLD : LIGHTGRAY);
+    if (IsButtonClicked(handLeft)) { profile_.leftHandedControls = true; audio_.PlayUiSelect(); }
+
+    // --- BOTTOM ROW: DATA RESET & BACK ---
+    DrawLine(70, 460, VIRTUAL_WIDTH - 70, 460, { 255, 255, 255, 55 });
+
+    // Clear Save Data Button
+    Rectangle resetBtn = { 70.0f, 480.0f, 320.0f, 48.0f };
+    DrawRectangleRec(resetBtn, showResetConfirm_ ? Color{ 110, 30, 35, 255 } : Color{ 48, 20, 26, 230 });
+    DrawRectangleLinesEx(resetBtn, 2.0f, RED);
+    DrawText(showResetConfirm_ ? "CONFIRM RESET PROGRESS?" : "CLEAR SAVE DATA (RESET)", static_cast<int>(resetBtn.x + 22), static_cast<int>(resetBtn.y + 15), 15, WHITE);
+    if (IsButtonClicked(resetBtn)) {
+        if (!showResetConfirm_) {
+            showResetConfirm_ = true;
+            audio_.PlayUiSelect();
+        } else {
+            // Reset profile back to clean factory state
+            SaveProfile fresh{};
+            fresh.masterVolume = profile_.masterVolume;
+            fresh.musicVolume = profile_.musicVolume;
+            fresh.sfxVolume = profile_.sfxVolume;
+            fresh.screenShakeScale = profile_.screenShakeScale;
+            fresh.screenFlashes = profile_.screenFlashes;
+            fresh.targetFps = profile_.targetFps;
+            fresh.leftHandedControls = profile_.leftHandedControls;
+            profile_ = fresh;
+            SaveData();
+            showResetConfirm_ = false;
+            audio_.PlayDeath();
+        }
+    }
+    if (showResetConfirm_) {
+        Rectangle cancelReset = { 400.0f, 480.0f, 130.0f, 48.0f };
+        DrawRectangleRec(cancelReset, { 28, 38, 52, 240 });
+        DrawRectangleLinesEx(cancelReset, 1.5f, SKYBLUE);
+        DrawText("CANCEL", static_cast<int>(cancelReset.x + 28), static_cast<int>(cancelReset.y + 15), 15, WHITE);
+        if (IsButtonClicked(cancelReset)) { showResetConfirm_ = false; audio_.PlayUiSelect(); }
+    }
+
+    // Engine & Build Info
+    const char* bInfo = "DESTINY: THE FLAPPY GHOST  |  v1.2.0  |  SEBINY LABS ENGINE";
+    int biw = MeasureText(bInfo, 13);
+    DrawText(bInfo, (VIRTUAL_WIDTH - biw) / 2, 545, 13, { 140, 175, 215, 180 });
+
+    // Back to Previous Screen Button
+    Rectangle backBtn = { 70.0f, 580.0f, 260.0f, 48.0f };
+    DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
+    DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
+    DrawText("< BACK", static_cast<int>(backBtn.x + 98), static_cast<int>(backBtn.y + 16), 16, WHITE);
+    if (IsButtonClicked(backBtn) || IsKeyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) {
+        SaveData();
+        state_ = settingsPrevState_;
+        audio_.PlayUiSelect();
+    }
+}
+
 void GhostGame::RenderTriumphsLog() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
     DrawText("VANGUARD RECORD // DAILY BOUNTIES & TRIUMPHS", 70, 32, 26, WHITE);
@@ -1426,19 +1616,29 @@ void GhostGame::RenderPauseOverlay() {
     int pw = MeasureText(pTitle, 38);
     DrawText(pTitle, (VIRTUAL_WIDTH - pw) / 2, 230, 38, WHITE);
 
-    Rectangle resumeBtn = { VIRTUAL_WIDTH / 2.0f - 160.0f, 310.0f, 320.0f, 54.0f };
-    Rectangle dirBtn    = { VIRTUAL_WIDTH / 2.0f - 160.0f, 382.0f, 320.0f, 54.0f };
+    Rectangle resumeBtn   = { VIRTUAL_WIDTH / 2.0f - 160.0f, 290.0f, 320.0f, 52.0f };
+    Rectangle settingsBtn = { VIRTUAL_WIDTH / 2.0f - 160.0f, 356.0f, 320.0f, 52.0f };
+    Rectangle dirBtn      = { VIRTUAL_WIDTH / 2.0f - 160.0f, 422.0f, 320.0f, 52.0f };
 
     DrawRectangleRec(resumeBtn, IsRectHovered(resumeBtn) ? Color{ 40, 75, 110, 255 } : Color{ 22, 36, 56, 255 });
     DrawRectangleLinesEx(resumeBtn, 2.0f, SKYBLUE);
-    DrawText("RESUME PATROL [SPACE]", static_cast<int>(resumeBtn.x + 52), static_cast<int>(resumeBtn.y + 18), 18, WHITE);
+    DrawText("RESUME PATROL [SPACE / (A)]", static_cast<int>(resumeBtn.x + 36), static_cast<int>(resumeBtn.y + 17), 17, WHITE);
+
+    DrawRectangleRec(settingsBtn, IsRectHovered(settingsBtn) ? Color{ 55, 45, 80, 255 } : Color{ 28, 22, 42, 255 });
+    DrawRectangleLinesEx(settingsBtn, 2.0f, PURPLE);
+    DrawText("SYSTEM SETTINGS", static_cast<int>(settingsBtn.x + 85), static_cast<int>(settingsBtn.y + 17), 17, WHITE);
 
     DrawRectangleRec(dirBtn, IsRectHovered(dirBtn) ? Color{ 75, 35, 45, 255 } : Color{ 38, 22, 30, 255 });
     DrawRectangleLinesEx(dirBtn, 2.0f, ORANGE);
-    DrawText("RETURN TO DIRECTOR", static_cast<int>(dirBtn.x + 62), static_cast<int>(dirBtn.y + 18), 18, WHITE);
+    DrawText("RETURN TO DIRECTOR", static_cast<int>(dirBtn.x + 62), static_cast<int>(dirBtn.y + 17), 17, WHITE);
 
     if (IsButtonClicked(resumeBtn)) {
         state_ = ScreenState::PLAYING;
+        audio_.PlayUiSelect();
+    }
+    if (IsButtonClicked(settingsBtn)) {
+        settingsPrevState_ = ScreenState::PAUSED;
+        state_ = ScreenState::SETTINGS_VIEW;
         audio_.PlayUiSelect();
     }
     if (IsButtonClicked(dirBtn)) {
