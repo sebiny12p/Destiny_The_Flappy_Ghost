@@ -6,6 +6,7 @@
 #include <ctime>
 #include <fstream>
 #include <vector>
+#include <cstring>
 
 namespace FlappyGhost {
 
@@ -60,7 +61,13 @@ const std::array<TriumphDef, NUM_TRIUMPHS> TRIUMPH_CATALOG = {{
     { 6, "GODSLAYER PROTOCOL", "Defeat an Ultra Boss Encounter in Nightfall Strike mode.", 200 },
     { 7, "NIGHTFALL VANGUARD", "Score 20 or higher in Nightfall Strike mode.", 200 },
     { 8, "EXOTIC ARCHIVIST", "Collect a golden Exotic Engram in mid-flight.", 100 },
-    { 9, "FASHION ENDGAME", "Unlock at least 3 custom Ghost Shells in The Tower.", 250 }
+    { 9, "FASHION ENDGAME", "Unlock at least 3 custom Ghost Shells in The Tower.", 250 },
+    { 10, "WARMIND PROTOCOL", "Vaporize 50 patrol combatants or Fallen Skiffs with Drone or Super.", 200 },
+    { 11, "LIGHT HARVESTER", "Collect 100 Glimmer motes in a single patrol sortie.", 150 },
+    { 12, "GRANDMASTER ASCENT", "Survive past Gate 60 in a single continuous flight sortie.", 300 },
+    { 13, "DISCIPLE OF LIGHT", "Unlock and master all 6 Paracausal Subclasses in The Tower.", 350 },
+    { 14, "THE TRAVELER'S CHOSEN", "Synthesize over 3,000 Lifetime Glimmer in your Vault.", 250 },
+    { 15, "EVA'S RUNWAY", "Collect and equip at least 6 custom Shaders from Eva Levante.", 250 }
 }};
 const std::array<ShaderDef, NUM_SHADERS> SHADER_CATALOG = {{
     { 0, "DEFAULT TRAWLER", 0, { 235, 238, 245, 255 }, { 215, 95, 35, 255 }, { 120, 225, 255, 255 } },
@@ -68,7 +75,13 @@ const std::array<ShaderDef, NUM_SHADERS> SHADER_CATALOG = {{
     { 2, "SUPERBLACK", 500, { 18, 18, 22, 255 }, { 32, 34, 40, 255 }, { 255, 255, 255, 255 } },
     { 3, "GAMBIT JADESTONE", 450, { 35, 75, 50, 255 }, { 65, 255, 120, 255 }, { 95, 255, 160, 255 } },
     { 4, "PHOTO FINISH RGB", 650, { 45, 45, 55, 255 }, { 255, 75, 180, 255 }, { 65, 230, 255, 255 } },
-    { 5, "NEOPOP WAVE", 400, { 40, 50, 75, 255 }, { 255, 120, 220, 255 }, { 80, 255, 240, 255 } }
+    { 5, "NEOPOP WAVE", 400, { 40, 50, 75, 255 }, { 255, 120, 220, 255 }, { 80, 255, 240, 255 } },
+    { 6, "CHATTERWHITE", 550, { 250, 252, 255, 255 }, { 210, 220, 230, 255 }, { 255, 255, 255, 255 } },
+    { 7, "AMETHYST VEIL", 600, { 22, 22, 28, 255 }, { 85, 35, 125, 255 }, { 145, 75, 215, 255 } },
+    { 8, "LUMINOUS VOID", 700, { 42, 24, 72, 255 }, { 215, 160, 45, 255 }, { 185, 80, 255, 255 } },
+    { 9, "BUTTERBARK", 450, { 98, 62, 34, 255 }, { 215, 175, 65, 255 }, { 245, 240, 225, 255 } },
+    { 10, "CRUCIBLE REDJACK", 500, { 180, 28, 36, 255 }, { 36, 38, 44, 255 }, { 255, 215, 215, 255 } },
+    { 11, "MONOCHROMATIC", 650, { 15, 15, 18, 255 }, { 245, 245, 250, 255 }, { 180, 185, 195, 255 } }
 }};
 const std::array<CombatDroneDef, NUM_DRONES> DRONE_CATALOG = {{
     { 0, "ARC SOUL SENTINEL",
@@ -163,29 +176,39 @@ void GhostGame::Shutdown() {
 void GhostGame::LoadSaveData() {
     std::ifstream in(SAVE_FILE_PATH, std::ios::binary);
     if (in.is_open()) {
-        SaveProfile loaded{};
-        in.read(reinterpret_cast<char*>(&loaded), sizeof(SaveProfile));
-        if (in && loaded.magic == 0x47485358) {
-            profile_ = loaded;
-            profile_.equippedShell = std::clamp(profile_.equippedShell, 0, static_cast<int>(NUM_SHELLS) - 1);
-            profile_.selectedSubclass = std::clamp(profile_.selectedSubclass, 0, static_cast<int>(NUM_SUBCLASSES) - 1);
-            if (!profile_.unlockedSubclasses[profile_.selectedSubclass]) {
-                profile_.selectedSubclass = 0;
-            }
-            profile_.equippedExoticPerk = std::clamp(profile_.equippedExoticPerk, 0, static_cast<int>(NUM_EXOTIC_PERKS) - 1);
-            profile_.equippedShader = std::clamp(profile_.equippedShader, 0, static_cast<int>(NUM_SHADERS) - 1);
-            if (profile_.equippedDrone >= 0) {
-                profile_.equippedDrone = std::clamp(profile_.equippedDrone, 0, static_cast<int>(NUM_DRONES) - 1);
-                if (!profile_.unlockedDrones[profile_.equippedDrone]) {
-                    profile_.equippedDrone = -1;
+        in.seekg(0, std::ios::end);
+        std::streamsize sz = in.tellg();
+        in.seekg(0, std::ios::beg);
+        if (sz >= 32) {
+            std::vector<char> buf(static_cast<size_t>(sz));
+            in.read(buf.data(), sz);
+            uint32_t magic = *reinterpret_cast<uint32_t*>(buf.data());
+            if (magic == 0x47485358) {
+                SaveProfile loaded{};
+                size_t copyBytes = std::min(sizeof(SaveProfile), static_cast<size_t>(sz));
+                std::memcpy(&loaded, buf.data(), copyBytes);
+                profile_ = loaded;
+                profile_.magic = 0x47485358;
+                profile_.equippedShell = std::clamp(profile_.equippedShell, 0, static_cast<int>(NUM_SHELLS) - 1);
+                profile_.selectedSubclass = std::clamp(profile_.selectedSubclass, 0, static_cast<int>(NUM_SUBCLASSES) - 1);
+                if (!profile_.unlockedSubclasses[profile_.selectedSubclass]) {
+                    profile_.selectedSubclass = 0;
                 }
+                profile_.equippedExoticPerk = std::clamp(profile_.equippedExoticPerk, 0, static_cast<int>(NUM_EXOTIC_PERKS) - 1);
+                profile_.equippedShader = std::clamp(profile_.equippedShader, 0, static_cast<int>(NUM_SHADERS) - 1);
+                if (profile_.equippedDrone >= 0) {
+                    profile_.equippedDrone = std::clamp(profile_.equippedDrone, 0, static_cast<int>(NUM_DRONES) - 1);
+                    if (!profile_.unlockedDrones[profile_.equippedDrone]) {
+                        profile_.equippedDrone = -1;
+                    }
+                }
+                audio_.SetMasterVolume(profile_.masterVolume);
+                audio_.SetMusicVolume(profile_.musicVolume);
+                audio_.SetSfxVolume(profile_.sfxVolume);
+                audio_.SetMusicTrackPreference(profile_.musicTrackChoice);
+                SetTargetFPS(profile_.targetFps);
+                return;
             }
-            audio_.SetMasterVolume(profile_.masterVolume);
-            audio_.SetMusicVolume(profile_.musicVolume);
-            audio_.SetSfxVolume(profile_.sfxVolume);
-            audio_.SetMusicTrackPreference(profile_.musicTrackChoice);
-            SetTargetFPS(profile_.targetFps);
-            return;
         }
     }
     profile_ = SaveProfile{};
@@ -1275,6 +1298,9 @@ void GhostGame::UpdatePlayingFixed(float dt) {
             profile_.glimmer += isNightfallMode_ ? 2 : 1;
 
             if (scoreGates_ >= 10) UnlockTriumph(0);
+            if (scoreGates_ >= 60) UnlockTriumph(12); // GRANDMASTER ASCENT
+            if (runGlimmerEarned_ >= 100) UnlockTriumph(11); // LIGHT HARVESTER
+            if (profile_.totalGlimmerEarnedLifetime >= 3000) UnlockTriumph(14); // THE TRAVELER'S CHOSEN
 
             // Riskrunner Perk: Close call near barrier edge grants +18% Super & +10 Glimmer
             if (static_cast<ExoticPerk>(profile_.equippedExoticPerk) == ExoticPerk::RISKRUNNER_CONDUCTOR) {

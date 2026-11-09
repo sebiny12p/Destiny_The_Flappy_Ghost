@@ -1281,13 +1281,23 @@ void GhostGame::RenderShellHangar() {
             }
         }
     } else if (towerTab_ == 3) {
-        // Tab 3: Eva Levante's Shaders
+        // Tab 3: Eva Levante's Shaders (With smooth vertical scrolling & scrollbar)
         DrawText("EVA LEVANTE // GUARDIAN ARMOR & SHELL SHADERS", 60, 118, 22, Color{ 255, 120, 220, 255 });
-        DrawText("Apply legendary & exotic shader palettes to recolor all 12 Ghost shells.", 60, 146, 16, LIGHTGRAY);
+        DrawText("Apply legendary & exotic shader palettes to recolor all 12 Ghost shells. (Scroll down for more)", 60, 146, 16, LIGHTGRAY);
 
+        constexpr float TOTAL_SHADER_HEIGHT = 6 * 125.0f;
+        constexpr float SHADER_VIEWPORT_H = 385.0f;
+        float maxShaderScroll = std::max(0.0f, TOTAL_SHADER_HEIGHT - SHADER_VIEWPORT_H + 20.0f);
+        float wheel = GetMouseWheelMove();
+        if (wheel != 0.0f) {
+            shaderScrollY_ = std::clamp(shaderScrollY_ - wheel * 45.0f, 0.0f, maxShaderScroll);
+        }
+
+        BeginScissorMode(50, 180, 1160, static_cast<int>(SHADER_VIEWPORT_H));
         const auto& shaders = GetShaderCatalog();
         for (int i = 0; i < static_cast<int>(NUM_SHADERS); ++i) {
-            Rectangle sr = { 60.0f + (i % 2) * 580.0f, 185.0f + (i / 2) * 125.0f, 560.0f, 108.0f };
+            float itemY = 185.0f + (i / 2) * 125.0f - shaderScrollY_;
+            Rectangle sr = { 60.0f + (i % 2) * 565.0f, itemY, 545.0f, 108.0f };
             bool unlocked = profile_.unlockedShaders[i];
             bool equipped = (profile_.equippedShader == i);
 
@@ -1317,7 +1327,7 @@ void GhostGame::RenderShellHangar() {
                 DrawText(cstr, static_cast<int>(btn.x + 38), static_cast<int>(btn.y + 10), 14, canBuy ? GREEN : RED);
             }
 
-            if (IsButtonClicked(sr)) {
+            if (itemY >= 140.0f && itemY <= 570.0f && IsButtonClicked(sr)) {
                 if (unlocked) {
                     profile_.equippedShader = i;
                     SaveData();
@@ -1326,10 +1336,27 @@ void GhostGame::RenderShellHangar() {
                     profile_.glimmer -= shaders[i].glimmerCost;
                     profile_.unlockedShaders[i] = true;
                     profile_.equippedShader = i;
+                    int shCount = 0;
+                    for (bool b : profile_.unlockedShaders) if (b) shCount++;
+                    if (shCount >= 6) UnlockTriumph(15);
                     SaveData();
                     audio_.PlayExoticPickup();
                 }
             }
+        }
+        EndScissorMode();
+
+        // Elegant Destiny vertical scrollbar
+        if (maxShaderScroll > 0.0f) {
+            float trackX = 1205.0f;
+            float trackY = 185.0f;
+            float trackH = SHADER_VIEWPORT_H;
+            DrawRectangle(static_cast<int>(trackX), static_cast<int>(trackY), 6, static_cast<int>(trackH), { 25, 35, 50, 200 });
+            float thumbH = std::max(40.0f, trackH * (SHADER_VIEWPORT_H / TOTAL_SHADER_HEIGHT));
+            float thumbY = trackY + (shaderScrollY_ / maxShaderScroll) * (trackH - thumbH);
+            Rectangle thumbR = { trackX - 2.0f, thumbY, 10.0f, thumbH };
+            bool hov = IsRectHovered(thumbR);
+            DrawRectangleRec(thumbR, hov ? GOLD : Color{ 80, 140, 200, 220 });
         }
     } else {
         // Tab 4: Xur's Exotic Ghost Catalysts
@@ -1605,8 +1632,8 @@ void GhostGame::RenderSettingsView() {
 void GhostGame::RenderCareerStats() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 24, 245 });
 
-    const char* sTitle = "VANGUARD CAREER DOSSIER // LIFETIME GUARDIAN TELEMETRY";
-    DrawText(sTitle, 70, 30, 24, GOLD);
+    const char* sTitle = "VANGUARD CAREER DOSSIER";
+    DrawText(sTitle, 70, 32, 22, GOLD);
 
     char glimBuf[128];
     std::snprintf(glimBuf, sizeof(glimBuf), "CURRENT GLIMMER IN VAULT: %d G", profile_.glimmer);
@@ -1695,9 +1722,7 @@ void GhostGame::RenderCareerStats() {
     sy += 38.0f;
     DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Active Ghost Shell Chassis:", GetShellCatalog()[profile_.equippedShell].name, GOLD);
     sy += 38.0f;
-    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Current Audio Soundtrack Selection:", audio_.GetCurrentActionTrackName(), ORANGE);
-    sy += 38.0f;
-    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Engine Runtime Platform:", "PC / ANDROID OPENGL HYBRID", LIGHTGRAY);
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Current Soundtrack:", audio_.GetCurrentActionTrackName(), ORANGE);
 
     // Bottom Navigation Bar
     DrawLine(70, 580, VIRTUAL_WIDTH - 70, 580, { 255, 255, 255, 45 });
@@ -1746,13 +1771,24 @@ void GhostGame::RenderTriumphsLog() {
         DrawText(rStr, static_cast<int>(br.x + 300), static_cast<int>(br.y + 68), 13, done ? GREEN : GOLD);
     }
 
-    // --- SECTION 2: PERMANENT VANGUARD TRIUMPHS ---
-    DrawText("LIFETIME TRIUMPHS & RECORDS", 70, 204, 16, SKYBLUE);
+    // --- SECTION 2: PERMANENT VANGUARD TRIUMPHS (With smooth scrolling & scrollbar) ---
+    DrawText("LIFETIME TRIUMPHS & RECORDS (Scroll down for all 16 Triumphs)", 70, 204, 16, SKYBLUE);
+
+    constexpr float TOTAL_TRIUMPH_HEIGHT = 8 * 66.0f;
+    constexpr float TRIUMPH_VIEWPORT_H = 345.0f;
+    float maxTriumphScroll = std::max(0.0f, TOTAL_TRIUMPH_HEIGHT - TRIUMPH_VIEWPORT_H + 15.0f);
+    float tWheel = GetMouseWheelMove();
+    if (tWheel != 0.0f) {
+        triumphScrollY_ = std::clamp(triumphScrollY_ - tWheel * 45.0f, 0.0f, maxTriumphScroll);
+    }
+
+    BeginScissorMode(60, 225, 1160, static_cast<int>(TRIUMPH_VIEWPORT_H));
     const auto& cat = GetTriumphCatalog();
     for (int i = 0; i < static_cast<int>(NUM_TRIUMPHS); ++i) {
         int col = i % 2;
         int row = i / 2;
-        Rectangle tr = { 70.0f + col * 575.0f, 228.0f + row * 66.0f, 555.0f, 60.0f };
+        float itemY = 228.0f + row * 66.0f - triumphScrollY_;
+        Rectangle tr = { 70.0f + col * 565.0f, itemY, 545.0f, 60.0f };
         bool done = profile_.unlockedTriumphs[i];
 
         DrawRectangleRec(tr, done ? Color{ 24, 42, 54, 240 } : Color{ 14, 18, 28, 220 });
@@ -1764,7 +1800,20 @@ void GhostGame::RenderTriumphsLog() {
 
         char rew[48];
         std::snprintf(rew, sizeof(rew), done ? "CLAIMED" : "+%d G", cat[i].rewardGlimmer);
-        DrawText(rew, static_cast<int>(tr.x + 450), static_cast<int>(tr.y + 20), 14, done ? GREEN : SKYBLUE);
+        DrawText(rew, static_cast<int>(tr.x + 445), static_cast<int>(tr.y + 20), 14, done ? GREEN : SKYBLUE);
+    }
+    EndScissorMode();
+
+    if (maxTriumphScroll > 0.0f) {
+        float trackX = 1205.0f;
+        float trackY = 228.0f;
+        float trackH = TRIUMPH_VIEWPORT_H;
+        DrawRectangle(static_cast<int>(trackX), static_cast<int>(trackY), 6, static_cast<int>(trackH), { 25, 35, 50, 200 });
+        float thumbH = std::max(40.0f, trackH * (TRIUMPH_VIEWPORT_H / TOTAL_TRIUMPH_HEIGHT));
+        float thumbY = trackY + (triumphScrollY_ / maxTriumphScroll) * (trackH - thumbH);
+        Rectangle thumbR = { trackX - 2.0f, thumbY, 10.0f, thumbH };
+        bool hov = IsRectHovered(thumbR);
+        DrawRectangleRec(thumbR, hov ? GOLD : Color{ 80, 140, 200, 220 });
     }
 
     Rectangle backBtn = { 70.0f, 580.0f, 235.0f, 48.0f };

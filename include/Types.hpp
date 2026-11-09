@@ -18,9 +18,9 @@ constexpr size_t MAX_STARS = 180;
 constexpr size_t NUM_SHELLS = 12;
 constexpr size_t NUM_SUBCLASSES = 6;
 constexpr size_t NUM_EXOTIC_PERKS = 4;
-constexpr size_t NUM_TRIUMPHS = 10;
+constexpr size_t NUM_TRIUMPHS = 16;
 constexpr size_t MAX_PATROL_ENEMIES = 16;
-constexpr size_t NUM_SHADERS = 6;
+constexpr size_t NUM_SHADERS = 12;
 constexpr size_t NUM_DRONES = 4;
 constexpr size_t NUM_DAILY_BOUNTIES = 3;
 
@@ -176,13 +176,17 @@ struct SaveProfile {
         true, true, true, false, false, false // Darkness = 500G, Prismatic = 1500G
     };
     std::array<bool, NUM_SHADERS> unlockedShaders = {
-        true, false, false, false, false, false
+        true, false, false, false, false, false,
+        false, false, false, false, false, false
     };
     std::array<bool, NUM_DRONES> unlockedDrones = {
         false, false, false, false
     };
     std::array<bool, NUM_EXOTIC_PERKS> unlockedExotics = { true, false, false, false };
-    std::array<bool, NUM_TRIUMPHS> unlockedTriumphs = { false };
+    std::array<bool, NUM_TRIUMPHS> unlockedTriumphs = {
+        false, false, false, false, false, false, false, false,
+        false, false, false, false, false, false, false, false
+    };
     UpgradeLevels upgrades{};
 
     // User Settings & Accessibility (Persisted)

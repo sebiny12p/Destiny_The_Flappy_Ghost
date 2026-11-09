@@ -138,6 +138,8 @@ private:
     bool showResetConfirm_ = false;
     ScreenState settingsPrevState_ = ScreenState::TITLE_DIRECTOR;
     std::string activeInputDevice_ = "KEYBOARD & MOUSE";
+    float shaderScrollY_ = 0.0f;
+    float triumphScrollY_ = 0.0f;
 
     GhostPlayer ghost_{};
     BossState boss_{};
