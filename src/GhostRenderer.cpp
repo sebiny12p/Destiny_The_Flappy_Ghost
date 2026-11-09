@@ -717,19 +717,15 @@ void GhostGame::RenderTitleFrontPage() {
                    0.35f + pulse * 0.15f, globalTime_ * 1.2f, { 3.0f, pulse * 2.0f },
                    profile_.equippedShell, 1.0f);
 
-    const char* subHead = "BUNGIE FAN TRIBUTE // VANGUARD PROTOCOL";
-    int shw = MeasureText(subHead, 15);
-    DrawText(subHead, (VIRTUAL_WIDTH - shw) / 2, 355, 15, { 180, 210, 245, 220 });
-
     const char* mainDestiny = "DESTINY";
     int mdw = MeasureText(mainDestiny, 72);
-    DrawText(mainDestiny, (VIRTUAL_WIDTH - mdw) / 2, 380, 72, WHITE);
+    DrawText(mainDestiny, (VIRTUAL_WIDTH - mdw) / 2, 368, 72, WHITE);
 
     const char* subGameTitle = "THE FLAPPY GHOST";
     int fgw = MeasureText(subGameTitle, 24);
-    DrawText(subGameTitle, (VIRTUAL_WIDTH - fgw) / 2, 458, 24, SKYBLUE);
+    DrawText(subGameTitle, (VIRTUAL_WIDTH - fgw) / 2, 448, 24, SKYBLUE);
 
-    DrawLine(VIRTUAL_WIDTH / 2 - 320, 498, VIRTUAL_WIDTH / 2 + 320, 498, { 255, 255, 255, 80 });
+    DrawLine(VIRTUAL_WIDTH / 2 - 320, 494, VIRTUAL_WIDTH / 2 + 320, 494, { 255, 255, 255, 80 });
 
     // Pulsing "Press Any Key / Tap to Enter" Call to Action
     float blink = std::sin(globalTime_ * 4.0f) * 0.5f + 0.5f;
