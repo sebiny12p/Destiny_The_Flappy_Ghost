@@ -719,32 +719,32 @@ void GhostGame::RenderTitleFrontPage() {
 
     const char* subHead = "BUNGIE FAN TRIBUTE // VANGUARD PROTOCOL";
     int shw = MeasureText(subHead, 15);
-    DrawText(subHead, (VIRTUAL_WIDTH - shw) / 2, 380, 15, { 180, 210, 245, 220 });
+    DrawText(subHead, (VIRTUAL_WIDTH - shw) / 2, 355, 15, { 180, 210, 245, 220 });
 
     const char* mainDestiny = "DESTINY";
-    int mdw = MeasureText(mainDestiny, 64);
-    DrawText(mainDestiny, (VIRTUAL_WIDTH - mdw) / 2, 404, 64, WHITE);
+    int mdw = MeasureText(mainDestiny, 72);
+    DrawText(mainDestiny, (VIRTUAL_WIDTH - mdw) / 2, 380, 72, WHITE);
 
-    const char* subFloppy = "THE FLOPPY GHOST";
-    int sfw = MeasureText(subFloppy, 24);
-    DrawText(subFloppy, (VIRTUAL_WIDTH - sfw) / 2, 470, 24, SKYBLUE);
+    const char* subGameTitle = "THE FLAPPY GHOST";
+    int fgw = MeasureText(subGameTitle, 24);
+    DrawText(subGameTitle, (VIRTUAL_WIDTH - fgw) / 2, 458, 24, SKYBLUE);
 
-    DrawLine(VIRTUAL_WIDTH / 2 - 320, 506, VIRTUAL_WIDTH / 2 + 320, 506, { 255, 255, 255, 80 });
+    DrawLine(VIRTUAL_WIDTH / 2 - 320, 498, VIRTUAL_WIDTH / 2 + 320, 498, { 255, 255, 255, 80 });
 
     // Pulsing "Press Any Key / Tap to Enter" Call to Action
     float blink = std::sin(globalTime_ * 4.0f) * 0.5f + 0.5f;
     Color promptCol = { 255, 255, 255, static_cast<unsigned char>(140 + blink * 115) };
-    Rectangle enterBtn = { VIRTUAL_WIDTH / 2.0f - 260.0f, 524.0f, 520.0f, 54.0f };
+    Rectangle enterBtn = { VIRTUAL_WIDTH / 2.0f - 260.0f, 520.0f, 520.0f, 56.0f };
     bool hovEnter = IsRectHovered(enterBtn);
     DrawRectangleRec(enterBtn, hovEnter ? Color{ 35, 55, 85, 240 } : Color{ 14, 20, 34, 210 });
     DrawRectangleLinesEx(enterBtn, 2.0f, hovEnter ? SKYBLUE : Color{ 120, 160, 210, 150 });
     const char* prompt = "PRESS SPACE / ENTER OR CLICK TO ENTER";
-    int pw = MeasureText(prompt, 18);
-    DrawText(prompt, (VIRTUAL_WIDTH - pw) / 2, 542, 18, promptCol);
+    int pw = MeasureText(prompt, 20);
+    DrawText(prompt, (VIRTUAL_WIDTH - pw) / 2, 538, 20, promptCol);
 
     const char* ostNotice = "PLAYING: DESTINY 2 ORIGINAL SOUNDTRACK - INNER LIGHT";
-    int onw = MeasureText(ostNotice, 13);
-    DrawText(ostNotice, (VIRTUAL_WIDTH - onw) / 2, 604, 13, { 140, 185, 225, 200 });
+    int onw = MeasureText(ostNotice, 14);
+    DrawText(ostNotice, (VIRTUAL_WIDTH - onw) / 2, 605, 14, { 140, 185, 225, 200 });
 
     RenderBottomBrandingFooter();
 }
@@ -752,17 +752,17 @@ void GhostGame::RenderTitleFrontPage() {
 void GhostGame::RenderTitleDirector() {
     const char* preTitle = "DIRECTOR // VANGUARD FLIGHT TELEMETRY";
     int ptw = MeasureText(preTitle, 15);
-    DrawText(preTitle, (VIRTUAL_WIDTH - ptw) / 2, 34, 15, { 170, 210, 240, 220 });
+    DrawText(preTitle, (VIRTUAL_WIDTH - ptw) / 2, 28, 15, { 170, 210, 240, 220 });
 
-    const char* mainDestinyDir = "DESTINY";
-    int mdwDir = MeasureText(mainDestinyDir, 46);
-    DrawText(mainDestinyDir, (VIRTUAL_WIDTH - mdwDir) / 2, 54, 46, WHITE);
+    const char* mainDestiny = "DESTINY";
+    int mdw = MeasureText(mainDestiny, 52);
+    DrawText(mainDestiny, (VIRTUAL_WIDTH - mdw) / 2, 48, 52, WHITE);
 
-    const char* subFloppyDir = "THE FLOPPY GHOST";
-    int sfwDir = MeasureText(subFloppyDir, 18);
-    DrawText(subFloppyDir, (VIRTUAL_WIDTH - sfwDir) / 2, 102, 18, SKYBLUE);
+    const char* subGameTitle = "THE FLAPPY GHOST";
+    int fgw = MeasureText(subGameTitle, 20);
+    DrawText(subGameTitle, (VIRTUAL_WIDTH - fgw) / 2, 104, 20, SKYBLUE);
 
-    DrawLine(VIRTUAL_WIDTH / 2 - 280, 126, VIRTUAL_WIDTH / 2 + 280, 126, { 255, 255, 255, 90 });
+    DrawLine(VIRTUAL_WIDTH / 2 - 280, 134, VIRTUAL_WIDTH / 2 + 280, 134, { 255, 255, 255, 90 });
 
     Vector2 previewPos = { VIRTUAL_WIDTH * 0.5f, 238.0f + std::sin(globalTime_ * 2.5f) * 8.0f };
     DrawCircleLines(static_cast<int>(previewPos.x), static_cast<int>(previewPos.y), 78.0f, { 255, 255, 255, 45 });
