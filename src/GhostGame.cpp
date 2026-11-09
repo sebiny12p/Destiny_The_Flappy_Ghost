@@ -299,7 +299,7 @@ void GhostGame::StartNewRun(bool dailyNightfall) {
     }
     rng_.Seed(activeSeed_, isNightfallMode_ ? 777ULL : 101ULL);
 
-    state_ = ScreenState::PLAYING;
+    SetScreenState(ScreenState::PLAYING);
     runTime_ = 0.0f;
     distanceMeters_ = 0.0f;
     scrollSpeed_ = isNightfallMode_ ? 345.0f : 310.0f;
@@ -387,7 +387,14 @@ bool GhostGame::IsRectHovered(Rectangle rect) const {
     return false;
 }
 
+void GhostGame::SetScreenState(ScreenState nextState) {
+    if (state_ == nextState) return;
+    state_ = nextState;
+    screenTransitionCooldown_ = 0.25f; // Prevent input bleeding across screen transitions
+}
+
 bool GhostGame::IsButtonClicked(Rectangle rect) const {
+    if (screenTransitionCooldown_ > 0.0f) return false;
     // Generous touch padding for thumbs on mobile devices
     Rectangle padded = { rect.x - 10.0f, rect.y - 10.0f, rect.width + 20.0f, rect.height + 20.0f };
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetVirtualMousePos(), padded)) {
@@ -658,7 +665,7 @@ void GhostGame::HandleFatalImpact() {
         return;
     }
 
-    state_ = ScreenState::LIGHT_FADED;
+    SetScreenState(ScreenState::LIGHT_FADED);
     screenShakeTrauma_ = 0.85f;
     flashColor_ = { 220, 40, 40, 255 };
     flashAlpha_ = 0.65f;
@@ -934,7 +941,7 @@ void GhostGame::UpdateFrameInput() {
 
         bool padPause = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT);
         if (touchedPause || padPause || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) {
-            state_ = ScreenState::PAUSED;
+            SetScreenState(ScreenState::PAUSED);
             audio_.PlayUiSelect();
             return;
         }
@@ -962,37 +969,106 @@ void GhostGame::UpdateFrameInput() {
         }
     } else if (state_ == ScreenState::SPLASH_INTRO) {
         splashTimer_ += GetFrameTime();
+        bool hasGamepad = IsGamepadAvailable(0);
+        bool padSkip = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT));
         if (splashTimer_ >= 2.4f || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) ||
-            IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0 || GetKeyPressed() > 0) {
-            state_ = ScreenState::TITLE_FRONT_PAGE;
+            IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0 || GetKeyPressed() > 0 || padSkip) {
+            SetScreenState(ScreenState::TITLE_FRONT_PAGE);
         }
     } else if (state_ == ScreenState::TITLE_FRONT_PAGE) {
-        if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_E)) {
-            state_ = ScreenState::TITLE_DIRECTOR;
+        bool hasGamepad = IsGamepadAvailable(0);
+        bool padStart = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT));
+        if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_E) || padStart) {
+            SetScreenState(ScreenState::TITLE_DIRECTOR);
             audio_.PlayUiSelect();
         } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0) {
-            Rectangle enterArea = { VIRTUAL_WIDTH / 2.0f - 260.0f, 520.0f, 520.0f, 60.0f };
+            Rectangle enterArea = { VIRTUAL_WIDTH / 2.0f - 260.0f, 540.0f, 520.0f, 60.0f };
             Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
             if (CheckCollisionPointRec(p, enterArea)) {
-                state_ = ScreenState::TITLE_DIRECTOR;
+                SetScreenState(ScreenState::TITLE_DIRECTOR);
+                audio_.PlayUiSelect();
+            }
+        }
+    } else if (state_ == ScreenState::TITLE_DIRECTOR) {
+        if (screenTransitionCooldown_ <= 0.0f) {
+            bool hasGamepad = IsGamepadAvailable(0);
+            // Launch Vanguard Patrol: Space, Enter, or Gamepad (A) / Start
+            if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) ||
+                (hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)))) {
+                StartNewRun(false);
+            }
+            // Launch Nightfall Strike: N or Gamepad (X)
+            else if (IsKeyPressed(KEY_N) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT))) {
+                if (HasUnlockedAnyDrone()) {
+                    StartNewRun(true);
+                } else {
+                    towerTab_ = 2; // Open directly to Combat Drones tab in The Tower!
+                    activeToast_.active = true;
+                    activeToast_.title = "NIGHTFALL REQUIRES A COMBAT DRONE";
+                    activeToast_.subtitle = "Unlock your first manual-fire Combat Drone in The Tower (200G)!";
+                    activeToast_.timer = 4.0f;
+                    SetScreenState(ScreenState::SHELL_HANGAR);
+                    audio_.PlayUiSelect();
+                }
+            }
+            // Subclass Armory: U or Gamepad (LB)
+            else if (IsKeyPressed(KEY_U) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1))) {
+                SetScreenState(ScreenState::SUBCLASS_ARMORY);
+                audio_.PlayUiSelect();
+            }
+            // The Tower: T or Gamepad (Y)
+            else if (IsKeyPressed(KEY_T) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP))) {
+                SetScreenState(ScreenState::SHELL_HANGAR);
+                audio_.PlayUiSelect();
+            }
+            // Triumphs Record: R or Gamepad (RB)
+            else if (IsKeyPressed(KEY_R) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1))) {
+                SetScreenState(ScreenState::TRIUMPHS_LOG);
+                audio_.PlayUiSelect();
+            }
+            // Settings: S or Gamepad Select/Back (MIDDLE_LEFT)
+            else if (IsKeyPressed(KEY_S) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_LEFT))) {
+                settingsPrevState_ = ScreenState::TITLE_DIRECTOR;
+                SetScreenState(ScreenState::SETTINGS_VIEW);
+                audio_.PlayUiSelect();
+            }
+            // Back to Title: Escape or Gamepad (B)
+            else if (IsKeyPressed(KEY_ESCAPE) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))) {
+                SetScreenState(ScreenState::TITLE_FRONT_PAGE);
                 audio_.PlayUiSelect();
             }
         }
     } else if (state_ == ScreenState::PAUSED) {
-        if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P) || IsKeyPressed(KEY_SPACE)) {
-            state_ = ScreenState::PLAYING;
+        bool hasGamepad = IsGamepadAvailable(0);
+        bool padResume = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN));
+        bool padBack = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
+        if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P) || IsKeyPressed(KEY_SPACE) || padResume) {
+            SetScreenState(ScreenState::PLAYING);
+            audio_.PlayUiSelect();
+        } else if (padBack) {
+            SaveData();
+            SetScreenState(ScreenState::TITLE_DIRECTOR);
             audio_.PlayUiSelect();
         }
     } else if (state_ == ScreenState::LIGHT_FADED) {
-        if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_R)) {
+        bool hasGamepad = IsGamepadAvailable(0);
+        bool padRestart = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT));
+        bool padDirector = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
+        if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_R) || padRestart) {
             StartNewRun(isNightfallMode_);
-        } else if (IsKeyPressed(KEY_ESCAPE)) {
-            state_ = ScreenState::TITLE_DIRECTOR;
+        } else if (IsKeyPressed(KEY_ESCAPE) || padDirector) {
+            SetScreenState(ScreenState::TITLE_DIRECTOR);
             audio_.PlayUiSelect();
         }
     } else if (state_ != ScreenState::TITLE_DIRECTOR && state_ != ScreenState::TITLE_FRONT_PAGE) {
-        if (IsKeyPressed(KEY_ESCAPE)) {
-            state_ = ScreenState::TITLE_DIRECTOR;
+        bool hasGamepad = IsGamepadAvailable(0);
+        bool padBack = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
+        if (IsKeyPressed(KEY_ESCAPE) || padBack) {
+            if (state_ == ScreenState::SETTINGS_VIEW) {
+                SetScreenState(settingsPrevState_);
+            } else {
+                SetScreenState(ScreenState::TITLE_DIRECTOR);
+            }
             audio_.PlayUiSelect();
         }
     }
@@ -1458,6 +1534,9 @@ void GhostGame::UpdateParticlesFixed(float dt) {
 void GhostGame::RunFrame() {
     float frameDt = std::min(GetFrameTime(), 0.1f);
     accumulator_ += frameDt;
+    if (screenTransitionCooldown_ > 0.0f) {
+        screenTransitionCooldown_ = std::max(0.0f, screenTransitionCooldown_ - frameDt);
+    }
 
     UpdateFrameInput();
 

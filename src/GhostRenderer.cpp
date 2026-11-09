@@ -797,17 +797,20 @@ void GhostGame::RenderTitleFrontPage() {
     // Pulsing "Press Any Key / Tap to Enter" Call to Action
     float blink = std::sin(globalTime_ * 4.0f) * 0.5f + 0.5f;
     Color promptCol = { 255, 255, 255, static_cast<unsigned char>(140 + blink * 115) };
-    Rectangle enterBtn = { VIRTUAL_WIDTH / 2.0f - 260.0f, 520.0f, 520.0f, 56.0f };
+    Rectangle enterBtn = { VIRTUAL_WIDTH / 2.0f - 260.0f, 540.0f, 520.0f, 54.0f };
     bool hovEnter = IsRectHovered(enterBtn);
     DrawRectangleRec(enterBtn, hovEnter ? Color{ 35, 55, 85, 240 } : Color{ 14, 20, 34, 210 });
     DrawRectangleLinesEx(enterBtn, 2.0f, hovEnter ? SKYBLUE : Color{ 120, 160, 210, 150 });
-    const char* prompt = "PRESS SPACE / ENTER OR CLICK TO ENTER";
-    int pw = MeasureText(prompt, 20);
-    DrawText(prompt, (VIRTUAL_WIDTH - pw) / 2, 538, 20, promptCol);
+    bool hasGamepad = IsGamepadAvailable(0);
+    const char* prompt = hasGamepad
+                       ? "PRESS [START] / [(A)] OR CLICK TO ENTER"
+                       : "PRESS [SPACE] / [ENTER] OR CLICK TO ENTER";
+    int pw = MeasureText(prompt, 18);
+    DrawText(prompt, (VIRTUAL_WIDTH - pw) / 2, 558, 18, promptCol);
 
     const char* ostNotice = "PLAYING: DESTINY 2 ORIGINAL SOUNDTRACK - INNER LIGHT";
     int onw = MeasureText(ostNotice, 14);
-    DrawText(ostNotice, (VIRTUAL_WIDTH - onw) / 2, 605, 14, { 140, 185, 225, 200 });
+    DrawText(ostNotice, (VIRTUAL_WIDTH - onw) / 2, 608, 14, { 140, 185, 225, 200 });
 
     RenderBottomBrandingFooter();
 }
@@ -862,32 +865,36 @@ void GhostGame::RenderTitleDirector() {
         return IsButtonClicked(r);
     };
 
-    Rectangle btnPatrol   = { 180.0f, 392.0f, 440.0f, 64.0f };
-    Rectangle btnNightfall= { 660.0f, 392.0f, 440.0f, 64.0f };
-    Rectangle btnSubclass = { 100.0f, 472.0f, 255.0f, 64.0f };
-    Rectangle btnHangar   = { 375.0f, 472.0f, 255.0f, 64.0f };
-    Rectangle btnTriumphs = { 650.0f, 472.0f, 255.0f, 64.0f };
-    Rectangle btnSettings = { 925.0f, 472.0f, 255.0f, 64.0f };
+    bool hasGamepad = IsGamepadAvailable(0);
 
-    if (DrawDirectorButton(btnPatrol, "LAUNCH VANGUARD PATROL", "Pure flight & abilities mode (no weapons or drones)", SKYBLUE)) {
+    Rectangle btnPatrol   = { 180.0f, 392.0f, 440.0f, 62.0f };
+    Rectangle btnNightfall= { 660.0f, 392.0f, 440.0f, 62.0f };
+    Rectangle btnSubclass = { 100.0f, 464.0f, 255.0f, 58.0f };
+    Rectangle btnHangar   = { 375.0f, 464.0f, 255.0f, 58.0f };
+    Rectangle btnTriumphs = { 650.0f, 464.0f, 255.0f, 58.0f };
+    Rectangle btnSettings = { 925.0f, 464.0f, 255.0f, 58.0f };
+
+    const char* patrolLabel = hasGamepad ? "LAUNCH VANGUARD PATROL [(A)]" : "LAUNCH VANGUARD PATROL [SPACE]";
+    if (DrawDirectorButton(btnPatrol, patrolLabel, "Pure flight & abilities mode (no weapons/drones)", SKYBLUE)) {
         StartNewRun(false);
     }
 
     bool nightfallUnlocked = HasUnlockedAnyDrone();
+    const char* nfLabel = hasGamepad ? "LAUNCH NIGHTFALL STRIKE [(X)]" : "LAUNCH NIGHTFALL STRIKE [N]";
     if (nightfallUnlocked) {
         int dIdx = std::clamp(profile_.equippedDrone, 0, static_cast<int>(NUM_DRONES) - 1);
-        std::string nfSub = std::string("Drone: ") + GetDroneCatalog()[dIdx].name + " [C/X Fire] +1.5x Glimmer";
-        if (DrawDirectorButton(btnNightfall, "LAUNCH NIGHTFALL STRIKE", nfSub.c_str(), GOLD)) {
+        std::string nfSub = std::string("Drone: ") + GetDroneCatalog()[dIdx].name + " [Manual Fire] +1.5x Glimmer";
+        if (DrawDirectorButton(btnNightfall, nfLabel, nfSub.c_str(), GOLD)) {
             StartNewRun(true);
         }
     } else {
         if (DrawDirectorButton(btnNightfall, "NIGHTFALL STRIKE [LOCKED]", "Unlock your first Combat Drone in The Tower (200G)!", RED)) {
-            state_ = ScreenState::SHELL_HANGAR;
             towerTab_ = 2; // Open directly to Combat Drones tab in The Tower!
             activeToast_.active = true;
             activeToast_.title = "NIGHTFALL REQUIRES A COMBAT DRONE";
             activeToast_.subtitle = "Unlock your first manual-fire Combat Drone here (starting at 200 Glimmer)!";
             activeToast_.timer = 4.0f;
+            SetScreenState(ScreenState::SHELL_HANGAR);
             audio_.PlayUiSelect();
         }
     }
@@ -901,13 +908,15 @@ void GhostGame::RenderTitleDirector() {
         case LightSubclass::STRAND_RUNNER:          curSubLabel = "Equipped: Threadrunner"; break;
         case LightSubclass::PRISMATIC_TRANSCENDENT: curSubLabel = "Equipped: Transcendent"; break;
     }
-    if (DrawDirectorButton(btnSubclass, "SUBCLASS ARMORY", curSubLabel, GetSubclassAccentColor())) {
-        state_ = ScreenState::SUBCLASS_ARMORY;
+    const char* subBtnTitle = hasGamepad ? "SUBCLASS ARMORY [(LB)]" : "SUBCLASS ARMORY [U]";
+    if (DrawDirectorButton(btnSubclass, subBtnTitle, curSubLabel, GetSubclassAccentColor())) {
+        SetScreenState(ScreenState::SUBCLASS_ARMORY);
         audio_.PlayUiSelect();
     }
 
-    if (DrawDirectorButton(btnHangar, "THE TOWER", "Shells, Drones, Shaders & Exotics", ORANGE)) {
-        state_ = ScreenState::SHELL_HANGAR;
+    const char* towerTitle = hasGamepad ? "THE TOWER [(Y)]" : "THE TOWER [T]";
+    if (DrawDirectorButton(btnHangar, towerTitle, "Shells, Drones, Shaders & Exotics", ORANGE)) {
+        SetScreenState(ScreenState::SHELL_HANGAR);
         audio_.PlayUiSelect();
     }
 
@@ -915,20 +924,24 @@ void GhostGame::RenderTitleDirector() {
     for (bool b : profile_.unlockedTriumphs) if (b) unlockedCount++;
     char triSub[64];
     std::snprintf(triSub, sizeof(triSub), "Completed: %d / %d Triumphs", unlockedCount, static_cast<int>(NUM_TRIUMPHS));
-    if (DrawDirectorButton(btnTriumphs, "TRIUMPHS RECORD", triSub, GREEN)) {
-        state_ = ScreenState::TRIUMPHS_LOG;
+    const char* triTitle = hasGamepad ? "TRIUMPHS [(RB)]" : "TRIUMPHS [R]";
+    if (DrawDirectorButton(btnTriumphs, triTitle, triSub, GREEN)) {
+        SetScreenState(ScreenState::TRIUMPHS_LOG);
         audio_.PlayUiSelect();
     }
 
-    if (DrawDirectorButton(btnSettings, "SYSTEM SETTINGS", "Audio, Visuals & Controls", PURPLE)) {
+    const char* setBtnTitle = hasGamepad ? "SETTINGS [BACK]" : "SETTINGS [S]";
+    if (DrawDirectorButton(btnSettings, setBtnTitle, "Audio, Visuals & Controls", PURPLE)) {
         settingsPrevState_ = ScreenState::TITLE_DIRECTOR;
-        state_ = ScreenState::SETTINGS_VIEW;
+        SetScreenState(ScreenState::SETTINGS_VIEW);
         audio_.PlayUiSelect();
     }
 
-    const char* ctrlHint = "CONTROLS: [SPACE / L-CLICK] Flap  |  [SHIFT / R-CLICK] Blink/Dash  |  [F / Q] Super  |  [C / X] Fire Drone (Nightfall)";
+    const char* ctrlHint = hasGamepad
+                         ? "CONTROLS: [(A) / START] Launch Patrol  |  [(X)] Nightfall  |  [(Y)] Tower  |  [(B)] Back"
+                         : "CONTROLS: [SPACE / ENTER] Launch Patrol  |  [N] Nightfall  |  [T] Tower  |  [ESC] Back";
     int chw = MeasureText(ctrlHint, 14);
-    DrawText(ctrlHint, (VIRTUAL_WIDTH - chw) / 2, 558, 14, { 180, 210, 235, 215 });
+    DrawText(ctrlHint, (VIRTUAL_WIDTH - chw) / 2, 545, 14, { 180, 210, 235, 215 });
 
     RenderBottomBrandingFooter();
 }
@@ -1054,7 +1067,7 @@ void GhostGame::RenderSubclassArmory() {
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
     if (IsButtonClicked(backBtn)) {
-        state_ = ScreenState::TITLE_DIRECTOR;
+        SetScreenState(ScreenState::TITLE_DIRECTOR);
         audio_.PlayUiSelect();
     }
 }
@@ -1364,7 +1377,7 @@ void GhostGame::RenderShellHangar() {
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
     if (IsButtonClicked(backBtn)) {
-        state_ = ScreenState::TITLE_DIRECTOR;
+        SetScreenState(ScreenState::TITLE_DIRECTOR);
         audio_.PlayUiSelect();
     }
 }
@@ -1539,7 +1552,7 @@ void GhostGame::RenderSettingsView() {
     DrawText("< BACK", static_cast<int>(backBtn.x + 98), static_cast<int>(backBtn.y + 16), 16, WHITE);
     if (IsButtonClicked(backBtn) || IsKeyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) {
         SaveData();
-        state_ = settingsPrevState_;
+        SetScreenState(settingsPrevState_);
         audio_.PlayUiSelect();
     }
 }
@@ -1605,7 +1618,7 @@ void GhostGame::RenderTriumphsLog() {
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
     if (IsButtonClicked(backBtn)) {
-        state_ = ScreenState::TITLE_DIRECTOR;
+        SetScreenState(ScreenState::TITLE_DIRECTOR);
         audio_.PlayUiSelect();
     }
 }
@@ -1633,17 +1646,17 @@ void GhostGame::RenderPauseOverlay() {
     DrawText("RETURN TO DIRECTOR", static_cast<int>(dirBtn.x + 62), static_cast<int>(dirBtn.y + 17), 17, WHITE);
 
     if (IsButtonClicked(resumeBtn)) {
-        state_ = ScreenState::PLAYING;
+        SetScreenState(ScreenState::PLAYING);
         audio_.PlayUiSelect();
     }
     if (IsButtonClicked(settingsBtn)) {
         settingsPrevState_ = ScreenState::PAUSED;
-        state_ = ScreenState::SETTINGS_VIEW;
+        SetScreenState(ScreenState::SETTINGS_VIEW);
         audio_.PlayUiSelect();
     }
     if (IsButtonClicked(dirBtn)) {
         SaveData();
-        state_ = ScreenState::TITLE_DIRECTOR;
+        SetScreenState(ScreenState::TITLE_DIRECTOR);
         audio_.PlayUiSelect();
     }
 }
@@ -1690,7 +1703,7 @@ void GhostGame::RenderLightFadedOverlay() {
         StartNewRun(isNightfallMode_);
     }
     if (IsButtonClicked(dirBtn)) {
-        state_ = ScreenState::TITLE_DIRECTOR;
+        SetScreenState(ScreenState::TITLE_DIRECTOR);
         audio_.PlayUiSelect();
     }
 }

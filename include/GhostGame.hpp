@@ -87,6 +87,7 @@ private:
     void RenderLightFadedOverlay();
     void RenderBottomBrandingFooter() const;
     void RenderTriumphToast() const;
+    void SetScreenState(ScreenState nextState);
 
 private:
     RenderTexture2D targetRenderTex_{};
@@ -95,6 +96,7 @@ private:
     PCG32 rng_{};
 
     ScreenState state_ = ScreenState::SPLASH_INTRO;
+    float screenTransitionCooldown_ = 0.0f;
     float splashTimer_ = 0.0f;
     Texture2D splashLogo_{};
     std::array<DailyBounty, NUM_DAILY_BOUNTIES> dailyBounties_{};
