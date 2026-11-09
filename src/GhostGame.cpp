@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <ctime>
 #include <fstream>
+#include <vector>
 
 namespace FlappyGhost {
 
@@ -360,23 +361,44 @@ Color GhostGame::GetSubclassAccentColor() const {
 }
 
 Vector2 GhostGame::GetVirtualMousePos() const {
-    Vector2 mouse = GetMousePosition();
+    return ToVirtualCoords(GetMousePosition());
+}
+
+Vector2 GhostGame::ToVirtualCoords(Vector2 screenPos) const {
     float sw = static_cast<float>(GetScreenWidth());
     float sh = static_cast<float>(GetScreenHeight());
     if (sw <= 0.0f || sh <= 0.0f) return { 0.0f, 0.0f };
     return {
-        mouse.x * (static_cast<float>(VIRTUAL_WIDTH) / sw),
-        mouse.y * (static_cast<float>(VIRTUAL_HEIGHT) / sh)
+        screenPos.x * (static_cast<float>(VIRTUAL_WIDTH) / sw),
+        screenPos.y * (static_cast<float>(VIRTUAL_HEIGHT) / sh)
     };
 }
 
 bool GhostGame::IsRectHovered(Rectangle rect) const {
-    return CheckCollisionPointRec(GetVirtualMousePos(), rect);
+    if (CheckCollisionPointRec(GetVirtualMousePos(), rect)) return true;
+    int tc = GetTouchPointCount();
+    for (int i = 0; i < tc; ++i) {
+        if (CheckCollisionPointRec(ToVirtualCoords(GetTouchPosition(i)), rect)) return true;
+    }
+    return false;
 }
 
 bool GhostGame::IsButtonClicked(Rectangle rect) const {
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetVirtualMousePos(), rect)) {
+    // Generous touch padding for thumbs on mobile devices
+    Rectangle padded = { rect.x - 10.0f, rect.y - 10.0f, rect.width + 20.0f, rect.height + 20.0f };
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetVirtualMousePos(), padded)) {
         return true;
+    }
+    int tc = GetTouchPointCount();
+    for (int i = 0; i < tc; ++i) {
+        int tid = GetTouchPointId(i);
+        bool isNew = true;
+        for (int p = 0; p < prevTouchCount_; ++p) {
+            if (prevTouchIds_[p] == tid) { isNew = false; break; }
+        }
+        if (isNew && CheckCollisionPointRec(ToVirtualCoords(GetTouchPosition(i)), padded)) {
+            return true;
+        }
     }
     return false;
 }
@@ -822,39 +844,87 @@ void GhostGame::SpawnProjectile(Vector2 pos, Vector2 vel, float radius, Color co
 }
 
 void GhostGame::UpdateFrameInput() {
+    float frameDt = GetFrameTime();
+    if (touchFeedbackTac_ > 0.0f) touchFeedbackTac_ -= frameDt;
+    if (touchFeedbackSup_ > 0.0f) touchFeedbackSup_ -= frameDt;
+    if (touchFeedbackDrn_ > 0.0f) touchFeedbackDrn_ -= frameDt;
+    if (touchFeedbackPause_ > 0.0f) touchFeedbackPause_ -= frameDt;
+
     if (IsKeyPressed(KEY_M)) {
         audio_.ToggleMute();
     }
 
     if (state_ == ScreenState::PLAYING) {
-        if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) {
+        // Collect new touch points & mouse click
+        struct TouchEvent {
+            Vector2 pos;
+        };
+        std::vector<TouchEvent> newPresses;
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            newPresses.push_back({ GetVirtualMousePos() });
+        }
+
+        int tc = GetTouchPointCount();
+        for (int i = 0; i < tc; ++i) {
+            int tid = GetTouchPointId(i);
+            bool isNew = true;
+            for (int p = 0; p < prevTouchCount_; ++p) {
+                if (prevTouchIds_[p] == tid) { isNew = false; break; }
+            }
+            if (isNew) {
+                newPresses.push_back({ ToVirtualCoords(GetTouchPosition(i)) });
+            }
+        }
+
+        // On-screen HUD Touch Buttons & Hitboxes (with generous touch-padding)
+        Rectangle pauseBtn = { VIRTUAL_WIDTH - 362.0f, 26.0f, 54.0f, 54.0f };
+        Rectangle pauseHitbox = { pauseBtn.x - 14.0f, pauseBtn.y - 14.0f, pauseBtn.width + 28.0f, pauseBtn.height + 28.0f };
+
+        Rectangle drnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+        Rectangle tacBtn = { VIRTUAL_WIDTH - 256.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+        Rectangle supBtn = { VIRTUAL_WIDTH - 134.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+        float pad = 16.0f;
+        Rectangle drnHitbox = { drnBtn.x - pad, drnBtn.y - pad, drnBtn.width + pad * 2.0f, drnBtn.height + pad * 2.0f };
+        Rectangle tacHitbox = { tacBtn.x - pad, tacBtn.y - pad, tacBtn.width + pad * 2.0f, tacBtn.height + pad * 2.0f };
+        Rectangle supHitbox = { supBtn.x - pad, supBtn.y - pad, supBtn.width + pad * 2.0f, supBtn.height + pad * 2.0f };
+
+        bool touchedPause = false;
+        bool touchedFlap = false;
+
+        for (const auto& ev : newPresses) {
+            if (CheckCollisionPointRec(ev.pos, pauseHitbox)) {
+                touchFeedbackPause_ = 0.25f;
+                touchedPause = true;
+                break;
+            }
+            if (isNightfallMode_ && CheckCollisionPointRec(ev.pos, drnHitbox)) {
+                touchFeedbackDrn_ = 0.25f;
+                TriggerDroneFire();
+                continue;
+            }
+            if (CheckCollisionPointRec(ev.pos, tacHitbox)) {
+                touchFeedbackTac_ = 0.25f;
+                TriggerTacticalAbility();
+                continue;
+            }
+            if (CheckCollisionPointRec(ev.pos, supHitbox)) {
+                touchFeedbackSup_ = 0.25f;
+                TriggerSuperAbility();
+                continue;
+            }
+            touchedFlap = true;
+        }
+
+        if (touchedPause || IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) {
             state_ = ScreenState::PAUSED;
             audio_.PlayUiSelect();
             return;
         }
 
-        bool tapInput = IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP);
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            Vector2 vm = GetVirtualMousePos();
-            Rectangle drnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-            Rectangle tacBtn = { VIRTUAL_WIDTH - 256.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-            Rectangle supBtn = { VIRTUAL_WIDTH - 134.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-            if (isNightfallMode_ && CheckCollisionPointRec(vm, drnBtn)) {
-                TriggerDroneFire();
-                return;
-            } else if (CheckCollisionPointRec(vm, tacBtn)) {
-                TriggerTacticalAbility();
-                return;
-            } else if (CheckCollisionPointRec(vm, supBtn)) {
-                TriggerSuperAbility();
-                return;
-            }
-            tapInput = true;
-            lastTapTime_ = globalTime_;
-        }
-
-        if (tapInput) {
+        if (touchedFlap || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
             TriggerFlap();
+            lastTapTime_ = globalTime_;
         }
 
         if (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT) ||
@@ -872,17 +942,17 @@ void GhostGame::UpdateFrameInput() {
     } else if (state_ == ScreenState::SPLASH_INTRO) {
         splashTimer_ += GetFrameTime();
         if (splashTimer_ >= 2.4f || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) ||
-            IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetKeyPressed() > 0) {
+            IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0 || GetKeyPressed() > 0) {
             state_ = ScreenState::TITLE_FRONT_PAGE;
         }
     } else if (state_ == ScreenState::TITLE_FRONT_PAGE) {
         if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_E)) {
             state_ = ScreenState::TITLE_DIRECTOR;
             audio_.PlayUiSelect();
-        } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            // Only transition to Director when clicking the center prompt button area, not by accidental clicks that overlap Patrol!
+        } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0) {
             Rectangle enterArea = { VIRTUAL_WIDTH / 2.0f - 260.0f, 520.0f, 520.0f, 60.0f };
-            if (CheckCollisionPointRec(GetVirtualMousePos(), enterArea)) {
+            Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
+            if (CheckCollisionPointRec(p, enterArea)) {
                 state_ = ScreenState::TITLE_DIRECTOR;
                 audio_.PlayUiSelect();
             }
@@ -904,6 +974,13 @@ void GhostGame::UpdateFrameInput() {
             state_ = ScreenState::TITLE_DIRECTOR;
             audio_.PlayUiSelect();
         }
+    }
+
+    // Store active touch IDs for frame transition detection
+    int curTc = GetTouchPointCount();
+    prevTouchCount_ = std::min(curTc, static_cast<int>(prevTouchIds_.size()));
+    for (int i = 0; i < prevTouchCount_; ++i) {
+        prevTouchIds_[i] = GetTouchPointId(i);
     }
 }
 
@@ -998,7 +1075,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
     // Ghost Physics
     float gravity = 1180.0f;
     if (static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::SOLAR_DAWN &&
-        ghost_.vel.y > 40.0f && (IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_BUTTON_LEFT))) {
+        ghost_.vel.y > 40.0f && (IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0)) {
         gravity = 420.0f;
     }
     if (ghost_.phaseTimer > 0.0f) {

@@ -642,6 +642,16 @@ void GhostGame::RenderHud() const {
     DrawText(isNightfallMode_ ? "MODE: NIGHTFALL STRIKE" : "MODE: VANGUARD PATROL",
              VIRTUAL_WIDTH - 278, 88, 14, isNightfallMode_ ? GOLD : LIGHTGRAY);
 
+    // On-Screen Holographic Touch Pause Button (Mobile-Friendly)
+    Rectangle pauseBtn = { VIRTUAL_WIDTH - 362.0f, 26.0f, 54.0f, 54.0f };
+    bool pausePressed = (touchFeedbackPause_ > 0.0f);
+    bool pauseHover = IsRectHovered(pauseBtn) || pausePressed;
+    DrawRectangleRec(pauseBtn, pausePressed ? Color{ 55, 80, 120, 255 } : (pauseHover ? Color{ 30, 48, 72, 230 } : Color{ 14, 20, 32, 200 }));
+    DrawRectangleLinesEx(pauseBtn, pausePressed ? 2.5f : 1.8f, pausePressed ? GOLD : (pauseHover ? WHITE : SKYBLUE));
+    DrawRectangle(static_cast<int>(pauseBtn.x + 17), static_cast<int>(pauseBtn.y + 13), 6, 22, pausePressed ? GOLD : WHITE);
+    DrawRectangle(static_cast<int>(pauseBtn.x + 31), static_cast<int>(pauseBtn.y + 13), 6, 22, pausePressed ? GOLD : WHITE);
+    DrawText("PAUSE", static_cast<int>(pauseBtn.x + 11), static_cast<int>(pauseBtn.y + 38), 9, pausePressed ? GOLD : LIGHTGRAY);
+
     // Vanguard Streak Medal Callout Popup
     if (activeMedal_.active) {
         char medTxt[128];
@@ -661,22 +671,25 @@ void GhostGame::RenderHud() const {
     if (isNightfallMode_ && profile_.equippedDrone >= 0 && profile_.equippedDrone < static_cast<int>(NUM_DRONES)) {
         const auto& droneDef = GetDroneCatalog()[profile_.equippedDrone];
         float drnReady = 1.0f - std::clamp(ghost_.droneCooldown / std::max(0.05f, ghost_.droneMaxCooldown), 0.0f, 1.0f);
-        DrawRectangleRec(drnBtn, (drnReady >= 1.0f) ? Color{ 28, 52, 74, 225 } : Color{ 22, 26, 34, 185 });
-        DrawRectangleLinesEx(drnBtn, 2.0f, (drnReady >= 1.0f) ? droneDef.color : GRAY);
+        bool drnFeedback = (touchFeedbackDrn_ > 0.0f);
+        DrawRectangleRec(drnBtn, drnFeedback ? Color{ 45, 85, 120, 255 } : ((drnReady >= 1.0f) ? Color{ 28, 52, 74, 225 } : Color{ 22, 26, 34, 185 }));
+        DrawRectangleLinesEx(drnBtn, drnFeedback ? 2.5f : 2.0f, drnFeedback ? WHITE : ((drnReady >= 1.0f) ? droneDef.color : GRAY));
         DrawText("FIRE DRONE", static_cast<int>(drnBtn.x + 12), static_cast<int>(drnBtn.y + 12), 14, WHITE);
         DrawText("[C / X]", static_cast<int>(drnBtn.x + 30), static_cast<int>(drnBtn.y + 30), 12, LIGHTGRAY);
         DrawRectangle(static_cast<int>(drnBtn.x + 10), static_cast<int>(drnBtn.y + 48), 92, 6, { 18, 22, 30, 255 });
         DrawRectangle(static_cast<int>(drnBtn.x + 10), static_cast<int>(drnBtn.y + 48), static_cast<int>(92.0f * drnReady), 6, droneDef.color);
     }
 
-    DrawRectangleRec(tacBtn, (tacReady >= 1.0f) ? Color{ 35, 65, 95, 210 } : Color{ 25, 28, 35, 180 });
-    DrawRectangleLinesEx(tacBtn, 2.0f, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
+    bool tacFeedback = (touchFeedbackTac_ > 0.0f);
+    DrawRectangleRec(tacBtn, tacFeedback ? Color{ 55, 105, 155, 255 } : ((tacReady >= 1.0f) ? Color{ 35, 65, 95, 210 } : Color{ 25, 28, 35, 180 }));
+    DrawRectangleLinesEx(tacBtn, tacFeedback ? 2.5f : 2.0f, tacFeedback ? WHITE : ((tacReady >= 1.0f) ? SKYBLUE : GRAY));
     DrawText("BLINK / DASH", static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 14), 14, WHITE);
     DrawText("[SHIFT / RMB]", static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 34), 12, LIGHTGRAY);
 
-    DrawRectangleRec(supBtn, (superRatio >= 1.0f) ? Color{ 95, 75, 20, 230 } : Color{ 25, 28, 35, 180 });
-    DrawRectangleLinesEx(supBtn, 2.0f, (superRatio >= 1.0f) ? GOLD : GRAY);
-    DrawText("CAST SUPER", static_cast<int>(supBtn.x + 12), static_cast<int>(supBtn.y + 14), 14, (superRatio >= 1.0f) ? GOLD : GRAY);
+    bool supFeedback = (touchFeedbackSup_ > 0.0f);
+    DrawRectangleRec(supBtn, supFeedback ? Color{ 145, 115, 35, 255 } : ((superRatio >= 1.0f) ? Color{ 95, 75, 20, 230 } : Color{ 25, 28, 35, 180 }));
+    DrawRectangleLinesEx(supBtn, supFeedback ? 2.5f : 2.0f, supFeedback ? WHITE : ((superRatio >= 1.0f) ? GOLD : GRAY));
+    DrawText("CAST SUPER", static_cast<int>(supBtn.x + 12), static_cast<int>(supBtn.y + 14), 14, (superRatio >= 1.0f || supFeedback) ? GOLD : GRAY);
     DrawText("[F / Q]", static_cast<int>(supBtn.x + 32), static_cast<int>(supBtn.y + 34), 12, LIGHTGRAY);
 
     if (biomeBannerTimer_ > 0.0f) {

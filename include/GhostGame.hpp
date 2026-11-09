@@ -60,6 +60,7 @@ private:
     Color GetSubclassAccentColor() const;
     const char* GetBiomeName(BiomeSector b) const;
     Vector2 GetVirtualMousePos() const;
+    Vector2 ToVirtualCoords(Vector2 screenPos) const;
     bool IsButtonClicked(Rectangle rect) const;
     bool IsRectHovered(Rectangle rect) const;
 
@@ -121,6 +122,14 @@ private:
     BiomeSector lastBiome_ = BiomeSector::COSMODROME;
 
     float lastTapTime_ = -10.0f;
+
+    // Mobile Multi-Touch & Input Feedback
+    mutable std::array<int, 10> prevTouchIds_{};
+    mutable int prevTouchCount_ = 0;
+    float touchFeedbackTac_ = 0.0f;
+    float touchFeedbackSup_ = 0.0f;
+    float touchFeedbackDrn_ = 0.0f;
+    float touchFeedbackPause_ = 0.0f;
 
     GhostPlayer ghost_{};
     BossState boss_{};
