@@ -865,6 +865,10 @@ void GhostGame::UpdateFrameInput() {
         audio_.ToggleMute();
     }
 
+    if (IsKeyPressed(KEY_F11) || (IsKeyDown(KEY_LEFT_ALT) && IsKeyPressed(KEY_ENTER))) {
+        ToggleFullscreen();
+    }
+
     if (state_ == ScreenState::PLAYING) {
         // Collect new touch points & mouse click
         struct TouchEvent {
