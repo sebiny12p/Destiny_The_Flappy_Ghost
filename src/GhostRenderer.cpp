@@ -78,15 +78,21 @@ void GhostGame::RenderFrame() {
         RenderProjectiles();
         RenderParticles();
 
-        // Companion Turret Drone (Arc/Solar/Void Soul Buddy)
-        Vector2 dronePos = {
-            ghost_.pos.x + std::cos(ghost_.companionAngle) * 42.0f,
-            ghost_.pos.y + std::sin(ghost_.companionAngle) * 32.0f
-        };
-        Color companionCol = GetSubclassAccentColor();
-        DrawCircleGradient(static_cast<int>(dronePos.x), static_cast<int>(dronePos.y), 18.0f, companionCol, BLANK);
-        DrawPoly(dronePos, 4, 8.0f, globalTime_ * 180.0f, WHITE);
-        DrawPolyLinesEx(dronePos, 4, 11.0f, -globalTime_ * 140.0f, 2.0f, companionCol);
+        // Manual-Fire Combat Drone (Only active & visible in Nightfall Mode when a drone is equipped)
+        if (isNightfallMode_ && profile_.equippedDrone >= 0 && profile_.equippedDrone < static_cast<int>(NUM_DRONES)) {
+            const auto& droneDef = GetDroneCatalog()[profile_.equippedDrone];
+            Vector2 dronePos = {
+                ghost_.pos.x + std::cos(ghost_.companionAngle) * 42.0f,
+                ghost_.pos.y + std::sin(ghost_.companionAngle) * 32.0f
+            };
+            float pulseScale = 1.0f + ghost_.dronePulseAnim * 0.45f;
+            DrawCircleGradient(static_cast<int>(dronePos.x), static_cast<int>(dronePos.y),
+                               18.0f * pulseScale, droneDef.color, BLANK);
+            int sides = (profile_.equippedDrone == 0) ? 6 : (profile_.equippedDrone == 1) ? 4 :
+                        (profile_.equippedDrone == 2) ? 8 : 3;
+            DrawPoly(dronePos, sides, 9.0f * pulseScale, globalTime_ * 180.0f, WHITE);
+            DrawPolyLinesEx(dronePos, sides, 12.5f * pulseScale, -globalTime_ * 140.0f, 2.0f, droneDef.color);
+        }
 
         // Strand Grapple Tether Line
         if (ghost_.grappleTimer > 0.0f) {
@@ -114,15 +120,6 @@ void GhostGame::RenderFrame() {
             DrawCircleGradient(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y),
                                r, { 255, 180, 40, 140 }, { 255, 90, 10, 0 });
             DrawCircleLines(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y), r, GOLD);
-        }
-
-        // Ghost Scan Cone when scanning Confluxes
-        if (ghost_.scanPulseTimer > 0.0f) {
-            Vector2 p1 = ghost_.pos;
-            Vector2 p2 = { ghost_.pos.x + 170.0f, ghost_.pos.y - 65.0f };
-            Vector2 p3 = { ghost_.pos.x + 170.0f, ghost_.pos.y + 65.0f };
-            DrawTriangle(p1, p3, p2, { 110, 240, 255, static_cast<unsigned char>(ghost_.scanPulseTimer * 220) });
-            DrawLineEx(p2, p3, 2.5f, SKYBLUE);
         }
 
         // Overshield ring around Ghost
@@ -296,10 +293,6 @@ void GhostGame::RenderCollectibles() const {
                                { 255, 215, 40, 190 }, { 255, 140, 0, 0 });
             DrawPoly(c.pos, 6, c.radius, globalTime_ * 80.0f, GOLD);
             DrawPolyLinesEx(c.pos, 6, c.radius + 2.0f, globalTime_ * 80.0f, 2.5f, WHITE);
-        } else if (c.kind == CollectibleKind::VEX_CONFLUX) {
-            DrawPoly(c.pos, 4, c.radius + 4.0f, 0.0f, { 80, 255, 220, 190 });
-            DrawPolyLinesEx(c.pos, 4, c.radius + 9.0f, globalTime_ * 95.0f, 2.5f, WHITE);
-            DrawText("SCAN", static_cast<int>(c.pos.x - 18), static_cast<int>(c.pos.y - 34), 14, SKYBLUE);
         }
     }
 }
@@ -368,11 +361,9 @@ void GhostGame::RenderBoss() const {
     DrawRectangleLinesEx({ barX, barY, barW, 16.0f }, 1.5f, WHITE);
 
     if (boss_.shieldImmune) {
-        char buf[96];
-        std::snprintf(buf, sizeof(buf), "IMMUNE SHIELD // SCAN VEX CONFLUXES (%d / 3)", boss_.confluxesScanned);
-        DrawText(buf, static_cast<int>(barX + 85), static_cast<int>(barY + 20), 15, SKYBLUE);
+        DrawText("OVERSHIELD ACTIVE // FIRE DRONE [C / X] OR SUPER TO SHATTER", static_cast<int>(barX + 35), static_cast<int>(barY + 20), 14, SKYBLUE);
     } else {
-        DrawText("SHIELD BROKEN // CHANNELLING LIGHT STRIKE!", static_cast<int>(barX + 95), static_cast<int>(barY + 20), 15, GOLD);
+        DrawText("SHIELD BROKEN // FINISH WITH DRONE & LIGHT ABILITIES!", static_cast<int>(barX + 60), static_cast<int>(barY + 20), 14, GOLD);
     }
 }
 
@@ -603,11 +594,12 @@ void GhostGame::RenderHud() const {
 
     const char* subName = "VOIDWALKER // BLINK";
     switch (static_cast<LightSubclass>(profile_.selectedSubclass)) {
-        case LightSubclass::VOID_WALKER:        subName = "VOIDWALKER // BLINK"; break;
-        case LightSubclass::SOLAR_DAWN:         subName = "DAWNBLADE // ICARUS"; break;
-        case LightSubclass::ARC_CALLER:         subName = "STORMCALLER // IONIC"; break;
-        case LightSubclass::STASIS_SHADEBINDER: subName = "SHADEBINDER // STASIS"; break;
-        case LightSubclass::STRAND_RUNNER:      subName = "THREADRUNNER // GRAPPLE"; break;
+        case LightSubclass::VOID_WALKER:            subName = "VOIDWALKER // BLINK"; break;
+        case LightSubclass::SOLAR_DAWN:             subName = "DAWNBLADE // ICARUS"; break;
+        case LightSubclass::ARC_CALLER:             subName = "STORMCALLER // IONIC"; break;
+        case LightSubclass::STASIS_SHADEBINDER:     subName = "SHADEBINDER // STASIS"; break;
+        case LightSubclass::STRAND_RUNNER:          subName = "THREADRUNNER // GRAPPLE"; break;
+        case LightSubclass::PRISMATIC_TRANSCENDENT: subName = "TRANSCENDENT // PRISMATIC"; break;
     }
     DrawText(subName, 102, 34, 16, WHITE);
 
@@ -645,7 +637,7 @@ void GhostGame::RenderHud() const {
     std::snprintf(glimBuf, sizeof(glimBuf), "GLIMMER: %d (+%d)", profile_.glimmer, runGlimmerEarned_);
     DrawText(glimBuf, VIRTUAL_WIDTH - 278, 66, 16, SKYBLUE);
 
-    DrawText(isNightfallMode_ ? "MODE: DAILY NIGHTFALL" : "MODE: VANGUARD PATROL",
+    DrawText(isNightfallMode_ ? "MODE: NIGHTFALL STRIKE" : "MODE: VANGUARD PATROL",
              VIRTUAL_WIDTH - 278, 88, 14, isNightfallMode_ ? GOLD : LIGHTGRAY);
 
     // Vanguard Streak Medal Callout Popup
@@ -659,14 +651,21 @@ void GhostGame::RenderHud() const {
     }
 
     // Touch / Mouse On-Screen Action Buttons (Bottom-Right)
-    Rectangle scnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+    // Patrol mode has NO weapons or scan; Nightfall mode shows the manual [FIRE DRONE] button!
+    Rectangle drnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
     Rectangle tacBtn = { VIRTUAL_WIDTH - 256.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
     Rectangle supBtn = { VIRTUAL_WIDTH - 134.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
 
-    DrawRectangleRec(scnBtn, Color{ 22, 42, 60, 210 });
-    DrawRectangleLinesEx(scnBtn, 2.0f, SKYBLUE);
-    DrawText("PULSE SCAN", static_cast<int>(scnBtn.x + 10), static_cast<int>(scnBtn.y + 14), 14, WHITE);
-    DrawText("[C / DISRUPT]", static_cast<int>(scnBtn.x + 10), static_cast<int>(scnBtn.y + 34), 12, LIGHTGRAY);
+    if (isNightfallMode_ && profile_.equippedDrone >= 0 && profile_.equippedDrone < static_cast<int>(NUM_DRONES)) {
+        const auto& droneDef = GetDroneCatalog()[profile_.equippedDrone];
+        float drnReady = 1.0f - std::clamp(ghost_.droneCooldown / std::max(0.05f, ghost_.droneMaxCooldown), 0.0f, 1.0f);
+        DrawRectangleRec(drnBtn, (drnReady >= 1.0f) ? Color{ 28, 52, 74, 225 } : Color{ 22, 26, 34, 185 });
+        DrawRectangleLinesEx(drnBtn, 2.0f, (drnReady >= 1.0f) ? droneDef.color : GRAY);
+        DrawText("FIRE DRONE", static_cast<int>(drnBtn.x + 12), static_cast<int>(drnBtn.y + 12), 14, WHITE);
+        DrawText("[C / X]", static_cast<int>(drnBtn.x + 30), static_cast<int>(drnBtn.y + 30), 12, LIGHTGRAY);
+        DrawRectangle(static_cast<int>(drnBtn.x + 10), static_cast<int>(drnBtn.y + 48), 92, 6, { 18, 22, 30, 255 });
+        DrawRectangle(static_cast<int>(drnBtn.x + 10), static_cast<int>(drnBtn.y + 48), static_cast<int>(92.0f * drnReady), 6, droneDef.color);
+    }
 
     DrawRectangleRec(tacBtn, (tacReady >= 1.0f) ? Color{ 35, 65, 95, 210 } : Color{ 25, 28, 35, 180 });
     DrawRectangleLinesEx(tacBtn, 2.0f, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
@@ -798,30 +797,45 @@ void GhostGame::RenderTitleDirector() {
     Rectangle btnHangar   = { 495.0f, 472.0f, 290.0f, 64.0f };
     Rectangle btnTriumphs = { 810.0f, 472.0f, 290.0f, 64.0f };
 
-    if (DrawDirectorButton(btnPatrol, "LAUNCH VANGUARD PATROL", "Endless procedural run across 4 Destiny sectors", SKYBLUE) ||
+    if (DrawDirectorButton(btnPatrol, "LAUNCH VANGUARD PATROL", "Pure flight & abilities mode (no weapons or drones)", SKYBLUE) ||
         IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER)) {
         StartNewRun(false);
     }
 
-    std::string nfSub = std::string("Daily Seed [") + PCG32::GetDailyDateString() + "] +1.5x Glimmer";
-    if (DrawDirectorButton(btnNightfall, "DAILY NIGHTFALL STRIKE", nfSub.c_str(), GOLD)) {
-        StartNewRun(true);
+    bool nightfallUnlocked = HasUnlockedAnyDrone();
+    if (nightfallUnlocked) {
+        int dIdx = std::clamp(profile_.equippedDrone, 0, static_cast<int>(NUM_DRONES) - 1);
+        std::string nfSub = std::string("Drone: ") + GetDroneCatalog()[dIdx].name + " [C/X Fire] +1.5x Glimmer";
+        if (DrawDirectorButton(btnNightfall, "LAUNCH NIGHTFALL STRIKE", nfSub.c_str(), GOLD)) {
+            StartNewRun(true);
+        }
+    } else {
+        if (DrawDirectorButton(btnNightfall, "NIGHTFALL STRIKE [LOCKED]", "Unlock your first Combat Drone in The Tower (200G)!", RED)) {
+            state_ = ScreenState::SHELL_HANGAR;
+            towerTab_ = 2; // Open directly to Combat Drones tab in The Tower!
+            activeToast_.active = true;
+            activeToast_.title = "NIGHTFALL REQUIRES A COMBAT DRONE";
+            activeToast_.subtitle = "Unlock your first manual-fire Combat Drone here (starting at 200 Glimmer)!";
+            activeToast_.timer = 4.0f;
+            audio_.PlayUiSelect();
+        }
     }
 
     const char* curSubLabel = "Equipped: Voidwalker";
     switch (static_cast<LightSubclass>(profile_.selectedSubclass)) {
-        case LightSubclass::VOID_WALKER:        curSubLabel = "Equipped: Voidwalker"; break;
-        case LightSubclass::SOLAR_DAWN:         curSubLabel = "Equipped: Dawnblade"; break;
-        case LightSubclass::ARC_CALLER:         curSubLabel = "Equipped: Stormcaller"; break;
-        case LightSubclass::STASIS_SHADEBINDER: curSubLabel = "Equipped: Shadebinder"; break;
-        case LightSubclass::STRAND_RUNNER:      curSubLabel = "Equipped: Threadrunner"; break;
+        case LightSubclass::VOID_WALKER:            curSubLabel = "Equipped: Voidwalker"; break;
+        case LightSubclass::SOLAR_DAWN:             curSubLabel = "Equipped: Dawnblade"; break;
+        case LightSubclass::ARC_CALLER:             curSubLabel = "Equipped: Stormcaller"; break;
+        case LightSubclass::STASIS_SHADEBINDER:     curSubLabel = "Equipped: Shadebinder"; break;
+        case LightSubclass::STRAND_RUNNER:          curSubLabel = "Equipped: Threadrunner"; break;
+        case LightSubclass::PRISMATIC_TRANSCENDENT: curSubLabel = "Equipped: Transcendent"; break;
     }
     if (DrawDirectorButton(btnSubclass, "SUBCLASS ARMORY", curSubLabel, GetSubclassAccentColor())) {
         state_ = ScreenState::SUBCLASS_ARMORY;
         audio_.PlayUiSelect();
     }
 
-    if (DrawDirectorButton(btnHangar, "TOWER", "Shells, Mods & Exotic Curios", ORANGE)) {
+    if (DrawDirectorButton(btnHangar, "THE TOWER", "Shells, Drones, Shaders & Exotics", ORANGE)) {
         state_ = ScreenState::SHELL_HANGAR;
         audio_.PlayUiSelect();
     }
@@ -835,21 +849,22 @@ void GhostGame::RenderTitleDirector() {
         audio_.PlayUiSelect();
     }
 
-    const char* ctrlHint = "CONTROLS: [SPACE / L-CLICK] Flap  |  [SHIFT / R-CLICK] Blink/Dash  |  [F / Q] Cast Super  |  [M] Mute";
-    int chw = MeasureText(ctrlHint, 15);
-    DrawText(ctrlHint, (VIRTUAL_WIDTH - chw) / 2, 558, 15, { 180, 210, 235, 215 });
+    const char* ctrlHint = "CONTROLS: [SPACE / L-CLICK] Flap  |  [SHIFT / R-CLICK] Blink/Dash  |  [F / Q] Super  |  [C / X] Fire Drone (Nightfall)";
+    int chw = MeasureText(ctrlHint, 14);
+    DrawText(ctrlHint, (VIRTUAL_WIDTH - chw) / 2, 558, 14, { 180, 210, 235, 215 });
 
     RenderBottomBrandingFooter();
 }
 
 void GhostGame::RenderSubclassArmory() {
-    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 225 });
-    DrawText("GUARDIAN SUBCLASS ARMORY // LIGHT & DARKNESS", 60, 38, 28, WHITE);
-    DrawText("Light Subclasses are unlocked by default. Darkness Subclasses (Stasis & Strand) cost 500 Glimmer each.", 60, 74, 17, LIGHTGRAY);
+    DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
+    DrawText("GUARDIAN SUBCLASS ARMORY // LIGHT & DARKNESS", 50, 24, 26, WHITE);
+    DrawText("Light Subclasses are unlocked by default. Darkness Subclasses cost 500G; Prismatic costs 1500G.", 50, 56, 15, LIGHTGRAY);
 
     char glimHeader[64];
     std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
-    DrawText(glimHeader, VIRTUAL_WIDTH - 340, 42, 20, SKYBLUE);
+    int ghw = MeasureText(glimHeader, 20);
+    DrawText(glimHeader, VIRTUAL_WIDTH - 50 - ghw, 28, 20, SKYBLUE);
 
     struct SubCard {
         int idx;
@@ -867,11 +882,11 @@ void GhostGame::RenderSubclassArmory() {
           "SUPER [NOVA PULSE]: Vaporizes all active barriers on screen into Motes of Light.",
           0, { 175, 85, 255, 255 } },
         { 1, "DAWNBLADE", "SOLAR LIGHT",
-          "TACTICAL [ICARUS DASH]: Stabilize momentum, fire 3 Solar bolts, and hover glide.",
-          "SUPER [DAYBREAK WELL]: Radiant aura melts barriers on contact & fires Solar flares.",
+          "TACTICAL [ICARUS DASH]: Stabilize momentum, hover glide & phase through hazards.",
+          "SUPER [DAYBREAK WELL]: Radiant aura melts barriers on contact & grants immunity.",
           0, { 255, 145, 35, 255 } },
         { 2, "STORMCALLER", "ARC LIGHT",
-          "TACTICAL [IONIC BLINK]: High-voltage dash that fires a piercing Arc bolt ahead.",
+          "TACTICAL [IONIC BLINK]: High-voltage phase dash with rapid vertical recovery.",
           "SUPER [CHAOS REACH]: Channels a continuous high-energy Arc beam across the screen.",
           0, { 75, 220, 255, 255 } },
         { 3, "SHADEBINDER", "STASIS DARKNESS",
@@ -880,62 +895,66 @@ void GhostGame::RenderSubclassArmory() {
           500, { 70, 130, 255, 255 } },
         { 4, "THREADRUNNER", "STRAND DARKNESS",
           "TACTICAL [GRAPPLE]: Launches a Strand grapple line ahead to swing & phase upward.",
-          "SUPER [NEEDLESTORM]: Unleashes 9 homing Strand Threadlings that seek out targets!",
+          "SUPER [NEEDLESTORM]: Unleashes homing Strand Threadlings & clears barriers!",
           500, { 65, 245, 130, 255 } },
         { 5, "TRANSCENDENT", "PRISMATIC",
-          "TACTICAL [PRISMATIC SURGE]: Freezes obstacles & fires twin Light & Darkness piercing bolts.",
-          "SUPER [TRANSCENDENCE]: Screen-wide barrier purge + 12 homing prismatic missiles!",
+          "TACTICAL [PRISMATIC SURGE]: Freezes obstacles & surges with Light + Dark phase.",
+          "SUPER [TRANSCENDENCE]: Screen-wide barrier purge + prismatic homing barrage!",
           1500, { 255, 125, 235, 255 } }
     };
 
+    // Clean, spacious 3x2 grid (Row 0 = 3 Light Subclasses, Row 1 = 3 Darkness/Prismatic Subclasses)
     for (int i = 0; i < static_cast<int>(NUM_SUBCLASSES); ++i) {
-        Rectangle cardRect = { 35.0f + i * 202.0f, 118.0f, 192.0f, 445.0f };
+        int col = i % 3;
+        int row = i / 3;
+        Rectangle cardRect = { 50.0f + col * 398.0f, 86.0f + row * 242.0f, 384.0f, 228.0f };
+        int innerW = static_cast<int>(cardRect.width) - 32; // 352px strictly inside cardRect
         bool unlocked = profile_.unlockedSubclasses[i];
         bool selected = (profile_.selectedSubclass == i);
         bool hov = IsRectHovered(cardRect);
 
-        DrawRectangleRec(cardRect, selected ? Color{ 28, 38, 60, 245 } : Color{ 16, 22, 34, 230 });
+        DrawRectangleRec(cardRect, selected ? Color{ 28, 38, 60, 245 } : Color{ 16, 22, 34, 235 });
         DrawRectangleLinesEx(cardRect, selected ? 3.0f : 1.5f, (selected || hov) ? cards[i].col : GRAY);
 
-        Vector2 crestPos = { cardRect.x + cardRect.width * 0.5f, cardRect.y + 52.0f };
-        DrawPoly(crestPos, 4, 28.0f, 0.0f, unlocked ? cards[i].col : DARKGRAY);
-        DrawPolyLinesEx(crestPos, 4, 32.0f, 0.0f, 2.0f, WHITE);
-        DrawPoly(crestPos, 4, 11.0f, 0.0f, unlocked ? WHITE : GRAY);
+        Vector2 crestPos = { cardRect.x + 38.0f, cardRect.y + 38.0f };
+        DrawPoly(crestPos, 4, 22.0f, 0.0f, unlocked ? cards[i].col : DARKGRAY);
+        DrawPolyLinesEx(crestPos, 4, 25.0f, 0.0f, 2.0f, WHITE);
+        DrawPoly(crestPos, 4, 9.0f, 0.0f, unlocked ? WHITE : GRAY);
 
-        DrawText(cards[i].element, static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 98), 13, cards[i].col);
-        DrawText(cards[i].name, static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 116), 22, WHITE);
+        DrawText(cards[i].element, static_cast<int>(cardRect.x + 74), static_cast<int>(cardRect.y + 14), 13, cards[i].col);
+        DrawText(cards[i].name, static_cast<int>(cardRect.x + 74), static_cast<int>(cardRect.y + 32), 22, WHITE);
 
-        DrawRectangle(static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 146), 200, 2, cards[i].col);
+        DrawRectangle(static_cast<int>(cardRect.x + 16), static_cast<int>(cardRect.y + 66), innerW, 2, cards[i].col);
 
         DrawTextWrapped(cards[i].tacticalDesc,
-                        static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 160),
-                        200, 14, 19, LIGHTGRAY);
+                        static_cast<int>(cardRect.x + 16), static_cast<int>(cardRect.y + 76),
+                        innerW, 13, 17, LIGHTGRAY);
 
         DrawTextWrapped(cards[i].superDesc,
-                        static_cast<int>(cardRect.x + 14), static_cast<int>(cardRect.y + 266),
-                        200, 14, 19, LIGHTGRAY);
+                        static_cast<int>(cardRect.x + 16), static_cast<int>(cardRect.y + 124),
+                        innerW, 13, 17, LIGHTGRAY);
 
-        Rectangle equipBtn = { cardRect.x + 14.0f, cardRect.y + 382.0f, 200.0f, 42.0f };
+        Rectangle equipBtn = { cardRect.x + 16.0f, cardRect.y + 176.0f, static_cast<float>(innerW), 38.0f };
         if (selected) {
             DrawRectangleRec(equipBtn, cards[i].col);
             const char* btnLabel = "EQUIPPED";
             int blw = MeasureText(btnLabel, 16);
             DrawText(btnLabel, static_cast<int>(equipBtn.x + (equipBtn.width - blw) * 0.5f),
-                     static_cast<int>(equipBtn.y + 13), 16, BLACK);
+                     static_cast<int>(equipBtn.y + 11), 16, BLACK);
         } else if (unlocked) {
             DrawRectangleRec(equipBtn, Color{ 35, 45, 65, 255 });
-            const char* btnLabel = "ATTUNE";
+            const char* btnLabel = "ATTUNE SUBCLASS";
             int blw = MeasureText(btnLabel, 16);
             DrawText(btnLabel, static_cast<int>(equipBtn.x + (equipBtn.width - blw) * 0.5f),
-                     static_cast<int>(equipBtn.y + 13), 16, WHITE);
+                     static_cast<int>(equipBtn.y + 11), 16, WHITE);
         } else {
             bool canAfford = (profile_.glimmer >= cards[i].glimmerCost);
             DrawRectangleRec(equipBtn, canAfford ? Color{ 28, 82, 58, 255 } : Color{ 48, 30, 36, 255 });
             char costTxt[48];
             std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%d GLIMMER)", cards[i].glimmerCost);
-            int blw = MeasureText(costTxt, 14);
+            int blw = MeasureText(costTxt, 15);
             DrawText(costTxt, static_cast<int>(equipBtn.x + (equipBtn.width - blw) * 0.5f),
-                     static_cast<int>(equipBtn.y + 14), 14, canAfford ? GREEN : RED);
+                     static_cast<int>(equipBtn.y + 12), 15, canAfford ? GREEN : RED);
         }
 
         if (IsButtonClicked(cardRect)) {
@@ -953,7 +972,7 @@ void GhostGame::RenderSubclassArmory() {
         }
     }
 
-    Rectangle backBtn = { 45.0f, 585.0f, 235.0f, 48.0f };
+    Rectangle backBtn = { 50.0f, 585.0f, 235.0f, 48.0f };
     DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
@@ -967,30 +986,42 @@ void GhostGame::RenderSubclassArmory() {
 
 void GhostGame::RenderShellHangar() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
-    DrawText("THE TOWER // GHOST SHELLS, MODS & XUR'S EXOTIC CURIOS", 60, 28, 26, WHITE);
+    DrawText("THE TOWER // SHELLS, DRONES, SHADERS & EXOTIC CURIOS", 60, 24, 25, WHITE);
 
     char glimHeader[64];
     std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
-    DrawText(glimHeader, VIRTUAL_WIDTH - 340, 32, 20, SKYBLUE);
+    int ghw = MeasureText(glimHeader, 20);
+    DrawText(glimHeader, VIRTUAL_WIDTH - 60 - ghw, 28, 20, SKYBLUE);
 
-    // Sub-tabs inside The Tower: [0] Shells I | [1] Shells II | [2] Shaders | [3] Xur's Catalysts
-    Rectangle tab0 = { 60.0f, 60.0f, 215.0f, 32.0f };
-    Rectangle tab1 = { 285.0f, 60.0f, 215.0f, 32.0f };
-    Rectangle tab2 = { 510.0f, 60.0f, 215.0f, 32.0f };
-    Rectangle tab3 = { 735.0f, 60.0f, 235.0f, 32.0f };
-    DrawRectangleRec(tab0, (towerTab_ == 0) ? SKYBLUE : Color{ 22, 30, 48, 255 });
-    DrawText("SHELLS I: VANGUARD", static_cast<int>(tab0.x + 22), static_cast<int>(tab0.y + 8), 14, (towerTab_ == 0) ? BLACK : WHITE);
-    DrawRectangleRec(tab1, (towerTab_ == 1) ? ORANGE : Color{ 22, 30, 48, 255 });
-    DrawText("SHELLS II: EXOTIC", static_cast<int>(tab1.x + 30), static_cast<int>(tab1.y + 8), 14, (towerTab_ == 1) ? BLACK : WHITE);
-    DrawRectangleRec(tab2, (towerTab_ == 2) ? Color{ 255, 120, 220, 255 } : Color{ 22, 30, 48, 255 });
-    DrawText("EVA'S SHADERS", static_cast<int>(tab2.x + 40), static_cast<int>(tab2.y + 8), 14, (towerTab_ == 2) ? BLACK : WHITE);
-    DrawRectangleRec(tab3, (towerTab_ == 3) ? GOLD : Color{ 22, 30, 48, 255 });
-    DrawText("XUR'S CATALYSTS", static_cast<int>(tab3.x + 42), static_cast<int>(tab3.y + 8), 14, (towerTab_ == 3) ? BLACK : WHITE);
-
-    if (IsButtonClicked(tab0)) { towerTab_ = 0; audio_.PlayUiSelect(); }
-    if (IsButtonClicked(tab1)) { towerTab_ = 1; audio_.PlayUiSelect(); }
-    if (IsButtonClicked(tab2)) { towerTab_ = 2; audio_.PlayUiSelect(); }
-    if (IsButtonClicked(tab3)) { towerTab_ = 3; audio_.PlayUiSelect(); }
+    // 5 Sub-tabs inside The Tower:
+    // [0] Shells I | [1] Shells II | [2] Combat Drones | [3] Eva's Shaders | [4] Xur's Catalysts
+    const char* tabLabels[5] = {
+        "SHELLS I: VANGUARD",
+        "SHELLS II: EXOTIC",
+        "COMBAT DRONES",
+        "EVA'S SHADERS",
+        "XUR'S CATALYSTS"
+    };
+    Color tabColors[5] = {
+        SKYBLUE,
+        ORANGE,
+        GREEN,
+        Color{ 255, 120, 220, 255 },
+        GOLD
+    };
+    for (int t = 0; t < 5; ++t) {
+        Rectangle tabR = { 60.0f + t * 234.0f, 60.0f, 224.0f, 34.0f };
+        bool active = (towerTab_ == t);
+        DrawRectangleRec(tabR, active ? tabColors[t] : Color{ 22, 30, 48, 255 });
+        DrawRectangleLinesEx(tabR, 1.5f, active ? WHITE : tabColors[t]);
+        int tw = MeasureText(tabLabels[t], 14);
+        DrawText(tabLabels[t], static_cast<int>(tabR.x + (tabR.width - tw) * 0.5f),
+                 static_cast<int>(tabR.y + 10), 14, active ? BLACK : WHITE);
+        if (IsButtonClicked(tabR)) {
+            towerTab_ = t;
+            audio_.PlayUiSelect();
+        }
+    }
 
     if (towerTab_ == 0 || towerTab_ == 1) {
         const auto& catalog = GetShellCatalog();
@@ -1088,7 +1119,71 @@ void GhostGame::RenderShellHangar() {
         DrawUpgradeRow(2, "PHASE BLINK ACCELERATOR", "Reduces Blink/Dash tactical cooldown.", profile_.upgrades.phaseCooldownLevel, 5, 120);
         DrawUpgradeRow(3, "VANGUARD OVERSHIELD", "Start every run with extra Overshield charges.", profile_.upgrades.overshieldCapLevel, 3, 250);
     } else if (towerTab_ == 2) {
-        // Tab 2: Eva Levante's Shaders
+        // Tab 2: Manual-Fire Combat Drones (Unlocks Nightfall Mode!)
+        DrawText("VANGUARD COMBAT DRONES // NIGHTFALL STRIKE ARSENAL", 60, 114, 22, GREEN);
+        DrawText("Unlocking your first Combat Drone unlocks NIGHTFALL STRIKE mode! Press [C / X] in Nightfall to fire your Drone.",
+                 60, 142, 15, LIGHTGRAY);
+
+        const auto& drones = GetDroneCatalog();
+        for (int i = 0; i < static_cast<int>(NUM_DRONES); ++i) {
+            Rectangle dr = { 60.0f + (i % 2) * 580.0f, 180.0f + (i / 2) * 182.0f, 560.0f, 164.0f };
+            bool unlocked = profile_.unlockedDrones[i];
+            bool equipped = (profile_.equippedDrone == i);
+
+            DrawRectangleRec(dr, equipped ? Color{ 28, 44, 64, 245 } : Color{ 16, 22, 34, 235 });
+            DrawRectangleLinesEx(dr, equipped ? 3.0f : 1.5f, equipped ? GOLD : drones[i].color);
+
+            Vector2 dp = { dr.x + 52.0f, dr.y + 82.0f };
+            int sides = (i == 0) ? 6 : (i == 1) ? 4 : (i == 2) ? 8 : 3;
+            DrawCircleGradient(static_cast<int>(dp.x), static_cast<int>(dp.y), 32.0f, drones[i].color, BLANK);
+            DrawPoly(dp, sides, 18.0f, globalTime_ * 120.0f, WHITE);
+            DrawPolyLinesEx(dp, sides, 24.0f, -globalTime_ * 90.0f, 2.5f, drones[i].color);
+
+            DrawText(drones[i].name, static_cast<int>(dr.x + 104), static_cast<int>(dr.y + 16), 20, drones[i].color);
+            DrawTextWrapped(drones[i].description, static_cast<int>(dr.x + 104), static_cast<int>(dr.y + 44), 435, 14, 19, WHITE);
+
+            char cdTxt[64];
+            std::snprintf(cdTxt, sizeof(cdTxt), "MANUAL FIRE COOLDOWN: %.2fs", drones[i].fireCooldown);
+            DrawText(cdTxt, static_cast<int>(dr.x + 104), static_cast<int>(dr.y + 88), 13, SKYBLUE);
+
+            Rectangle btn = { dr.x + 104.0f, dr.y + 112.0f, 250.0f, 38.0f };
+            if (equipped) {
+                DrawRectangleRec(btn, GOLD);
+                DrawText("EQUIPPED DRONE", static_cast<int>(btn.x + 54), static_cast<int>(btn.y + 11), 15, BLACK);
+            } else if (unlocked) {
+                DrawRectangleRec(btn, Color{ 38, 68, 98, 255 });
+                DrawText("EQUIP DRONE", static_cast<int>(btn.x + 68), static_cast<int>(btn.y + 11), 15, WHITE);
+            } else {
+                bool canBuy = (profile_.glimmer >= drones[i].glimmerCost);
+                DrawRectangleRec(btn, canBuy ? Color{ 30, 88, 60, 255 } : Color{ 48, 30, 35, 255 });
+                char cstr[64];
+                std::snprintf(cstr, sizeof(cstr), "UNLOCK (%d GLIMMER)", drones[i].glimmerCost);
+                DrawText(cstr, static_cast<int>(btn.x + 34), static_cast<int>(btn.y + 11), 15, canBuy ? GREEN : RED);
+            }
+
+            if (IsButtonClicked(dr)) {
+                if (unlocked) {
+                    profile_.equippedDrone = i;
+                    SaveData();
+                    audio_.PlayUiSelect();
+                } else if (profile_.glimmer >= drones[i].glimmerCost) {
+                    bool wasFirstDrone = !HasUnlockedAnyDrone();
+                    profile_.glimmer -= drones[i].glimmerCost;
+                    profile_.unlockedDrones[i] = true;
+                    profile_.equippedDrone = i;
+                    SaveData();
+                    audio_.PlayExoticPickup();
+                    if (wasFirstDrone) {
+                        activeToast_.active = true;
+                        activeToast_.title = "NIGHTFALL STRIKE UNLOCKED!";
+                        activeToast_.subtitle = "You unlocked your first Combat Drone! Launch Nightfall from the Director.";
+                        activeToast_.timer = 4.5f;
+                    }
+                }
+            }
+        }
+    } else if (towerTab_ == 3) {
+        // Tab 3: Eva Levante's Shaders
         DrawText("EVA LEVANTE // GUARDIAN ARMOR & SHELL SHADERS", 60, 118, 22, Color{ 255, 120, 220, 255 });
         DrawText("Apply legendary & exotic shader palettes to recolor all 12 Ghost shells.", 60, 146, 16, LIGHTGRAY);
 
@@ -1139,7 +1234,7 @@ void GhostGame::RenderShellHangar() {
             }
         }
     } else {
-        // Tab 3: Xur's Exotic Ghost Catalysts
+        // Tab 4: Xur's Exotic Ghost Catalysts
         DrawText("XUR, AGENT OF THE NINE // EXOTIC GHOST CATALYSTS", 60, 118, 22, GOLD);
         DrawText("Equip an Exotic Catalyst into your Ghost core for passive paracausal combat effects.", 60, 146, 16, LIGHTGRAY);
 

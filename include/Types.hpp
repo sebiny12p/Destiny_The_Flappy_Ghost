@@ -21,6 +21,7 @@ constexpr size_t NUM_EXOTIC_PERKS = 4;
 constexpr size_t NUM_TRIUMPHS = 10;
 constexpr size_t MAX_PATROL_ENEMIES = 16;
 constexpr size_t NUM_SHADERS = 6;
+constexpr size_t NUM_DRONES = 4;
 
 enum class ScreenState {
     TITLE_FRONT_PAGE,  // "Press Any Key / Tap to Enter Destiny" Title Page
@@ -84,8 +85,7 @@ enum class ObstacleKind : int {
 
 enum class CollectibleKind : int {
     MOTE_OF_LIGHT = 0,      // Charges Super & gives Glimmer
-    EXOTIC_ENGRAM = 1,      // Golden dodecahedron: +50 Glimmer, instant Overshield & Super boost
-    VEX_CONFLUX = 2         // Appears during Boss Phases; scanning 3 breaks Boss immunity
+    EXOTIC_ENGRAM = 1       // Golden dodecahedron: +50 Glimmer, instant Overshield & Super boost
 };
 
 struct GhostShellDef {
@@ -131,9 +131,18 @@ struct ShaderDef {
     Color core;
 };
 
+struct CombatDroneDef {
+    int id;
+    const char* name;
+    const char* description;
+    int glimmerCost;
+    float fireCooldown;
+    Color color;
+};
+
 struct SaveProfile {
-    uint32_t magic = 0x47485357; // 'GHSU' v4
-    int glimmer = 150;
+    uint32_t magic = 0x47485358; // 'GHSX' v5
+    int glimmer = 250;
     int bestScoreStandard = 0;
     int bestScoreNightfall = 0;
     int totalMotesCollected = 0;
@@ -143,15 +152,19 @@ struct SaveProfile {
     int selectedSubclass = 0;
     int equippedExoticPerk = 0;
     int equippedShader = 0;
+    int equippedDrone = -1; // -1 = None unlocked yet; unlocking first drone unlocks Nightfall mode
     std::array<bool, NUM_SHELLS> unlockedShells = {
         true, false, false, false, false, false,
         false, false, false, false, false, false
     };
     std::array<bool, NUM_SUBCLASSES> unlockedSubclasses = {
-        true, true, true, false, false, false // Prismatic costs 1500 Glimmer
+        true, true, true, false, false, false // Darkness = 500G, Prismatic = 1500G
     };
     std::array<bool, NUM_SHADERS> unlockedShaders = {
         true, false, false, false, false, false
+    };
+    std::array<bool, NUM_DRONES> unlockedDrones = {
+        false, false, false, false
     };
     std::array<bool, NUM_EXOTIC_PERKS> unlockedExotics = { true, false, false, false };
     std::array<bool, NUM_TRIUMPHS> unlockedTriumphs = { false };
@@ -187,12 +200,11 @@ struct GhostPlayer {
     int overshieldCharges = 0;
     float invulnerableTimer = 0.0f;
 
-    // Scan beam visual
-    float scanPulseTimer = 0.0f;
-
-    // Companion Turret Drone (Arc/Solar/Void Soul Buddy)
+    // Manual Combat Drone (Nightfall Mode only)
     float companionAngle = 0.0f;
-    float companionShootTimer = 0.0f;
+    float droneCooldown = 0.0f;
+    float droneMaxCooldown = 0.45f;
+    float dronePulseAnim = 0.0f;
 };
 
 struct Obstacle {

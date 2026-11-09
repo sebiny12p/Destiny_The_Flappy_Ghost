@@ -20,6 +20,7 @@ public:
     static const std::array<ExoticPerkDef, NUM_EXOTIC_PERKS>& GetExoticCatalog();
     static const std::array<TriumphDef, NUM_TRIUMPHS>& GetTriumphCatalog();
     static const std::array<ShaderDef, NUM_SHADERS>& GetShaderCatalog();
+    static const std::array<CombatDroneDef, NUM_DRONES>& GetDroneCatalog();
 
 private:
     // Persistence
@@ -27,14 +28,14 @@ private:
     void SaveData() const;
     void UnlockTriumph(int triumphIdx);
     void TriggerVanguardMedal(const char* medalName, int glimmerBonus, Color col = GOLD);
+    bool HasUnlockedAnyDrone() const;
 
     // Run lifecycle
     void StartNewRun(bool dailyNightfall);
     void TriggerFlap();
-    void TriggerBlasterShot(); // Killable enemies for all players
     void TriggerTacticalAbility();
     void TriggerSuperAbility();
-    void TriggerScanPulse();
+    void TriggerDroneFire();
     void HandleFatalImpact();
 
     // Simulation (Fixed Timestep)

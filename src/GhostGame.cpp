@@ -56,8 +56,8 @@ const std::array<TriumphDef, NUM_TRIUMPHS> TRIUMPH_CATALOG = {{
     { 3, "ASCENDANT WALKER", "Reach Sector 4: The Ascendant Plane (45+ Gates).", 250 },
     { 4, "PARACAUSAL SURGE", "Unleash your Light or Darkness Super ability for the first time.", 75 },
     { 5, "BLINK MASTER", "Phase directly through a barrier or laser using Blink/Dash.", 100 },
-    { 6, "GODSLAYER PROTOCOL", "Defeat an Ultra Boss Encounter by scanning 3 Vex Confluxes.", 200 },
-    { 7, "NIGHTFALL VANGUARD", "Score 20 or higher in the Daily Nightfall Seed mode.", 200 },
+    { 6, "GODSLAYER PROTOCOL", "Defeat an Ultra Boss Encounter in Nightfall Strike mode.", 200 },
+    { 7, "NIGHTFALL VANGUARD", "Score 20 or higher in Nightfall Strike mode.", 200 },
     { 8, "EXOTIC ARCHIVIST", "Collect a golden Exotic Engram in mid-flight.", 100 },
     { 9, "FASHION ENDGAME", "Unlock at least 3 custom Ghost Shells in The Tower.", 250 }
 }};
@@ -68,6 +68,20 @@ const std::array<ShaderDef, NUM_SHADERS> SHADER_CATALOG = {{
     { 3, "GAMBIT JADESTONE", 450, { 35, 75, 50, 255 }, { 65, 255, 120, 255 }, { 95, 255, 160, 255 } },
     { 4, "PHOTO FINISH RGB", 650, { 45, 45, 55, 255 }, { 255, 75, 180, 255 }, { 65, 230, 255, 255 } },
     { 5, "NEOPOP WAVE", 400, { 40, 50, 75, 255 }, { 255, 120, 220, 255 }, { 80, 255, 240, 255 } }
+}};
+const std::array<CombatDroneDef, NUM_DRONES> DRONE_CATALOG = {{
+    { 0, "ARC SOUL SENTINEL",
+      "Manual-fire Arc buddy ([C / X]). Fires a rapid 3-round burst of homing Arc bolts.",
+      200, 0.45f, { 75, 225, 255, 255 } },
+    { 1, "HELLION SOLAR MORTAR",
+      "Manual-fire Solar buddy ([C / X]). Launches twin high-impact Solar mortar flares.",
+      450, 0.60f, { 255, 145, 35, 255 } },
+    { 2, "BRIARBINDS VOID SOUL",
+      "Manual-fire Void buddy ([C / X]). Unleashes 3 homing Void seeker orbs that shatter targets.",
+      750, 0.55f, { 180, 85, 255, 255 } },
+    { 3, "NTTE CHRONAL PORTAL",
+      "Manual-fire Time Chasm ([C / X]). Fires rapid high-velocity timeline beam volleys.",
+      1100, 0.35f, { 130, 245, 255, 255 } }
 }};
 } // namespace
 
@@ -88,6 +102,17 @@ const std::array<TriumphDef, NUM_TRIUMPHS>& GhostGame::GetTriumphCatalog() {
 
 const std::array<ShaderDef, NUM_SHADERS>& GhostGame::GetShaderCatalog() {
     return SHADER_CATALOG;
+}
+
+const std::array<CombatDroneDef, NUM_DRONES>& GhostGame::GetDroneCatalog() {
+    return DRONE_CATALOG;
+}
+
+bool GhostGame::HasUnlockedAnyDrone() const {
+    for (bool u : profile_.unlockedDrones) {
+        if (u) return true;
+    }
+    return false;
 }
 
 void GhostGame::Init() {
@@ -124,7 +149,7 @@ void GhostGame::LoadSaveData() {
     if (in.is_open()) {
         SaveProfile loaded{};
         in.read(reinterpret_cast<char*>(&loaded), sizeof(SaveProfile));
-        if (in && loaded.magic == 0x47485357) {
+        if (in && loaded.magic == 0x47485358) {
             profile_ = loaded;
             profile_.equippedShell = std::clamp(profile_.equippedShell, 0, static_cast<int>(NUM_SHELLS) - 1);
             profile_.selectedSubclass = std::clamp(profile_.selectedSubclass, 0, static_cast<int>(NUM_SUBCLASSES) - 1);
@@ -133,6 +158,12 @@ void GhostGame::LoadSaveData() {
             }
             profile_.equippedExoticPerk = std::clamp(profile_.equippedExoticPerk, 0, static_cast<int>(NUM_EXOTIC_PERKS) - 1);
             profile_.equippedShader = std::clamp(profile_.equippedShader, 0, static_cast<int>(NUM_SHADERS) - 1);
+            if (profile_.equippedDrone >= 0) {
+                profile_.equippedDrone = std::clamp(profile_.equippedDrone, 0, static_cast<int>(NUM_DRONES) - 1);
+                if (!profile_.unlockedDrones[profile_.equippedDrone]) {
+                    profile_.equippedDrone = -1;
+                }
+            }
             return;
         }
     }
@@ -201,10 +232,14 @@ void GhostGame::StartNewRun(bool dailyNightfall) {
     ghost_.tacticalMaxCooldown = std::max(1.4f, 3.2f - profile_.upgrades.phaseCooldownLevel * 0.32f);
     ghost_.overshieldCharges = profile_.upgrades.overshieldCapLevel;
     ghost_.superEnergy = 20.0f;
+    if (isNightfallMode_ && profile_.equippedDrone >= 0 && profile_.equippedDrone < static_cast<int>(NUM_DRONES)) {
+        ghost_.droneMaxCooldown = DRONE_CATALOG[profile_.equippedDrone].fireCooldown;
+    }
 
     boss_ = BossState{};
     for (auto& o : obstacles_) o.active = false;
     for (auto& c : collectibles_) c.active = false;
+    for (auto& e : enemies_) e.active = false;
     for (auto& p : particles_) p.active = false;
     for (auto& pr : projectiles_) pr.active = false;
 
@@ -284,8 +319,8 @@ void GhostGame::TriggerTacticalAbility() {
     LightSubclass sub = static_cast<LightSubclass>(profile_.selectedSubclass);
     Color accent = GetSubclassAccentColor();
 
-    // Exotic Perk: Gjallarhorn Wolfpack spawns 3 homing micro-rockets on every tactical ability!
-    if (static_cast<ExoticPerk>(profile_.equippedExoticPerk) == ExoticPerk::GJALLARHORN_WOLFPACK) {
+    // Exotic Perk: Gjallarhorn Wolfpack spawns 3 homing micro-rockets on every tactical ability in Nightfall!
+    if (isNightfallMode_ && static_cast<ExoticPerk>(profile_.equippedExoticPerk) == ExoticPerk::GJALLARHORN_WOLFPACK) {
         for (int w = -1; w <= 1; ++w) {
             SpawnProjectile({ ghost_.pos.x + 18.0f, ghost_.pos.y },
                             { 620.0f, w * 140.0f }, 9.0f, GOLD, true, true);
@@ -305,15 +340,19 @@ void GhostGame::TriggerTacticalAbility() {
         ghost_.phaseTimer = 0.65f;
         ghost_.vel.y = 0.0f;
         SpawnParticleBurst(ghost_.pos, 32, accent, 100.0f, 360.0f, 6.5f, 0.50f);
-        for (int i = -1; i <= 1; ++i) {
-            SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y },
-                            { 650.0f, i * 110.0f }, 12.0f, accent, true, false);
+        if (isNightfallMode_) {
+            for (int i = -1; i <= 1; ++i) {
+                SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y },
+                                { 650.0f, i * 110.0f }, 12.0f, accent, true, false);
+            }
         }
     } else if (sub == LightSubclass::ARC_CALLER) {
         ghost_.phaseTimer = 0.50f;
         ghost_.vel.y = -150.0f;
         SpawnParticleBurst(ghost_.pos, 26, accent, 120.0f, 380.0f, 5.5f, 0.40f);
-        SpawnProjectile({ ghost_.pos.x + 24.0f, ghost_.pos.y }, { 850.0f, 0.0f }, 15.0f, accent, true, false);
+        if (isNightfallMode_) {
+            SpawnProjectile({ ghost_.pos.x + 24.0f, ghost_.pos.y }, { 850.0f, 0.0f }, 15.0f, accent, true, false);
+        }
     } else if (sub == LightSubclass::STASIS_SHADEBINDER) {
         // Stasis Frost Pulse: Freezes all moving obstacles, Oracles, and enemy projectiles for 2.5s!
         ghost_.phaseTimer = 0.45f;
@@ -335,15 +374,19 @@ void GhostGame::TriggerTacticalAbility() {
         ghost_.grappleAnchor = { ghost_.pos.x + 175.0f, std::max(70.0f, ghost_.pos.y - 140.0f) };
         ghost_.vel.y = -320.0f;
         SpawnParticleBurst(ghost_.pos, 30, accent, 90.0f, 340.0f, 5.5f, 0.45f);
-        SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y }, { 700.0f, 0.0f }, 11.0f, accent, true, true);
+        if (isNightfallMode_) {
+            SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y }, { 700.0f, 0.0f }, 11.0f, accent, true, true);
+        }
     } else if (sub == LightSubclass::PRISMATIC_TRANSCENDENT) {
-        // Prismatic Transcendence Surge: Freezes laser obstacles + launches twin Light & Dark piercing bolts!
+        // Prismatic Transcendence Surge: Freezes laser obstacles + phase surge!
         ghost_.phaseTimer = 0.70f;
         ghost_.stasisFreezeTimer = 2.0f;
         ghost_.vel.y = -220.0f;
         SpawnParticleBurst(ghost_.pos, 42, accent, 120.0f, 420.0f, 7.0f, 0.60f);
-        SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y - 14.0f }, { 880.0f, -40.0f }, 14.0f, SKYBLUE, true, true);
-        SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y + 14.0f }, { 880.0f,  40.0f }, 14.0f, { 255, 140, 40, 255 }, true, true);
+        if (isNightfallMode_) {
+            SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y - 14.0f }, { 880.0f, -40.0f }, 14.0f, SKYBLUE, true, true);
+            SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y + 14.0f }, { 880.0f,  40.0f }, 14.0f, { 255, 140, 40, 255 }, true, true);
+        }
         flashColor_ = accent;
         flashAlpha_ = 0.40f;
     }
@@ -367,7 +410,8 @@ void GhostGame::TriggerSuperAbility() {
     LightSubclass sub = static_cast<LightSubclass>(profile_.selectedSubclass);
     SpawnParticleBurst(ghost_.pos, 60, GetSubclassAccentColor(), 120.0f, 520.0f, 8.0f, 0.8f);
 
-    if (sub == LightSubclass::VOID_WALKER || sub == LightSubclass::STASIS_SHADEBINDER) {
+    if (sub == LightSubclass::VOID_WALKER || sub == LightSubclass::STASIS_SHADEBINDER ||
+        (!isNightfallMode_ && sub == LightSubclass::STRAND_RUNNER)) {
         // Nova Pulse / Winter's Wrath Shatter vaporizes active barriers into Motes of Light!
         for (auto& o : obstacles_) {
             if (o.active && o.x > 0.0f && o.x < VIRTUAL_WIDTH + 100.0f) {
@@ -378,8 +422,9 @@ void GhostGame::TriggerSuperAbility() {
                 profile_.totalGatesCleared++;
             }
         }
-        if (boss_.active && !boss_.shieldImmune) {
+        if (boss_.active) {
             boss_.health -= 45.0f;
+            if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) boss_.shieldImmune = false;
         }
     } else if (sub == LightSubclass::STRAND_RUNNER) {
         // Needlestorm: Unleashes 9 homing Strand Threadlings!
@@ -389,7 +434,7 @@ void GhostGame::TriggerSuperAbility() {
                             { 640.0f, vy }, 10.0f, GetSubclassAccentColor(), true, true);
         }
     } else if (sub == LightSubclass::PRISMATIC_TRANSCENDENT) {
-        // Transcendence: Full screen purge of barriers & vaporizes all patrol enemies into Glimmer
+        // Transcendence: Full screen purge of barriers & vaporizes all enemies into Glimmer
         for (auto& o : obstacles_) {
             if (o.active && o.x > 0.0f && o.x < VIRTUAL_WIDTH + 100.0f) {
                 SpawnParticleBurst({ o.x + o.width * 0.5f, o.gapCenterY }, 40, { 255, 125, 235, 255 }, 120.0f, 400.0f, 7.5f, 0.7f);
@@ -408,32 +453,60 @@ void GhostGame::TriggerSuperAbility() {
                 profile_.glimmer += 25;
             }
         }
-        for (int i = 0; i < 12; ++i) {
-            float vy = (i - 6) * 55.0f;
-            SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y },
-                            { 720.0f, vy }, 12.0f, (i % 2 == 0) ? SKYBLUE : Color{ 255, 120, 220, 255 }, true, true);
+        if (isNightfallMode_) {
+            for (int i = 0; i < 12; ++i) {
+                float vy = (i - 6) * 55.0f;
+                SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y },
+                                { 720.0f, vy }, 12.0f, (i % 2 == 0) ? SKYBLUE : Color{ 255, 120, 220, 255 }, true, true);
+            }
         }
-        if (boss_.active && !boss_.shieldImmune) {
+        if (boss_.active) {
             boss_.health -= 55.0f;
+            if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) boss_.shieldImmune = false;
         }
     }
 }
 
-void GhostGame::TriggerScanPulse() {
-    ghost_.scanPulseTimer = 0.45f;
-    ghost_.shellExpand = 1.3f;
-    audio_.PlayUiSelect();
+void GhostGame::TriggerDroneFire() {
+    if (!isNightfallMode_ || profile_.equippedDrone < 0 || profile_.equippedDrone >= static_cast<int>(NUM_DRONES)) {
+        return;
+    }
+    if (ghost_.droneCooldown > 0.0f) return;
 
-    // Telemetry Scan Pulse purges nearby enemy combatants (Fallen Shanks, Vex, Thrall, Psions) in front of Ghost!
-    for (auto& e : enemies_) {
-        if (e.active && e.pos.x > ghost_.pos.x - 20.0f && e.pos.x < ghost_.pos.x + 240.0f &&
-            std::abs(e.pos.y - ghost_.pos.y) < 120.0f) {
-            e.active = false;
-            SpawnParticleBurst(e.pos, 30, SKYBLUE, 80.0f, 260.0f, 5.0f, 0.4f);
-            SpawnCollectible(e.pos, CollectibleKind::MOTE_OF_LIGHT);
-            runGlimmerEarned_ += 10;
-            profile_.glimmer += 10;
-            TriggerVanguardMedal("SCANNED & DISRUPTED", 10, SKYBLUE);
+    const auto& drone = DRONE_CATALOG[profile_.equippedDrone];
+    ghost_.droneMaxCooldown = drone.fireCooldown;
+    ghost_.droneCooldown = drone.fireCooldown;
+    ghost_.dronePulseAnim = 1.0f;
+    audio_.PlayLaserShot();
+
+    Vector2 dronePos = {
+        ghost_.pos.x + std::cos(ghost_.companionAngle) * 42.0f,
+        ghost_.pos.y + std::sin(ghost_.companionAngle) * 32.0f
+    };
+    SpawnParticleBurst(dronePos, 14, drone.color, 60.0f, 220.0f, 4.5f, 0.28f);
+
+    if (profile_.equippedDrone == 0) {
+        // Arc Soul Sentinel: 3-round burst of homing Arc bolts
+        for (int i = -1; i <= 1; ++i) {
+            SpawnProjectile({ dronePos.x + 10.0f, dronePos.y + i * 8.0f },
+                            { 840.0f, i * 65.0f }, 9.0f, drone.color, true, true);
+        }
+    } else if (profile_.equippedDrone == 1) {
+        // Hellion Solar Mortar: Twin high-damage Solar flares
+        SpawnProjectile({ dronePos.x + 12.0f, dronePos.y - 10.0f }, { 780.0f, -35.0f }, 14.0f, drone.color, true, true);
+        SpawnProjectile({ dronePos.x + 12.0f, dronePos.y + 10.0f }, { 780.0f,  35.0f }, 14.0f, GOLD, true, true);
+    } else if (profile_.equippedDrone == 2) {
+        // Briarbeinds Void Soul: 3 homing Void seeker orbs
+        for (int i = -1; i <= 1; ++i) {
+            SpawnProjectile({ dronePos.x + 10.0f, dronePos.y },
+                            { 720.0f, i * 120.0f }, 11.0f, drone.color, true, true);
+        }
+    } else {
+        // NTTE Chronal Portal: Rapid 4-bolt timeline volley
+        for (int i = 0; i < 4; ++i) {
+            float vy = (i - 1.5f) * 45.0f;
+            SpawnProjectile({ dronePos.x + 12.0f + i * 8.0f, dronePos.y },
+                            { 960.0f, vy }, 10.0f, drone.color, true, true);
         }
     }
 }
@@ -512,7 +585,7 @@ void GhostGame::SpawnNextObstacle() {
     } else if (biome == BiomeSector::VAULT_OF_GLASS && roll < 0.45f) {
         slot->kind = ObstacleKind::MOVING_VEX_LASER;
         slot->moveSpeedY = rng_.RangeFloat(1.6f, 2.8f);
-    } else if ((biome == BiomeSector::VAULT_OF_GLASS || biome == BiomeSector::HELLMOUTH) && roll < 0.72f) {
+    } else if (isNightfallMode_ && (biome == BiomeSector::VAULT_OF_GLASS || biome == BiomeSector::HELLMOUTH) && roll < 0.72f) {
         slot->kind = ObstacleKind::ROTATING_ORACLE;
         slot->gapHeight += 36.0f;
         slot->moveSpeedY = rng_.RangeFloat(1.0f, 2.0f);
@@ -530,9 +603,7 @@ void GhostGame::SpawnNextObstacle() {
     float midX = slot->x + spacing * 0.52f;
     float midY = rng_.RangeFloat(150.0f, VIRTUAL_HEIGHT - 150.0f);
 
-    if (boss_.active && boss_.shieldImmune && rng_.Chance(0.55f)) {
-        SpawnCollectible({ slot->x + slot->width * 0.5f, slot->baseGapY }, CollectibleKind::VEX_CONFLUX);
-    } else if (rng_.Chance(0.08f)) {
+    if (rng_.Chance(0.08f)) {
         SpawnCollectible({ midX, midY }, CollectibleKind::EXOTIC_ENGRAM);
     } else if (rng_.Chance(0.78f)) {
         SpawnCollectible({ midX, midY }, CollectibleKind::MOTE_OF_LIGHT);
@@ -541,8 +612,12 @@ void GhostGame::SpawnNextObstacle() {
         }
     }
 
-    // Spawn Killable Patrol Enemy between gates (Fallen Shanks, Vex Harpies, Hive Thralls, Taken Psions)
-    if (scoreGates_ >= 2 && rng_.Chance(0.65f)) {
+    // Spawn Combatant Enemies:
+    // - Nightfall Strike: Frequent tactical combatants (65% chance)
+    // - Vanguard Patrol: Rare easter eggs (only ~4% chance, harmless scenery/easter egg that can be phased through or vaporized by Super)
+    bool spawnEnemy = isNightfallMode_ ? (scoreGates_ >= 2 && rng_.Chance(0.65f))
+                                       : (scoreGates_ >= 8 && rng_.Chance(0.04f));
+    if (spawnEnemy) {
         EnemyType et = static_cast<EnemyType>(static_cast<int>(biome) % 4);
         float ey = rng_.RangeFloat(140.0f, VIRTUAL_HEIGHT - 140.0f);
         SpawnPatrolEnemy({ midX + 35.0f, ey }, et);
@@ -579,8 +654,7 @@ void GhostGame::SpawnCollectible(Vector2 pos, CollectibleKind kind) {
             c.kind = kind;
             c.pos = pos;
             c.vel = { 0.0f, 0.0f };
-            c.radius = (kind == CollectibleKind::VEX_CONFLUX) ? 22.0f :
-                       (kind == CollectibleKind::EXOTIC_ENGRAM ? 18.0f : 14.0f);
+            c.radius = (kind == CollectibleKind::EXOTIC_ENGRAM) ? 18.0f : 14.0f;
             c.bobPhase = rng_.RangeFloat(0.0f, 6.28f);
             return;
         }
@@ -659,11 +733,11 @@ void GhostGame::UpdateFrameInput() {
         bool tapInput = IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             Vector2 vm = GetVirtualMousePos();
-            Rectangle scnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+            Rectangle drnBtn = { VIRTUAL_WIDTH - 378.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
             Rectangle tacBtn = { VIRTUAL_WIDTH - 256.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
             Rectangle supBtn = { VIRTUAL_WIDTH - 134.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-            if (CheckCollisionPointRec(vm, scnBtn)) {
-                TriggerScanPulse();
+            if (isNightfallMode_ && CheckCollisionPointRec(vm, drnBtn)) {
+                TriggerDroneFire();
                 return;
             } else if (CheckCollisionPointRec(vm, tacBtn)) {
                 TriggerTacticalAbility();
@@ -689,8 +763,8 @@ void GhostGame::UpdateFrameInput() {
             TriggerSuperAbility();
         }
 
-        if (IsKeyPressed(KEY_C) || IsKeyPressed(KEY_X)) {
-            TriggerScanPulse();
+        if (isNightfallMode_ && (IsKeyPressed(KEY_C) || IsKeyPressed(KEY_X))) {
+            TriggerDroneFire();
         }
     } else if (state_ == ScreenState::TITLE_FRONT_PAGE) {
         if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_E)) {
@@ -784,7 +858,8 @@ void GhostGame::UpdatePlayingFixed(float dt) {
     }
     if (ghost_.stasisFreezeTimer > 0.0f) ghost_.stasisFreezeTimer = std::max(0.0f, ghost_.stasisFreezeTimer - dt);
     if (ghost_.invulnerableTimer > 0.0f) ghost_.invulnerableTimer = std::max(0.0f, ghost_.invulnerableTimer - dt);
-    if (ghost_.scanPulseTimer > 0.0f) ghost_.scanPulseTimer = std::max(0.0f, ghost_.scanPulseTimer - dt);
+    if (ghost_.droneCooldown > 0.0f) ghost_.droneCooldown = std::max(0.0f, ghost_.droneCooldown - dt);
+    if (ghost_.dronePulseAnim > 0.0f) ghost_.dronePulseAnim = std::max(0.0f, ghost_.dronePulseAnim - 4.5f * dt);
 
     if (ghost_.superActiveTimer > 0.0f) {
         ghost_.superActiveTimer = std::max(0.0f, ghost_.superActiveTimer - dt);
@@ -796,10 +871,13 @@ void GhostGame::UpdatePlayingFixed(float dt) {
                     o.oracleDestroyed = true;
                 }
             }
-            if (boss_.active && !boss_.shieldImmune) {
+            if (boss_.active) {
                 boss_.health -= 26.0f * dt;
+                if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) {
+                    boss_.shieldImmune = false;
+                }
             }
-        } else if ((sub == LightSubclass::SOLAR_DAWN || sub == LightSubclass::STRAND_RUNNER) && std::fmod(runTime_, 0.22f) < dt) {
+        } else if (isNightfallMode_ && (sub == LightSubclass::SOLAR_DAWN || sub == LightSubclass::STRAND_RUNNER) && std::fmod(runTime_, 0.22f) < dt) {
             SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y },
                             { 760.0f, rng_.RangeFloat(-80.0f, 80.0f) }, 11.0f, GetSubclassAccentColor(), true, true);
         }
@@ -898,7 +976,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
                 TriggerVanguardMedal("SEVENTH COLUMN!", 75, GOLD);
             }
 
-            if (!boss_.active && gatesSinceLastBoss_ >= 20) {
+            if (isNightfallMode_ && !boss_.active && gatesSinceLastBoss_ >= 20) {
                 SpawnBossEncounter();
             }
         }
@@ -975,19 +1053,6 @@ void GhostGame::UpdatePlayingFixed(float dt) {
                 audio_.PlayExoticPickup();
                 SpawnParticleBurst(c.pos, 35, GOLD, 80.0f, 320.0f, 6.0f, 0.55f);
                 UnlockTriumph(8);
-            } else if (c.kind == CollectibleKind::VEX_CONFLUX) {
-                TriggerScanPulse();
-                audio_.PlayExoticPickup();
-                SpawnParticleBurst(c.pos, 30, { 120, 255, 220, 255 }, 90.0f, 300.0f, 5.5f, 0.50f);
-                if (boss_.active) {
-                    boss_.confluxesScanned++;
-                    if (boss_.confluxesScanned >= 3) {
-                        boss_.shieldImmune = false;
-                        boss_.health -= boss_.maxHealth * 0.35f;
-                        audio_.PlayShieldBreak();
-                        screenShakeTrauma_ = 0.5f;
-                    }
-                }
             }
         }
 
@@ -999,10 +1064,16 @@ void GhostGame::UpdatePlayingFixed(float dt) {
     for (auto& pr : projectiles_) {
         if (!pr.active) continue;
 
-        // Homing Wolfpack / Strand Threadling steering
+        // Homing Drone / Wolfpack / Strand Threadling steering
         if (pr.friendly && pr.homing) {
             Vector2 bestTarget = { pr.pos.x + 300.0f, pr.pos.y };
             float bestDist = 99999.0f;
+            for (const auto& e : enemies_) {
+                if (e.active && e.pos.x > pr.pos.x - 20.0f) {
+                    float d = Vector2Distance(pr.pos, e.pos);
+                    if (d < bestDist) { bestDist = d; bestTarget = e.pos; }
+                }
+            }
             for (const auto& o : obstacles_) {
                 if (o.active && !o.oracleDestroyed &&
                     (o.kind == ObstacleKind::ROTATING_ORACLE || o.kind == ObstacleKind::TAKEN_BLIGHT_WELL)) {
@@ -1016,8 +1087,8 @@ void GhostGame::UpdatePlayingFixed(float dt) {
                 if (d < bestDist) { bestDist = d; bestTarget = boss_.pos; }
             }
             if (bestDist < 900.0f) {
-                Vector2 desired = Vector2Scale(Vector2Normalize(Vector2Subtract(bestTarget, pr.pos)), 720.0f);
-                pr.vel = Vector2Lerp(pr.vel, desired, 8.0f * dt);
+                Vector2 desired = Vector2Scale(Vector2Normalize(Vector2Subtract(bestTarget, pr.pos)), 780.0f);
+                pr.vel = Vector2Lerp(pr.vel, desired, 9.5f * dt);
             }
         }
 
@@ -1045,7 +1116,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
                 }
             }
 
-            // Friendly projectile collision with Killable Patrol Enemies!
+            // Friendly projectile collision with Killable Nightfall Enemies!
             if (pr.active) {
                 for (auto& e : enemies_) {
                     if (e.active && CheckCollisionCircles(pr.pos, pr.radius, e.pos, e.radius)) {
@@ -1066,11 +1137,13 @@ void GhostGame::UpdatePlayingFixed(float dt) {
 
             if (pr.active && boss_.active && CheckCollisionCircles(pr.pos, pr.radius, boss_.pos, 58.0f)) {
                 pr.active = false;
-                if (!boss_.shieldImmune) {
-                    boss_.health -= 18.0f;
-                    SpawnParticleBurst(pr.pos, 18, pr.color, 70.0f, 240.0f, 5.0f, 0.35f);
-                } else {
-                    SpawnParticleBurst(pr.pos, 10, LIGHTGRAY, 40.0f, 120.0f, 3.5f, 0.25f);
+                boss_.health -= 16.0f;
+                SpawnParticleBurst(pr.pos, 20, pr.color, 70.0f, 240.0f, 5.0f, 0.35f);
+                if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) {
+                    boss_.shieldImmune = false;
+                    audio_.PlayShieldBreak();
+                    screenShakeTrauma_ = 0.45f;
+                    TriggerVanguardMedal("BOSS SHIELD SHATTERED!", 25, SKYBLUE);
                 }
             }
         } else {
@@ -1082,7 +1155,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
         }
     }
 
-    // Update Patrol Enemies & collision with Ghost
+    // Update Nightfall Enemies & collision with Ghost
     for (auto& e : enemies_) {
         if (!e.active) continue;
         e.pos.x -= scrollSpeed_ * dt;
@@ -1110,41 +1183,9 @@ void GhostGame::UpdatePlayingFixed(float dt) {
         }
     }
 
-    // Companion Turret Drone logic (orbits Ghost & auto-fires at nearest target)
-    ghost_.companionAngle += 3.2f * dt;
-    ghost_.companionShootTimer -= dt;
-    if (ghost_.companionShootTimer <= 0.0f) {
-        ghost_.companionShootTimer = (static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::PRISMATIC_TRANSCENDENT) ? 0.65f : 1.25f;
-        Vector2 dronePos = {
-            ghost_.pos.x + std::cos(ghost_.companionAngle) * 42.0f,
-            ghost_.pos.y + std::sin(ghost_.companionAngle) * 32.0f
-        };
-        // Target nearest obstacle node, enemy, or boss
-        Vector2 target = { dronePos.x + 400.0f, dronePos.y };
-        float closestDist = 9999.0f;
-        for (const auto& e : enemies_) {
-            if (e.active && e.pos.x > dronePos.x) {
-                float d = Vector2Distance(dronePos, e.pos);
-                if (d < closestDist) { closestDist = d; target = e.pos; }
-            }
-        }
-        for (const auto& o : obstacles_) {
-            if (o.active && !o.oracleDestroyed && (o.kind == ObstacleKind::ROTATING_ORACLE || o.kind == ObstacleKind::TAKEN_BLIGHT_WELL)) {
-                Vector2 np = { o.x + o.width * 0.5f, o.gapCenterY };
-                if (np.x > dronePos.x) {
-                    float d = Vector2Distance(dronePos, np);
-                    if (d < closestDist) { closestDist = d; target = np; }
-                }
-            }
-        }
-        if (boss_.active && boss_.pos.x > dronePos.x) {
-            float d = Vector2Distance(dronePos, boss_.pos);
-            if (d < closestDist) { closestDist = d; target = boss_.pos; }
-        }
-        if (closestDist < 750.0f) {
-            Vector2 shotDir = Vector2Normalize(Vector2Subtract(target, dronePos));
-            SpawnProjectile(dronePos, Vector2Scale(shotDir, 820.0f), 8.0f, GetSubclassAccentColor(), true, true);
-        }
+    // Orbit Combat Drone in Nightfall mode (manual-fire via [C / X] or on-screen [FIRE DRONE] button)
+    if (isNightfallMode_ && profile_.equippedDrone >= 0) {
+        ghost_.companionAngle += 3.2f * dt;
     }
 
     if (boss_.active) {
@@ -1160,19 +1201,10 @@ void GhostGame::UpdateBossFixed(float dt) {
         boss_.pos.y = Lerp(boss_.pos.y, boss_.targetY, 4.0f * dt);
     }
 
-    if (!boss_.shieldImmune) {
-        boss_.health -= 11.5f * dt;
-        if (std::fmod(runTime_, 0.28f) < dt) {
-            SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y },
-                            Vector2Scale(Vector2Normalize(Vector2Subtract(boss_.pos, ghost_.pos)), 780.0f),
-                            7.0f, GetSubclassAccentColor(), true, true);
-        }
-    }
-
     if (ghost_.stasisFreezeTimer <= 0.0f) {
         boss_.attackTimer -= dt;
         if (boss_.attackTimer <= 0.0f) {
-            boss_.attackTimer = isNightfallMode_ ? 1.85f : 2.35f;
+            boss_.attackTimer = 1.95f;
             audio_.PlayLaserShot();
 
             Vector2 dirToGhost = Vector2Normalize(Vector2Subtract(ghost_.pos, boss_.pos));
