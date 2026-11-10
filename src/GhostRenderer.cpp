@@ -1,4 +1,8 @@
 #include "GhostGame.hpp"
+
+#undef VIRTUAL_WIDTH
+#define VIRTUAL_WIDTH virtualWidth_
+
 #include "raymath.h"
 #include <algorithm>
 #include <cmath>
@@ -49,6 +53,7 @@ void DrawTextWrapped(const char* text, int x, int y, int maxWidth, int fontSize,
 } // namespace
 
 void GhostGame::RenderFrame() {
+    UpdateVirtualResolution();
     BeginTextureMode(targetRenderTex_);
     ClearBackground(BLACK);
 

@@ -1,4 +1,8 @@
 #include "GhostGame.hpp"
+
+#undef VIRTUAL_WIDTH
+#define VIRTUAL_WIDTH virtualWidth_
+
 #include "raymath.h"
 #include <algorithm>
 #include <cmath>
@@ -129,9 +133,28 @@ bool GhostGame::HasUnlockedAnyDrone() const {
     return false;
 }
 
+void GhostGame::UpdateVirtualResolution() {
+    float sw = static_cast<float>(GetScreenWidth());
+    float sh = static_cast<float>(GetScreenHeight());
+    if (sw > 0.0f && sh > 0.0f) {
+        float targetW = std::max(1280.0f, std::round(720.0f * (sw / sh)));
+        if (targetRenderTex_.id == 0 || std::abs(virtualWidth_ - targetW) > 1.0f) {
+            virtualWidth_ = targetW;
+            if (targetRenderTex_.id != 0) {
+                UnloadRenderTexture(targetRenderTex_);
+            }
+            targetRenderTex_ = LoadRenderTexture(static_cast<int>(virtualWidth_), 720);
+            SetTextureFilter(targetRenderTex_.texture, TEXTURE_FILTER_BILINEAR);
+        }
+    } else if (targetRenderTex_.id == 0) {
+        virtualWidth_ = 1280.0f;
+        targetRenderTex_ = LoadRenderTexture(1280, 720);
+        SetTextureFilter(targetRenderTex_.texture, TEXTURE_FILTER_BILINEAR);
+    }
+}
+
 void GhostGame::Init() {
-    targetRenderTex_ = LoadRenderTexture(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
-    SetTextureFilter(targetRenderTex_.texture, TEXTURE_FILTER_BILINEAR);
+    UpdateVirtualResolution();
 
     audio_.Init();
     LoadSaveData();
@@ -140,11 +163,17 @@ void GhostGame::Init() {
     audio_.SetSfxVolume(profile_.sfxVolume);
     SetTargetFPS(profile_.targetFps > 0 ? profile_.targetFps : 120);
 
-    const char* splashPath = FileExists("assets/sebiny_splash_logo.png") ? "assets/sebiny_splash_logo.png"
-                           : FileExists("../assets/sebiny_splash_logo.png") ? "../assets/sebiny_splash_logo.png" : nullptr;
-    if (splashPath) {
-        splashLogo_ = LoadTexture(splashPath);
-    }
+    auto TryLoadTex = [](const std::initializer_list<const char*>& paths) -> Texture2D {
+        for (const char* p : paths) {
+#if !defined(PLATFORM_ANDROID)
+            if (!FileExists(p)) continue;
+#endif
+            Texture2D tex = LoadTexture(p);
+            if (tex.id != 0) return tex;
+        }
+        return Texture2D{};
+    };
+    splashLogo_ = TryLoadTex({ "assets/sebiny_splash_logo.png", "sebiny_splash_logo.png", "../assets/sebiny_splash_logo.png" });
     RefreshDailyBounties();
 
     PCG32 starRng(0xCAFEBABE1234ULL);
@@ -404,8 +433,8 @@ Vector2 GhostGame::ToVirtualCoords(Vector2 screenPos) const {
     float sh = static_cast<float>(GetScreenHeight());
     if (sw <= 0.0f || sh <= 0.0f) return { 0.0f, 0.0f };
     return {
-        screenPos.x * (static_cast<float>(VIRTUAL_WIDTH) / sw),
-        screenPos.y * (static_cast<float>(VIRTUAL_HEIGHT) / sh)
+        screenPos.x * (virtualWidth_ / sw),
+        screenPos.y * (720.0f / sh)
     };
 }
 

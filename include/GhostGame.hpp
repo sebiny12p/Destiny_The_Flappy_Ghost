@@ -22,7 +22,12 @@ public:
     static const std::array<ShaderDef, NUM_SHADERS>& GetShaderCatalog();
     static const std::array<CombatDroneDef, NUM_DRONES>& GetDroneCatalog();
 
+    float GetVirtualWidth() const { return virtualWidth_; }
+    float GetVirtualHeight() const { return 720.0f; }
+    void UpdateVirtualResolution();
+
 private:
+    float virtualWidth_ = 1280.0f;
     // Persistence
     void LoadSaveData();
     void SaveData() const;
