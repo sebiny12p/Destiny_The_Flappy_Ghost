@@ -874,13 +874,14 @@ void GhostGame::RenderTitleDirector() {
 
     bool hasGamepad = IsGamepadAvailable(0);
 
-    Rectangle btnPatrol   = { 180.0f, 392.0f, 440.0f, 62.0f };
-    Rectangle btnNightfall= { 660.0f, 392.0f, 440.0f, 62.0f };
-    Rectangle btnSubclass = { 72.0f, 464.0f, 216.0f, 58.0f };
-    Rectangle btnHangar   = { 304.0f, 464.0f, 216.0f, 58.0f };
-    Rectangle btnTriumphs = { 536.0f, 464.0f, 216.0f, 58.0f };
-    Rectangle btnCareer   = { 768.0f, 464.0f, 216.0f, 58.0f };
-    Rectangle btnSettings = { 1000.0f, 464.0f, 216.0f, 58.0f };
+    float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
+    Rectangle btnPatrol   = { uiX + 180.0f, 392.0f, 440.0f, 62.0f };
+    Rectangle btnNightfall= { uiX + 660.0f, 392.0f, 440.0f, 62.0f };
+    Rectangle btnSubclass = { uiX + 72.0f, 464.0f, 216.0f, 58.0f };
+    Rectangle btnHangar   = { uiX + 304.0f, 464.0f, 216.0f, 58.0f };
+    Rectangle btnTriumphs = { uiX + 536.0f, 464.0f, 216.0f, 58.0f };
+    Rectangle btnCareer   = { uiX + 768.0f, 464.0f, 216.0f, 58.0f };
+    Rectangle btnSettings = { uiX + 1000.0f, 464.0f, 216.0f, 58.0f };
 
     const char* patrolLabel = hasGamepad ? "LAUNCH VANGUARD PATROL [(A)]" : "LAUNCH VANGUARD PATROL [SPACE]";
     if (DrawDirectorButton(btnPatrol, patrolLabel, "Pure flight & abilities mode (no weapons/drones)", SKYBLUE)) {
@@ -963,13 +964,14 @@ void GhostGame::RenderTitleDirector() {
 
 void GhostGame::RenderSubclassArmory() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
-    DrawText("GUARDIAN SUBCLASS ARMORY // LIGHT & DARKNESS", 50, 24, 26, WHITE);
-    DrawText("Light Subclasses are unlocked by default. Darkness Subclasses cost 500G; Prismatic costs 1500G.", 50, 56, 15, LIGHTGRAY);
+    float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
+    DrawText("GUARDIAN SUBCLASS ARMORY // LIGHT & DARKNESS", static_cast<int>(uiX + 50), 24, 26, WHITE);
+    DrawText("Light Subclasses are unlocked by default. Darkness Subclasses cost 500G; Prismatic costs 1500G.", static_cast<int>(uiX + 50), 56, 15, LIGHTGRAY);
 
     char glimHeader[64];
     std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
     int ghw = MeasureText(glimHeader, 20);
-    DrawText(glimHeader, VIRTUAL_WIDTH - 50 - ghw, 28, 20, SKYBLUE);
+    DrawText(glimHeader, static_cast<int>(uiX + 1230.0f) - ghw, 28, 20, SKYBLUE);
 
     struct SubCard {
         int idx;
@@ -1012,7 +1014,7 @@ void GhostGame::RenderSubclassArmory() {
     for (int i = 0; i < static_cast<int>(NUM_SUBCLASSES); ++i) {
         int col = i % 3;
         int row = i / 3;
-        Rectangle cardRect = { 50.0f + col * 398.0f, 86.0f + row * 242.0f, 384.0f, 228.0f };
+        Rectangle cardRect = { uiX + 50.0f + col * 398.0f, 86.0f + row * 242.0f, 384.0f, 228.0f };
         int innerW = static_cast<int>(cardRect.width) - 32; // 352px strictly inside cardRect
         bool unlocked = profile_.unlockedSubclasses[i];
         bool selected = (profile_.selectedSubclass == i);
@@ -1077,7 +1079,7 @@ void GhostGame::RenderSubclassArmory() {
         }
     }
 
-    Rectangle backBtn = { 50.0f, 585.0f, 235.0f, 48.0f };
+    Rectangle backBtn = { uiX + 50.0f, 585.0f, 235.0f, 48.0f };
     DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
@@ -1089,12 +1091,13 @@ void GhostGame::RenderSubclassArmory() {
 
 void GhostGame::RenderShellHangar() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
-    DrawText("THE TOWER // SHELLS, DRONES, SHADERS & EXOTIC CURIOS", 60, 24, 25, WHITE);
+    float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
+    DrawText("THE TOWER // SHELLS, DRONES, SHADERS & EXOTIC CURIOS", static_cast<int>(uiX + 60), 24, 25, WHITE);
 
     char glimHeader[64];
     std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
     int ghw = MeasureText(glimHeader, 20);
-    DrawText(glimHeader, VIRTUAL_WIDTH - 60 - ghw, 28, 20, SKYBLUE);
+    DrawText(glimHeader, static_cast<int>(uiX + 1220.0f) - ghw, 28, 20, SKYBLUE);
 
     // 5 Sub-tabs inside The Tower:
     // [0] Shells I | [1] Shells II | [2] Combat Drones | [3] Eva's Shaders | [4] Xur's Catalysts
@@ -1113,7 +1116,7 @@ void GhostGame::RenderShellHangar() {
         GOLD
     };
     for (int t = 0; t < 5; ++t) {
-        Rectangle tabR = { 60.0f + t * 234.0f, 60.0f, 224.0f, 34.0f };
+        Rectangle tabR = { uiX + 60.0f + t * 234.0f, 60.0f, 224.0f, 34.0f };
         bool active = (towerTab_ == t);
         DrawRectangleRec(tabR, active ? tabColors[t] : Color{ 22, 30, 48, 255 });
         DrawRectangleLinesEx(tabR, 1.5f, active ? WHITE : tabColors[t]);
@@ -1134,7 +1137,7 @@ void GhostGame::RenderShellHangar() {
             if (i >= static_cast<int>(NUM_SHELLS)) break;
             int col = localIdx % 2;
             int row = localIdx / 2;
-            Rectangle r = { 60.0f + col * 365.0f, 138.0f + row * 142.0f, 350.0f, 132.0f };
+            Rectangle r = { uiX + 60.0f + col * 365.0f, 138.0f + row * 142.0f, 350.0f, 132.0f };
             bool unlocked = profile_.unlockedShells[i];
             bool equipped = (profile_.equippedShell == i);
             bool hov = IsRectHovered(r);
@@ -1184,10 +1187,10 @@ void GhostGame::RenderShellHangar() {
             }
         }
 
-        DrawText("GHOST TELEMETRY MODS", 810, 108, 20, GOLD);
+        DrawText("GHOST TELEMETRY MODS", static_cast<int>(uiX + 810), 108, 20, GOLD);
 
         auto DrawUpgradeRow = [&](int idx, const char* title, const char* desc, int& level, int maxLvl, int baseCost) {
-            Rectangle ur = { 810.0f, 138.0f + idx * 105.0f, 410.0f, 96.0f };
+            Rectangle ur = { uiX + 810.0f, 138.0f + idx * 105.0f, 410.0f, 96.0f };
             int cost = baseCost * (level + 1);
             bool maxed = (level >= maxLvl);
             bool canBuy = (!maxed && profile_.glimmer >= cost);
@@ -1223,13 +1226,13 @@ void GhostGame::RenderShellHangar() {
         DrawUpgradeRow(3, "VANGUARD OVERSHIELD", "Start every run with extra Overshield charges.", profile_.upgrades.overshieldCapLevel, 3, 250);
     } else if (towerTab_ == 2) {
         // Tab 2: Manual-Fire Combat Drones (Unlocks Nightfall Mode!)
-        DrawText("VANGUARD COMBAT DRONES // NIGHTFALL STRIKE ARSENAL", 60, 114, 22, GREEN);
+        DrawText("VANGUARD COMBAT DRONES // NIGHTFALL STRIKE ARSENAL", static_cast<int>(uiX + 60), 114, 22, GREEN);
         DrawText("Unlocking your first Combat Drone unlocks NIGHTFALL STRIKE mode! Press [C / X] in Nightfall to fire your Drone.",
-                 60, 142, 15, LIGHTGRAY);
+                 static_cast<int>(uiX + 60), 142, 15, LIGHTGRAY);
 
         const auto& drones = GetDroneCatalog();
         for (int i = 0; i < static_cast<int>(NUM_DRONES); ++i) {
-            Rectangle dr = { 60.0f + (i % 2) * 580.0f, 180.0f + (i / 2) * 182.0f, 560.0f, 164.0f };
+            Rectangle dr = { uiX + 60.0f + (i % 2) * 580.0f, 180.0f + (i / 2) * 182.0f, 560.0f, 164.0f };
             bool unlocked = profile_.unlockedDrones[i];
             bool equipped = (profile_.equippedDrone == i);
 
@@ -1287,8 +1290,8 @@ void GhostGame::RenderShellHangar() {
         }
     } else if (towerTab_ == 3) {
         // Tab 3: Eva Levante's Shaders (With smooth vertical scrolling & scrollbar)
-        DrawText("EVA LEVANTE // GUARDIAN ARMOR & SHELL SHADERS", 60, 118, 22, Color{ 255, 120, 220, 255 });
-        DrawText("Apply legendary & exotic shader palettes to recolor all 12 Ghost shells. (Scroll down for more)", 60, 146, 16, LIGHTGRAY);
+        DrawText("EVA LEVANTE // GUARDIAN ARMOR & SHELL SHADERS", static_cast<int>(uiX + 60), 118, 22, Color{ 255, 120, 220, 255 });
+        DrawText("Apply legendary & exotic shader palettes to recolor all 12 Ghost shells. (Scroll/Drag scrollbar for more)", static_cast<int>(uiX + 60), 146, 16, LIGHTGRAY);
 
         constexpr float TOTAL_SHADER_HEIGHT = 6 * 125.0f;
         constexpr float SHADER_VIEWPORT_H = 385.0f;
@@ -1298,11 +1301,23 @@ void GhostGame::RenderShellHangar() {
             shaderScrollY_ = std::clamp(shaderScrollY_ - wheel * 45.0f, 0.0f, maxShaderScroll);
         }
 
-        BeginScissorMode(50, 180, 1160, static_cast<int>(SHADER_VIEWPORT_H));
+        float trackX = uiX + 1205.0f;
+        float trackY = 185.0f;
+        float trackH = SHADER_VIEWPORT_H;
+        if (maxShaderScroll > 0.0f && (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0)) {
+            Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
+            Rectangle trackHit = { trackX - 24.0f, trackY - 10.0f, 52.0f, trackH + 20.0f };
+            if (CheckCollisionPointRec(p, trackHit)) {
+                float frac = std::clamp((p.y - trackY) / trackH, 0.0f, 1.0f);
+                shaderScrollY_ = frac * maxShaderScroll;
+            }
+        }
+
+        BeginScissorMode(static_cast<int>(uiX + 50), 180, 1150, static_cast<int>(SHADER_VIEWPORT_H));
         const auto& shaders = GetShaderCatalog();
         for (int i = 0; i < static_cast<int>(NUM_SHADERS); ++i) {
             float itemY = 185.0f + (i / 2) * 125.0f - shaderScrollY_;
-            Rectangle sr = { 60.0f + (i % 2) * 565.0f, itemY, 545.0f, 108.0f };
+            Rectangle sr = { uiX + 60.0f + (i % 2) * 565.0f, itemY, 545.0f, 108.0f };
             bool unlocked = profile_.unlockedShaders[i];
             bool equipped = (profile_.equippedShader == i);
 
@@ -1353,9 +1368,6 @@ void GhostGame::RenderShellHangar() {
 
         // Elegant Destiny vertical scrollbar
         if (maxShaderScroll > 0.0f) {
-            float trackX = 1205.0f;
-            float trackY = 185.0f;
-            float trackH = SHADER_VIEWPORT_H;
             DrawRectangle(static_cast<int>(trackX), static_cast<int>(trackY), 6, static_cast<int>(trackH), { 25, 35, 50, 200 });
             float thumbH = std::max(40.0f, trackH * (SHADER_VIEWPORT_H / TOTAL_SHADER_HEIGHT));
             float thumbY = trackY + (shaderScrollY_ / maxShaderScroll) * (trackH - thumbH);
@@ -1365,12 +1377,12 @@ void GhostGame::RenderShellHangar() {
         }
     } else {
         // Tab 4: Xur's Exotic Ghost Catalysts
-        DrawText("XUR, AGENT OF THE NINE // EXOTIC GHOST CATALYSTS", 60, 118, 22, GOLD);
-        DrawText("Equip an Exotic Catalyst into your Ghost core for passive paracausal combat effects.", 60, 146, 16, LIGHTGRAY);
+        DrawText("XUR, AGENT OF THE NINE // EXOTIC GHOST CATALYSTS", static_cast<int>(uiX + 60), 118, 22, GOLD);
+        DrawText("Equip an Exotic Catalyst into your Ghost core for passive paracausal combat effects.", static_cast<int>(uiX + 60), 146, 16, LIGHTGRAY);
 
         const auto& exotics = GetExoticCatalog();
         for (int i = 0; i < static_cast<int>(NUM_EXOTIC_PERKS); ++i) {
-            Rectangle er = { 60.0f + (i % 2) * 580.0f, 185.0f + (i / 2) * 180.0f, 560.0f, 160.0f };
+            Rectangle er = { uiX + 60.0f + (i % 2) * 580.0f, 185.0f + (i / 2) * 180.0f, 560.0f, 160.0f };
             bool unlocked = profile_.unlockedExotics[i];
             bool equipped = (profile_.equippedExoticPerk == i);
 
@@ -1414,7 +1426,7 @@ void GhostGame::RenderShellHangar() {
         }
     }
 
-    Rectangle backBtn = { 60.0f, 585.0f, 235.0f, 48.0f };
+    Rectangle backBtn = { uiX + 60.0f, 585.0f, 235.0f, 48.0f };
     DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
@@ -1426,24 +1438,25 @@ void GhostGame::RenderShellHangar() {
 
 void GhostGame::RenderSettingsView() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 245 });
+    float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
 
     const char* sTitle = "SYSTEM SETTINGS // AUDIO, VISUALS & CONTROLS";
-    DrawText(sTitle, 70, 32, 26, WHITE);
+    DrawText(sTitle, static_cast<int>(uiX + 70), 32, 26, WHITE);
 
     // Active Input Device Readout
     char devBuf[128];
     std::snprintf(devBuf, sizeof(devBuf), "ACTIVE INPUT: %s", activeInputDevice_.c_str());
     int dw = MeasureText(devBuf, 16);
-    DrawText(devBuf, VIRTUAL_WIDTH - 70 - dw, 38, 16, GOLD);
+    DrawText(devBuf, static_cast<int>(uiX + 1210.0f) - dw, 38, 16, GOLD);
 
-    DrawLine(70, 72, VIRTUAL_WIDTH - 70, 72, { 255, 255, 255, 55 });
+    DrawLine(static_cast<int>(uiX + 70), 72, static_cast<int>(uiX + 1210), 72, { 255, 255, 255, 55 });
 
     // --- LEFT COLUMN: AUDIO CONTROLS ---
-    DrawText("AUDIO BALANCING", 70, 92, 18, SKYBLUE);
+    DrawText("AUDIO BALANCING", static_cast<int>(uiX + 70), 92, 18, SKYBLUE);
 
     auto DrawSlider = [&](float y, const char* label, float& val, Color barCol) {
-        DrawText(label, 70, static_cast<int>(y), 16, WHITE);
-        Rectangle track = { 70.0f, y + 26.0f, 480.0f, 22.0f };
+        DrawText(label, static_cast<int>(uiX + 70), static_cast<int>(y), 16, WHITE);
+        Rectangle track = { uiX + 70.0f, y + 26.0f, 480.0f, 22.0f };
         DrawRectangleRec(track, { 18, 24, 38, 255 });
         DrawRectangleLinesEx(track, 1.5f, { 80, 110, 150, 200 });
 
@@ -1472,7 +1485,7 @@ void GhostGame::RenderSettingsView() {
     DrawSlider(252.0f, "SOUND EFFECTS (SFX)", profile_.sfxVolume, ORANGE);
 
     // Mute Toggle Button
-    Rectangle muteBtn = { 70.0f, 324.0f, 240.0f, 44.0f };
+    Rectangle muteBtn = { uiX + 70.0f, 324.0f, 240.0f, 44.0f };
     bool isMuted = audio_.IsMuted();
     DrawRectangleRec(muteBtn, isMuted ? Color{ 75, 25, 30, 255 } : Color{ 22, 45, 38, 255 });
     DrawRectangleLinesEx(muteBtn, 1.8f, isMuted ? RED : GREEN);
@@ -1483,10 +1496,10 @@ void GhostGame::RenderSettingsView() {
     }
 
     // --- GAMEPLAY SOUNDTRACK JUKEBOX SELECTOR ---
-    DrawText("GAMEPLAY SOUNDTRACK JUKEBOX [N]:", 70, 390, 15, WHITE);
-    Rectangle prevTrackBtn = { 70.0f, 412.0f, 42.0f, 38.0f };
-    Rectangle nextTrackBtn = { 508.0f, 412.0f, 42.0f, 38.0f };
-    Rectangle trackCardRec = { 118.0f, 412.0f, 384.0f, 38.0f };
+    DrawText("GAMEPLAY SOUNDTRACK JUKEBOX [N]:", static_cast<int>(uiX + 70), 390, 15, WHITE);
+    Rectangle prevTrackBtn = { uiX + 70.0f, 412.0f, 42.0f, 38.0f };
+    Rectangle nextTrackBtn = { uiX + 508.0f, 412.0f, 42.0f, 38.0f };
+    Rectangle trackCardRec = { uiX + 118.0f, 412.0f, 384.0f, 38.0f };
 
     DrawRectangleRec(prevTrackBtn, IsRectHovered(prevTrackBtn) ? Color{ 40, 65, 100, 255 } : Color{ 20, 28, 44, 220 });
     DrawRectangleLinesEx(prevTrackBtn, 1.5f, SKYBLUE);
@@ -1514,17 +1527,17 @@ void GhostGame::RenderSettingsView() {
     int tlw = MeasureText(tLabel, 12);
     DrawText(tLabel, static_cast<int>(trackCardRec.x + (trackCardRec.width - tlw) / 2.0f), static_cast<int>(trackCardRec.y + 12), 12, profile_.musicTrackChoice == 0 ? GOLD : WHITE);
 
-    DrawText("* Press [N] during flights to skip track instantly", 70, 458, 12, { 140, 180, 220, 200 });
+    DrawText("* Press [N] during flights to skip track instantly", static_cast<int>(uiX + 70), 458, 12, { 140, 180, 220, 200 });
 
     // --- RIGHT COLUMN: VISUALS, TOUCH & ACCESSIBILITY ---
-    DrawText("VISUALS & ACCESSIBILITY", 660, 92, 18, SKYBLUE);
+    DrawText("VISUALS & ACCESSIBILITY", static_cast<int>(uiX + 660), 92, 18, SKYBLUE);
 
     // Screen Shake Scale
-    DrawText("SCREEN SHAKE INTENSITY:", 660, 124, 16, WHITE);
+    DrawText("SCREEN SHAKE INTENSITY:", static_cast<int>(uiX + 660), 124, 16, WHITE);
     const char* shakeLabels[3] = { "OFF (0%)", "NORMAL (50%)", "INTENSE (100%)" };
     float shakeVals[3] = { 0.0f, 0.5f, 1.0f };
     for (int i = 0; i < 3; ++i) {
-        Rectangle sb = { 660.0f + i * 168.0f, 150.0f, 156.0f, 38.0f };
+        Rectangle sb = { uiX + 660.0f + i * 168.0f, 150.0f, 156.0f, 38.0f };
         bool sel = (std::abs(profile_.screenShakeScale - shakeVals[i]) < 0.15f);
         DrawRectangleRec(sb, sel ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
         DrawRectangleLinesEx(sb, sel ? 2.0f : 1.2f, sel ? GOLD : GRAY);
@@ -1536,9 +1549,9 @@ void GhostGame::RenderSettingsView() {
     }
 
     // Screen Flash Pulses Toggle
-    DrawText("SOLAR / EXPLOSION SCREEN FLASHES:", 660, 206, 16, WHITE);
-    Rectangle flashOnBtn  = { 660.0f, 232.0f, 160.0f, 38.0f };
-    Rectangle flashOffBtn = { 832.0f, 232.0f, 160.0f, 38.0f };
+    DrawText("SOLAR / EXPLOSION SCREEN FLASHES:", static_cast<int>(uiX + 660), 206, 16, WHITE);
+    Rectangle flashOnBtn  = { uiX + 660.0f, 232.0f, 160.0f, 38.0f };
+    Rectangle flashOffBtn = { uiX + 832.0f, 232.0f, 160.0f, 38.0f };
     DrawRectangleRec(flashOnBtn, profile_.screenFlashes ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
     DrawRectangleLinesEx(flashOnBtn, profile_.screenFlashes ? 2.0f : 1.2f, profile_.screenFlashes ? GOLD : GRAY);
     DrawText("ENABLED", static_cast<int>(flashOnBtn.x + 44), static_cast<int>(flashOnBtn.y + 11), 14, profile_.screenFlashes ? GOLD : LIGHTGRAY);
@@ -1550,11 +1563,11 @@ void GhostGame::RenderSettingsView() {
     if (IsButtonClicked(flashOffBtn)) { profile_.screenFlashes = false; audio_.PlayUiSelect(); }
 
     // Target Framerate Mode
-    DrawText("PERFORMANCE / TARGET FPS:", 660, 288, 16, WHITE);
+    DrawText("PERFORMANCE / TARGET FPS:", static_cast<int>(uiX + 660), 288, 16, WHITE);
     int fpsVals[3] = { 60, 120, 30 };
     const char* fpsLabels[3] = { "60 FPS (BALANCED)", "120 FPS (ULTRA)", "30 FPS (SAVER)" };
     for (int f = 0; f < 3; ++f) {
-        Rectangle fb = { 660.0f + f * 168.0f, 314.0f, 156.0f, 38.0f };
+        Rectangle fb = { uiX + 660.0f + f * 168.0f, 314.0f, 156.0f, 38.0f };
         bool sel = (profile_.targetFps == fpsVals[f]);
         DrawRectangleRec(fb, sel ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
         DrawRectangleLinesEx(fb, sel ? 2.0f : 1.2f, sel ? GOLD : GRAY);
@@ -1567,9 +1580,9 @@ void GhostGame::RenderSettingsView() {
     }
 
     // Touch Button Handedness Mode
-    DrawText("MOBILE TOUCH CONTROLS HANDEDNESS:", 660, 370, 16, WHITE);
-    Rectangle handRight = { 660.0f, 396.0f, 210.0f, 38.0f };
-    Rectangle handLeft  = { 882.0f, 396.0f, 210.0f, 38.0f };
+    DrawText("MOBILE TOUCH CONTROLS HANDEDNESS:", static_cast<int>(uiX + 660), 370, 16, WHITE);
+    Rectangle handRight = { uiX + 660.0f, 396.0f, 210.0f, 38.0f };
+    Rectangle handLeft  = { uiX + 882.0f, 396.0f, 210.0f, 38.0f };
     DrawRectangleRec(handRight, !profile_.leftHandedControls ? Color{ 35, 65, 105, 255 } : Color{ 18, 24, 38, 220 });
     DrawRectangleLinesEx(handRight, !profile_.leftHandedControls ? 2.0f : 1.2f, !profile_.leftHandedControls ? GOLD : GRAY);
     DrawText("RIGHT-HANDED (DEFAULT)", static_cast<int>(handRight.x + 12), static_cast<int>(handRight.y + 11), 13, !profile_.leftHandedControls ? GOLD : LIGHTGRAY);
@@ -1581,7 +1594,7 @@ void GhostGame::RenderSettingsView() {
     if (IsButtonClicked(handLeft)) { profile_.leftHandedControls = true; audio_.PlayUiSelect(); }
 
     // Clear Save Data Button (Right Column)
-    Rectangle resetBtn = { 660.0f, 468.0f, 310.0f, 42.0f };
+    Rectangle resetBtn = { uiX + 660.0f, 468.0f, 310.0f, 42.0f };
     DrawRectangleRec(resetBtn, showResetConfirm_ ? Color{ 110, 30, 35, 255 } : Color{ 48, 20, 26, 230 });
     DrawRectangleLinesEx(resetBtn, 2.0f, RED);
     DrawText(showResetConfirm_ ? "CONFIRM RESET PROGRESS?" : "CLEAR SAVE DATA (RESET)", static_cast<int>(resetBtn.x + 18), static_cast<int>(resetBtn.y + 13), 14, WHITE);
@@ -1607,7 +1620,7 @@ void GhostGame::RenderSettingsView() {
         }
     }
     if (showResetConfirm_) {
-        Rectangle cancelReset = { 985.0f, 468.0f, 110.0f, 42.0f };
+        Rectangle cancelReset = { uiX + 985.0f, 468.0f, 110.0f, 42.0f };
         DrawRectangleRec(cancelReset, { 28, 38, 52, 240 });
         DrawRectangleLinesEx(cancelReset, 1.5f, SKYBLUE);
         DrawText("CANCEL", static_cast<int>(cancelReset.x + 20), static_cast<int>(cancelReset.y + 13), 14, WHITE);
@@ -1615,7 +1628,7 @@ void GhostGame::RenderSettingsView() {
     }
 
     // --- BOTTOM ROW: FOOTER & BACK ---
-    DrawLine(70, 545, VIRTUAL_WIDTH - 70, 545, { 255, 255, 255, 45 });
+    DrawLine(static_cast<int>(uiX + 70), 545, static_cast<int>(uiX + 1210), 545, { 255, 255, 255, 45 });
 
     // Engine & Build Info
     const char* bInfo = "DESTINY: THE FLAPPY GHOST  |  v1.3.0 EXPANSION  |  SEBINY LABS ENGINE";
@@ -1623,7 +1636,7 @@ void GhostGame::RenderSettingsView() {
     DrawText(bInfo, (VIRTUAL_WIDTH - biw) / 2, 555, 13, { 140, 175, 215, 180 });
 
     // Back to Previous Screen Button
-    Rectangle backBtn = { 70.0f, 580.0f, 260.0f, 48.0f };
+    Rectangle backBtn = { uiX + 70.0f, 580.0f, 260.0f, 48.0f };
     DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< BACK", static_cast<int>(backBtn.x + 98), static_cast<int>(backBtn.y + 16), 16, WHITE);
@@ -1636,16 +1649,17 @@ void GhostGame::RenderSettingsView() {
 
 void GhostGame::RenderCareerStats() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 24, 245 });
+    float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
 
     const char* sTitle = "VANGUARD CAREER DOSSIER";
-    DrawText(sTitle, 70, 32, 22, GOLD);
+    DrawText(sTitle, static_cast<int>(uiX + 70), 32, 22, GOLD);
 
     char glimBuf[128];
     std::snprintf(glimBuf, sizeof(glimBuf), "CURRENT GLIMMER IN VAULT: %d G", profile_.glimmer);
     int gbw = MeasureText(glimBuf, 15);
-    DrawText(glimBuf, VIRTUAL_WIDTH - 70 - gbw, 36, 15, SKYBLUE);
+    DrawText(glimBuf, static_cast<int>(uiX + 1210.0f) - gbw, 36, 15, SKYBLUE);
 
-    DrawLine(70, 68, VIRTUAL_WIDTH - 70, 68, { 255, 255, 255, 55 });
+    DrawLine(static_cast<int>(uiX + 70), 68, static_cast<int>(uiX + 1210), 68, { 255, 255, 255, 55 });
 
     auto DrawStatRow = [](float x, float y, float w, const char* label, const std::string& val, Color valCol) {
         DrawText(label, static_cast<int>(x), static_cast<int>(y), 15, WHITE);
@@ -1655,7 +1669,7 @@ void GhostGame::RenderCareerStats() {
     };
 
     // LEFT CARD: FLIGHT & NIGHTFALL COMBAT METRICS
-    Rectangle leftCard = { 70.0f, 84.0f, 550.0f, 475.0f };
+    Rectangle leftCard = { uiX + 70.0f, 84.0f, 550.0f, 475.0f };
     DrawRectangleRec(leftCard, { 14, 20, 36, 230 });
     DrawRectangleLinesEx(leftCard, 2.0f, ORANGE);
     DrawRectangle(static_cast<int>(leftCard.x), static_cast<int>(leftCard.y), static_cast<int>(leftCard.width), 34, { 38, 22, 16, 240 });
@@ -1692,7 +1706,7 @@ void GhostGame::RenderCareerStats() {
     DrawStatRow(leftCard.x + 20, sy, leftCard.width - 40, "Active Combat Subclass:", subName, SKYBLUE);
 
     // RIGHT CARD: GUARDIAN INVENTORY & SYSTEM ACCREDITATION
-    Rectangle rightCard = { 660.0f, 84.0f, 550.0f, 475.0f };
+    Rectangle rightCard = { uiX + 660.0f, 84.0f, 550.0f, 475.0f };
     DrawRectangleRec(rightCard, { 14, 20, 36, 230 });
     DrawRectangleLinesEx(rightCard, 2.0f, SKYBLUE);
     DrawRectangle(static_cast<int>(rightCard.x), static_cast<int>(rightCard.y), static_cast<int>(rightCard.width), 34, { 18, 28, 48, 240 });
@@ -1730,8 +1744,8 @@ void GhostGame::RenderCareerStats() {
     DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Current Soundtrack:", audio_.GetCurrentActionTrackName(), ORANGE);
 
     // Bottom Navigation Bar
-    DrawLine(70, 580, VIRTUAL_WIDTH - 70, 580, { 255, 255, 255, 45 });
-    Rectangle statsBackBtn = { 70.0f, 600.0f, 260.0f, 48.0f };
+    DrawLine(static_cast<int>(uiX + 70), 580, static_cast<int>(uiX + 1210), 580, { 255, 255, 255, 45 });
+    Rectangle statsBackBtn = { uiX + 70.0f, 600.0f, 260.0f, 48.0f };
     DrawRectangleRec(statsBackBtn, IsRectHovered(statsBackBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
     DrawRectangleLinesEx(statsBackBtn, 2.0f, ORANGE);
     DrawText("< BACK TO DIRECTOR [ESC]", static_cast<int>(statsBackBtn.x + 26), static_cast<int>(statsBackBtn.y + 16), 16, WHITE);
@@ -1743,18 +1757,19 @@ void GhostGame::RenderCareerStats() {
 
 void GhostGame::RenderTriumphsLog() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
-    DrawText("VANGUARD RECORD // DAILY BOUNTIES & TRIUMPHS", 70, 32, 26, WHITE);
+    float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
+    DrawText("VANGUARD RECORD // DAILY BOUNTIES & TRIUMPHS", static_cast<int>(uiX + 70), 32, 26, WHITE);
 
     char glimHeader[64];
     std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
     int ghw = MeasureText(glimHeader, 18);
-    DrawText(glimHeader, VIRTUAL_WIDTH - 70 - ghw, 36, 18, SKYBLUE);
+    DrawText(glimHeader, static_cast<int>(uiX + 1210.0f) - ghw, 36, 18, SKYBLUE);
 
     // --- SECTION 1: ROTATING DAILY VANGUARD BOUNTIES (3 ACTIVE) ---
-    DrawText("ACTIVE DAILY BOUNTIES (RESETS EVERY 24H)", 70, 72, 16, GOLD);
+    DrawText("ACTIVE DAILY BOUNTIES (RESETS EVERY 24H)", static_cast<int>(uiX + 70), 72, 16, GOLD);
     for (size_t b = 0; b < NUM_DAILY_BOUNTIES; ++b) {
         const auto& bounty = dailyBounties_[b];
-        Rectangle br = { 70.0f + b * 380.0f, 96.0f, 365.0f, 95.0f };
+        Rectangle br = { uiX + 70.0f + b * 380.0f, 96.0f, 365.0f, 95.0f };
         bool done = bounty.completed;
         DrawRectangleRec(br, done ? Color{ 22, 46, 38, 235 } : Color{ 14, 20, 32, 220 });
         DrawRectangleLinesEx(br, 1.5f, done ? GREEN : (bounty.currentProgress > 0 ? SKYBLUE : Color{ 60, 75, 95, 200 }));
@@ -1777,7 +1792,7 @@ void GhostGame::RenderTriumphsLog() {
     }
 
     // --- SECTION 2: PERMANENT VANGUARD TRIUMPHS (With smooth scrolling & scrollbar) ---
-    DrawText("LIFETIME TRIUMPHS & RECORDS (Scroll down for all 16 Triumphs)", 70, 204, 16, SKYBLUE);
+    DrawText("LIFETIME TRIUMPHS & RECORDS (Scroll/Drag scrollbar for all 16 Triumphs)", static_cast<int>(uiX + 70), 204, 16, SKYBLUE);
 
     constexpr float TOTAL_TRIUMPH_HEIGHT = 8 * 66.0f;
     constexpr float TRIUMPH_VIEWPORT_H = 345.0f;
@@ -1787,13 +1802,25 @@ void GhostGame::RenderTriumphsLog() {
         triumphScrollY_ = std::clamp(triumphScrollY_ - tWheel * 45.0f, 0.0f, maxTriumphScroll);
     }
 
-    BeginScissorMode(60, 225, 1160, static_cast<int>(TRIUMPH_VIEWPORT_H));
+    float tTrackX = uiX + 1205.0f;
+    float tTrackY = 228.0f;
+    float tTrackH = TRIUMPH_VIEWPORT_H;
+    if (maxTriumphScroll > 0.0f && (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0)) {
+        Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
+        Rectangle trackHit = { tTrackX - 24.0f, tTrackY - 10.0f, 52.0f, tTrackH + 20.0f };
+        if (CheckCollisionPointRec(p, trackHit)) {
+            float frac = std::clamp((p.y - tTrackY) / tTrackH, 0.0f, 1.0f);
+            triumphScrollY_ = frac * maxTriumphScroll;
+        }
+    }
+
+    BeginScissorMode(static_cast<int>(uiX + 60), 225, 1140, static_cast<int>(TRIUMPH_VIEWPORT_H));
     const auto& cat = GetTriumphCatalog();
     for (int i = 0; i < static_cast<int>(NUM_TRIUMPHS); ++i) {
         int col = i % 2;
         int row = i / 2;
         float itemY = 228.0f + row * 66.0f - triumphScrollY_;
-        Rectangle tr = { 70.0f + col * 565.0f, itemY, 545.0f, 60.0f };
+        Rectangle tr = { uiX + 70.0f + col * 565.0f, itemY, 545.0f, 60.0f };
         bool done = profile_.unlockedTriumphs[i];
 
         DrawRectangleRec(tr, done ? Color{ 24, 42, 54, 240 } : Color{ 14, 18, 28, 220 });
@@ -1810,18 +1837,15 @@ void GhostGame::RenderTriumphsLog() {
     EndScissorMode();
 
     if (maxTriumphScroll > 0.0f) {
-        float trackX = 1205.0f;
-        float trackY = 228.0f;
-        float trackH = TRIUMPH_VIEWPORT_H;
-        DrawRectangle(static_cast<int>(trackX), static_cast<int>(trackY), 6, static_cast<int>(trackH), { 25, 35, 50, 200 });
-        float thumbH = std::max(40.0f, trackH * (TRIUMPH_VIEWPORT_H / TOTAL_TRIUMPH_HEIGHT));
-        float thumbY = trackY + (triumphScrollY_ / maxTriumphScroll) * (trackH - thumbH);
-        Rectangle thumbR = { trackX - 2.0f, thumbY, 10.0f, thumbH };
+        DrawRectangle(static_cast<int>(tTrackX), static_cast<int>(tTrackY), 6, static_cast<int>(tTrackH), { 25, 35, 50, 200 });
+        float thumbH = std::max(40.0f, tTrackH * (TRIUMPH_VIEWPORT_H / TOTAL_TRIUMPH_HEIGHT));
+        float thumbY = tTrackY + (triumphScrollY_ / maxTriumphScroll) * (tTrackH - thumbH);
+        Rectangle thumbR = { tTrackX - 2.0f, thumbY, 10.0f, thumbH };
         bool hov = IsRectHovered(thumbR);
         DrawRectangleRec(thumbR, hov ? GOLD : Color{ 80, 140, 200, 220 });
     }
 
-    Rectangle backBtn = { 70.0f, 580.0f, 235.0f, 48.0f };
+    Rectangle backBtn = { uiX + 70.0f, 580.0f, 235.0f, 48.0f };
     DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);

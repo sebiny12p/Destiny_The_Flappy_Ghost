@@ -10,7 +10,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="Destiny: Floppy Ghost"
+        android:label="Destiny: Flappy Ghost"
         android:icon="@drawable/icon"
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
         android:hasCode="true"
@@ -20,7 +20,7 @@
 
         <activity
             android:name="com.sebinylabs.flappyghost.NativeLoader"
-            android:label="Destiny: Floppy Ghost"
+            android:label="Destiny: Flappy Ghost"
             android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|uiMode"
             android:screenOrientation="sensorLandscape"
             android:launchMode="singleTask"
