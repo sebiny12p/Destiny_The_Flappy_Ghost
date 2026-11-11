@@ -707,6 +707,28 @@ void GhostGame::RenderHud() const {
     DrawText("CAST SUPER", static_cast<int>(supBtn.x + 12), static_cast<int>(supBtn.y + 14), 14, (superRatio >= 1.0f || supFeedback) ? GOLD : GRAY);
     DrawText(supHint, static_cast<int>(supBtn.x + (hasGamepad ? 24 : 32)), static_cast<int>(supBtn.y + 34), 12, LIGHTGRAY);
 
+    // First-Run Control Hint Pill (fades cleanly after 4.5s on a player's very first run)
+    if (profile_.totalRunsStarted <= 1 && runTime_ < 4.5f) {
+        float fade = (runTime_ > 3.5f) ? std::clamp(1.0f - (runTime_ - 3.5f), 0.0f, 1.0f) : 1.0f;
+        unsigned char bgA = static_cast<unsigned char>(fade * 210.0f);
+        unsigned char txtA = static_cast<unsigned char>(fade * 245.0f);
+#if defined(PLATFORM_ANDROID)
+        const char* hint = isNightfallMode_
+            ? "CONTROLS: Tap Screen = Flap  |  [BLINK/DASH] & [SUPER]: Abilities  |  [FIRE DRONE]: Shoot"
+            : "CONTROLS: Tap Anywhere = Flap  |  Tap [BLINK/DASH] & [SUPER] for Paracausal Abilities";
+#else
+        const char* hint = hasGamepad
+            ? "CONTROLS: [(A)] Flap  |  [(B)/LB] Blink  |  [(Y)/RB] Super  |  [(X)/RT] Drone"
+            : (isNightfallMode_
+                ? "CONTROLS: [SPACE / Click] Flap  |  [SHIFT / RMB] Blink  |  [F / Q] Super  |  [C / X] Drone"
+                : "CONTROLS: [SPACE / Click] Flap  |  [SHIFT / RMB] Blink  |  [F / Q] Super");
+#endif
+        int hw = MeasureText(hint, 14);
+        DrawRectangle(VIRTUAL_WIDTH / 2 - hw / 2 - 18, 86, hw + 36, 32, { 10, 14, 24, bgA });
+        DrawRectangleLines(VIRTUAL_WIDTH / 2 - hw / 2 - 18, 86, hw + 36, 32, Color{ 100, 195, 255, txtA });
+        DrawText(hint, VIRTUAL_WIDTH / 2 - hw / 2, 95, 14, Color{ 230, 245, 255, txtA });
+    }
+
     if (biomeBannerTimer_ > 0.0f) {
         float a = std::min(1.0f, biomeBannerTimer_ * 1.2f);
         unsigned char alphaByte = static_cast<unsigned char>(a * 235.0f);
@@ -1304,13 +1326,39 @@ void GhostGame::RenderShellHangar() {
         float trackX = uiX + 1205.0f;
         float trackY = 185.0f;
         float trackH = SHADER_VIEWPORT_H;
-        if (maxShaderScroll > 0.0f && (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0)) {
+        Rectangle shaderViewport = { uiX + 50.0f, 180.0f, 1150.0f, SHADER_VIEWPORT_H };
+        bool ptrDown = (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0);
+        bool shaderReleaseTap = false;
+        Vector2 shaderTapPos{};
+        if (ptrDown) {
             Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
             Rectangle trackHit = { trackX - 24.0f, trackY - 10.0f, 52.0f, trackH + 20.0f };
-            if (CheckCollisionPointRec(p, trackHit)) {
+            if (maxShaderScroll > 0.0f && CheckCollisionPointRec(p, trackHit)) {
                 float frac = std::clamp((p.y - trackY) / trackH, 0.0f, 1.0f);
                 shaderScrollY_ = frac * maxShaderScroll;
+                listDragging_ = false;
+                listDragMoved_ = true;
+            } else if (!listDragging_ && CheckCollisionPointRec(p, shaderViewport)) {
+                listDragging_ = true;
+                listDragLastPos_ = p;
+                listDragTotalDy_ = 0.0f;
+                listDragMoved_ = false;
+            } else if (listDragging_) {
+                float dy = p.y - listDragLastPos_.y;
+                listDragLastPos_ = p;
+                listDragTotalDy_ += std::abs(dy);
+                if (listDragTotalDy_ > 10.0f) listDragMoved_ = true;
+                if (maxShaderScroll > 0.0f) {
+                    shaderScrollY_ = std::clamp(shaderScrollY_ - dy, 0.0f, maxShaderScroll);
+                }
             }
+        } else if (listDragging_) {
+            if (!listDragMoved_ && screenTransitionCooldown_ <= 0.0f) {
+                shaderReleaseTap = true;
+                shaderTapPos = listDragLastPos_;
+            }
+            listDragging_ = false;
+            listDragMoved_ = false;
         }
 
         BeginScissorMode(static_cast<int>(uiX + 50), 180, 1150, static_cast<int>(SHADER_VIEWPORT_H));
@@ -1347,7 +1395,7 @@ void GhostGame::RenderShellHangar() {
                 DrawText(cstr, static_cast<int>(btn.x + 38), static_cast<int>(btn.y + 10), 14, canBuy ? GREEN : RED);
             }
 
-            if (itemY >= 140.0f && itemY <= 570.0f && IsButtonClicked(sr)) {
+            if (shaderReleaseTap && itemY >= 140.0f && itemY <= 570.0f && CheckCollisionPointRec(shaderTapPos, sr)) {
                 if (unlocked) {
                     profile_.equippedShader = i;
                     SaveData();
@@ -1805,13 +1853,25 @@ void GhostGame::RenderTriumphsLog() {
     float tTrackX = uiX + 1205.0f;
     float tTrackY = 228.0f;
     float tTrackH = TRIUMPH_VIEWPORT_H;
-    if (maxTriumphScroll > 0.0f && (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0)) {
+    Rectangle triumphViewport = { uiX + 60.0f, 225.0f, 1140.0f, TRIUMPH_VIEWPORT_H };
+    bool tPtrDown = (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0);
+    if (maxTriumphScroll > 0.0f && tPtrDown) {
         Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
         Rectangle trackHit = { tTrackX - 24.0f, tTrackY - 10.0f, 52.0f, tTrackH + 20.0f };
         if (CheckCollisionPointRec(p, trackHit)) {
             float frac = std::clamp((p.y - tTrackY) / tTrackH, 0.0f, 1.0f);
             triumphScrollY_ = frac * maxTriumphScroll;
+            listDragging_ = false;
+        } else if (!listDragging_ && CheckCollisionPointRec(p, triumphViewport)) {
+            listDragging_ = true;
+            listDragLastPos_ = p;
+        } else if (listDragging_) {
+            float dy = p.y - listDragLastPos_.y;
+            listDragLastPos_ = p;
+            triumphScrollY_ = std::clamp(triumphScrollY_ - dy, 0.0f, maxTriumphScroll);
         }
+    } else {
+        listDragging_ = false;
     }
 
     BeginScissorMode(static_cast<int>(uiX + 60), 225, 1140, static_cast<int>(TRIUMPH_VIEWPORT_H));

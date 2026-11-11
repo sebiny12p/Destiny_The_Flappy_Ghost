@@ -145,6 +145,10 @@ private:
     std::string activeInputDevice_ = "KEYBOARD & MOUSE";
     float shaderScrollY_ = 0.0f;
     float triumphScrollY_ = 0.0f;
+    bool listDragging_ = false;
+    bool listDragMoved_ = false;
+    Vector2 listDragLastPos_{ 0.0f, 0.0f };
+    float listDragTotalDy_ = 0.0f;
 
     GhostPlayer ghost_{};
     BossState boss_{};
