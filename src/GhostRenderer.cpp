@@ -908,8 +908,10 @@ void GhostGame::RenderTitleDirector() {
         int subFs = 14;
         while (subFs > 10 && MeasureText(sub, subFs) > maxW) subFs--;
 
-        DrawText(title, static_cast<int>(r.x + 18), static_cast<int>(r.y + 12), titleFs, WHITE);
-        DrawText(sub, static_cast<int>(r.x + 18), static_cast<int>(r.y + 38), subFs, LIGHTGRAY);
+        int textBlockH = titleFs + 5 + subFs;
+        int topPad = std::max(8, (static_cast<int>(r.height) - textBlockH) / 2);
+        DrawText(title, static_cast<int>(r.x + 18), static_cast<int>(r.y) + topPad, titleFs, WHITE);
+        DrawText(sub, static_cast<int>(r.x + 18), static_cast<int>(r.y) + topPad + titleFs + 5, subFs, LIGHTGRAY);
         return IsButtonClicked(r);
     };
 
