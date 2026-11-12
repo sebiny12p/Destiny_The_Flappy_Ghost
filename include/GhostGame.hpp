@@ -130,6 +130,7 @@ private:
     Color flashColor_ = WHITE;
     float biomeBannerTimer_ = 0.0f;
     BiomeSector lastBiome_ = BiomeSector::COSMODROME;
+    std::array<BiomeSector, NUM_BIOMES> biomeOrder_{};
 
     float lastTapTime_ = -10.0f;
 

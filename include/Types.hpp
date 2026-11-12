@@ -85,11 +85,16 @@ enum class ExoticPerk : int {
 };
 
 enum class BiomeSector : int {
-    COSMODROME = 0,     // Fallen territory: rusted golden-age steel, tripmines
-    VAULT_OF_GLASS = 1, // Vex network: radiolarian fluid, laser barriers, Oracles
-    HELLMOUTH = 2,      // Hive catacombs: gothic bone pillars, soulfire traps
-    ASCENDANT_PLANE = 3 // Taken/Pyramid realm: gravitational blights, resonance beams
+    COSMODROME = 0,             // Fallen territory: rusted golden-age steel, tripmines
+    VAULT_OF_GLASS = 1,         // Vex network: radiolarian fluid, laser barriers, Oracles
+    HELLMOUTH = 2,              // Hive catacombs: gothic bone pillars, soulfire traps
+    ASCENDANT_PLANE = 3,        // Taken/Pyramid realm: gravitational blights, resonance beams
+    DREAMING_CITY = 4,          // Awoken twilight citadel: starlight amethyst & gilded spires
+    EUROPA_BRAYTECH = 5,        // BrayTech exoscience: glacial ice-blue & arctic cobalt
+    SAVATHUNS_THRONE_WORLD = 6, // Lucent Hive: alabaster bone & luminous swamp teal
+    PALE_HEART = 7              // Inside The Traveler: prismatic gold, rose & celestial cyan
 };
+inline constexpr std::size_t NUM_BIOMES = 8;
 
 enum class ObstacleKind : int {
     STANDARD_GATE = 0,      // Upper & lower biome pillars

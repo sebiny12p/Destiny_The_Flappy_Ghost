@@ -368,7 +368,14 @@ void GhostGame::StartNewRun(bool dailyNightfall) {
     runMotes_ = 0;
     runGlimmerEarned_ = 0;
     gatesSinceLastBoss_ = 0;
-    lastBiome_ = BiomeSector::COSMODROME;
+    for (std::size_t i = 0; i < NUM_BIOMES; ++i) {
+        biomeOrder_[i] = static_cast<BiomeSector>(i);
+    }
+    for (int i = static_cast<int>(NUM_BIOMES) - 1; i > 0; --i) {
+        int j = rng_.RangeInt(0, i);
+        std::swap(biomeOrder_[i], biomeOrder_[j]);
+    }
+    lastBiome_ = biomeOrder_[0];
     biomeBannerTimer_ = 3.0f;
     activeMedal_.active = false;
 
@@ -400,16 +407,23 @@ void GhostGame::StartNewRun(bool dailyNightfall) {
 }
 
 BiomeSector GhostGame::GetCurrentBiome() const {
-    int stage = (scoreGates_ / 15) % 4;
-    return static_cast<BiomeSector>(stage);
+    int stage = (scoreGates_ / 15) % static_cast<int>(NUM_BIOMES);
+    if (biomeOrder_[0] == BiomeSector::COSMODROME && biomeOrder_[1] == BiomeSector::COSMODROME) {
+        return static_cast<BiomeSector>(stage);
+    }
+    return biomeOrder_[stage];
 }
 
 const char* GhostGame::GetBiomeName(BiomeSector b) const {
     switch (b) {
-        case BiomeSector::COSMODROME:      return "SECTOR 01 // COSMODROME RUINS (FALLEN)";
-        case BiomeSector::VAULT_OF_GLASS:  return "SECTOR 02 // THE VAULT OF GLASS (VEX NETWORK)";
-        case BiomeSector::HELLMOUTH:       return "SECTOR 03 // THE HELLMOUTH CATACOMBS (HIVE)";
-        case BiomeSector::ASCENDANT_PLANE: return "SECTOR 04 // THE ASCENDANT REALM (TAKEN)";
+        case BiomeSector::COSMODROME:             return "COSMODROME RUINS (FALLEN)";
+        case BiomeSector::VAULT_OF_GLASS:         return "THE VAULT OF GLASS (VEX NETWORK)";
+        case BiomeSector::HELLMOUTH:              return "THE HELLMOUTH CATACOMBS (HIVE)";
+        case BiomeSector::ASCENDANT_PLANE:        return "THE ASCENDANT REALM (TAKEN)";
+        case BiomeSector::DREAMING_CITY:          return "THE DREAMING CITY (AWOKEN CITADEL)";
+        case BiomeSector::EUROPA_BRAYTECH:        return "EUROPA // BRAYTECH EXOSCIENCE";
+        case BiomeSector::SAVATHUNS_THRONE_WORLD: return "SAVATHUN'S THRONE WORLD (LUCENT)";
+        case BiomeSector::PALE_HEART:             return "THE PALE HEART (INSIDE THE TRAVELER)";
     }
     return "UNKNOWN SECTOR";
 }
@@ -818,15 +832,15 @@ void GhostGame::SpawnNextObstacle() {
     if (scoreGates_ < 3) {
         slot->kind = ObstacleKind::STANDARD_GATE;
         slot->moveSpeedY = 0.0f;
-    } else if (biome == BiomeSector::VAULT_OF_GLASS && roll < 0.45f) {
+    } else if ((biome == BiomeSector::VAULT_OF_GLASS || biome == BiomeSector::EUROPA_BRAYTECH) && roll < 0.45f) {
         slot->kind = ObstacleKind::MOVING_VEX_LASER;
         slot->moveSpeedY = rng_.RangeFloat(1.6f, 2.8f);
-    } else if (isNightfallMode_ && (biome == BiomeSector::VAULT_OF_GLASS || biome == BiomeSector::HELLMOUTH) && roll < 0.72f) {
+    } else if (isNightfallMode_ && (biome == BiomeSector::VAULT_OF_GLASS || biome == BiomeSector::HELLMOUTH || biome == BiomeSector::DREAMING_CITY || biome == BiomeSector::SAVATHUNS_THRONE_WORLD) && roll < 0.72f) {
         slot->kind = ObstacleKind::ROTATING_ORACLE;
         slot->gapHeight += 36.0f;
         slot->moveSpeedY = rng_.RangeFloat(1.0f, 2.0f);
         slot->hazardRadius = 26.0f;
-    } else if (isNightfallMode_ && biome == BiomeSector::ASCENDANT_PLANE && roll < 0.36f) {
+    } else if (isNightfallMode_ && (biome == BiomeSector::ASCENDANT_PLANE || biome == BiomeSector::PALE_HEART) && roll < 0.36f) {
         slot->kind = ObstacleKind::TAKEN_BLIGHT_WELL;
         slot->gapHeight += 48.0f;
         slot->moveSpeedY = rng_.RangeFloat(1.2f, 2.0f);
@@ -905,7 +919,11 @@ void GhostGame::SpawnBossEncounter() {
         case 0: boss_.name = "SEPIKS PRIME // EXALTED SERVITOR"; break;
         case 1: boss_.name = "THE TEMPLAR // VEX ORACLE MIND"; break;
         case 2: boss_.name = "SAVATHUN'S SONG // GREAT SHRIEKER"; break;
-        default: boss_.name = "TAKEN SUBJUGATOR // WITNESS HERALD"; break;
+        case 3: boss_.name = "TAKEN SUBJUGATOR // WITNESS HERALD"; break;
+        case 4: boss_.name = "DUL INCARU // ETERNAL RETURN"; break;
+        case 5: boss_.name = "ATRAKS-1 // FALLEN EXO REPLICANT"; break;
+        case 6: boss_.name = "SAVATHUN // LUCENT WITCH QUEEN"; break;
+        default: boss_.name = "THE WITNESS // FINAL SHAPE"; break;
     }
     boss_.pos = { VIRTUAL_WIDTH + 140.0f, VIRTUAL_HEIGHT * 0.5f };
     boss_.targetY = VIRTUAL_HEIGHT * 0.5f;

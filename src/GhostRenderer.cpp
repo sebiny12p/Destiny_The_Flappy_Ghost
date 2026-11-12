@@ -207,6 +207,18 @@ void GhostGame::RenderStarfieldAndBackdrop() const {
     } else if (b == BiomeSector::ASCENDANT_PLANE) {
         topBg = { 14, 10, 24, 255 };
         botBg = { 36, 18, 48, 255 };
+    } else if (b == BiomeSector::DREAMING_CITY) {
+        topBg = { 24, 16, 48, 255 };
+        botBg = { 62, 34, 92, 255 };
+    } else if (b == BiomeSector::EUROPA_BRAYTECH) {
+        topBg = { 10, 28, 52, 255 };
+        botBg = { 42, 92, 138, 255 };
+    } else if (b == BiomeSector::SAVATHUNS_THRONE_WORLD) {
+        topBg = { 16, 30, 32, 255 };
+        botBg = { 44, 78, 72, 255 };
+    } else if (b == BiomeSector::PALE_HEART) {
+        topBg = { 32, 22, 54, 255 };
+        botBg = { 96, 62, 88, 255 };
     }
 
     DrawRectangleGradientV(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, topBg, botBg);
@@ -230,7 +242,11 @@ void GhostGame::RenderBiomeEnvironment() const {
     Color horizonColor = { 30, 44, 68, 180 };
     if (b == BiomeSector::VAULT_OF_GLASS) horizonColor = { 20, 75, 95, 180 };
     if (b == BiomeSector::HELLMOUTH)      horizonColor = { 28, 70, 48, 180 };
-    if (b == BiomeSector::ASCENDANT_PLANE) horizonColor = { 65, 25, 85, 180 };
+    if (b == BiomeSector::ASCENDANT_PLANE)        horizonColor = { 65, 25, 85, 180 };
+    if (b == BiomeSector::DREAMING_CITY)          horizonColor = { 92, 48, 128, 180 };
+    if (b == BiomeSector::EUROPA_BRAYTECH)        horizonColor = { 75, 145, 205, 180 };
+    if (b == BiomeSector::SAVATHUNS_THRONE_WORLD) horizonColor = { 88, 122, 108, 180 };
+    if (b == BiomeSector::PALE_HEART)             horizonColor = { 175, 118, 135, 180 };
 
     float scrollOffset = std::fmod(distanceMeters_ * 14.0f, 160.0f);
     for (int i = -1; i < 10; ++i) {
@@ -264,6 +280,18 @@ void GhostGame::RenderObstacles() const {
         } else if (o.biome == BiomeSector::ASCENDANT_PLANE) {
             pillarMain = { 32, 24, 46, 255 };
             pillarEdge = { 215, 90, 255, 255 };
+        } else if (o.biome == BiomeSector::DREAMING_CITY) {
+            pillarMain = { 54, 38, 86, 255 };
+            pillarEdge = { 235, 185, 255, 255 };
+        } else if (o.biome == BiomeSector::EUROPA_BRAYTECH) {
+            pillarMain = { 44, 78, 112, 255 };
+            pillarEdge = { 165, 238, 255, 255 };
+        } else if (o.biome == BiomeSector::SAVATHUNS_THRONE_WORLD) {
+            pillarMain = { 112, 118, 104, 255 };
+            pillarEdge = { 75, 235, 195, 255 };
+        } else if (o.biome == BiomeSector::PALE_HEART) {
+            pillarMain = { 82, 54, 88, 255 };
+            pillarEdge = { 255, 205, 120, 255 };
         }
 
         if (o.frozenByStasis || ghost_.stasisFreezeTimer > 0.0f) {
