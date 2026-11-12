@@ -89,17 +89,17 @@ const std::array<ShaderDef, NUM_SHADERS> SHADER_CATALOG = {{
 }};
 const std::array<CombatDroneDef, NUM_DRONES> DRONE_CATALOG = {{
     { 0, "ARC SOUL SENTINEL",
-      "Manual-fire Arc buddy ([C / X]). Fires a rapid 3-round burst of homing Arc bolts.",
+      "Agile homing 3-round Arc burst ([C / X]). Great for tracking drones & Oracles.",
       200, 0.45f, { 75, 225, 255, 255 } },
     { 1, "HELLION SOLAR MORTAR",
-      "Manual-fire Solar buddy ([C / X]). Launches twin high-impact Solar mortar flares.",
-      450, 0.60f, { 255, 145, 35, 255 } },
+      "Lobbed arcing artillery ([C / X]). Drops heavy 30-dmg Solar AoE explosions!",
+      450, 0.68f, { 255, 145, 35, 255 } },
     { 2, "BRIARBINDS VOID SOUL",
-      "Manual-fire Void buddy ([C / X]). Unleashes 3 homing Void seeker orbs that shatter targets.",
-      750, 0.55f, { 180, 85, 255, 255 } },
+      "Shield-breaker seekers ([C / X]). Strips Boss shields & vaporizes enemy shots!",
+      750, 0.58f, { 180, 85, 255, 255 } },
     { 3, "NTTE CHRONAL PORTAL",
-      "Manual-fire Time Chasm ([C / X]). Fires rapid high-velocity timeline beam volleys.",
-      1100, 0.35f, { 130, 245, 255, 255 } }
+      "Straight-line rail-laser ([C / X]). Fires ultra-fast piercing timeline beams!",
+      1100, 0.34f, { 130, 245, 255, 255 } }
 }};
 } // namespace
 
@@ -735,28 +735,30 @@ void GhostGame::TriggerDroneFire() {
     SpawnParticleBurst(dronePos, 14, drone.color, 60.0f, 220.0f, 4.5f, 0.28f);
 
     if (profile_.equippedDrone == 0) {
-        // Arc Soul Sentinel: 3-round burst of homing Arc bolts
+        // Arc Soul Sentinel: Agile 3-round homing Arc burst (low per-bolt dmg, high tracking)
         for (int i = -1; i <= 1; ++i) {
             SpawnProjectile({ dronePos.x + 10.0f, dronePos.y + i * 8.0f },
-                            { 840.0f, i * 65.0f }, 9.0f, drone.color, true, true);
+                            { 860.0f, i * 75.0f }, 8.5f, drone.color, true, true, 11.0f);
         }
     } else if (profile_.equippedDrone == 1) {
-        // Hellion Solar Mortar: Twin high-damage Solar flares
-        SpawnProjectile({ dronePos.x + 12.0f, dronePos.y - 10.0f }, { 780.0f, -35.0f }, 14.0f, drone.color, true, true);
-        SpawnProjectile({ dronePos.x + 12.0f, dronePos.y + 10.0f }, { 780.0f,  35.0f }, 14.0f, GOLD, true, true);
+        // Hellion Solar Mortar: Non-homing parabolic arcing artillery with 30-dmg Solar AoE blast!
+        SpawnProjectile({ dronePos.x + 12.0f, dronePos.y - 10.0f }, { 700.0f, -210.0f }, 15.0f, drone.color, true, false,
+                        30.0f, false, false, true, false, 460.0f);
+        SpawnProjectile({ dronePos.x + 12.0f, dronePos.y + 10.0f }, { 760.0f, -125.0f }, 15.0f, GOLD, true, false,
+                        30.0f, false, false, true, false, 460.0f);
     } else if (profile_.equippedDrone == 2) {
-        // Briarbeinds Void Soul: 3 homing Void seeker orbs
+        // Briarbinds Void Soul: Slow homing shield-breakers that strip Boss shields & erase enemy shots!
         for (int i = -1; i <= 1; ++i) {
             SpawnProjectile({ dronePos.x + 10.0f, dronePos.y },
-                            { 720.0f, i * 120.0f }, 11.0f, drone.color, true, true);
+                            { 640.0f, i * 135.0f }, 12.0f, drone.color, true, true,
+                            17.0f, true, false, false, false, 0.0f);
         }
     } else {
-        // NTTE Chronal Portal: Rapid 4-bolt timeline volley
-        for (int i = 0; i < 4; ++i) {
-            float vy = (i - 1.5f) * 45.0f;
-            SpawnProjectile({ dronePos.x + 12.0f + i * 8.0f, dronePos.y },
-                            { 960.0f, vy }, 10.0f, drone.color, true, true);
-        }
+        // NTTE Chronal Portal: Ultra-fast straight-line piercing precision rail-beams (no homing!)
+        SpawnProjectile({ dronePos.x + 12.0f, dronePos.y - 8.0f }, { 1180.0f, 0.0f }, 9.0f, drone.color, true, false,
+                        19.0f, false, false, false, true, 0.0f);
+        SpawnProjectile({ dronePos.x + 26.0f, dronePos.y + 8.0f }, { 1180.0f, 0.0f }, 9.0f, WHITE, true, false,
+                        19.0f, false, false, false, true, 0.0f);
     }
 }
 
@@ -958,7 +960,8 @@ void GhostGame::SpawnParticleBurst(Vector2 pos, int count, Color color, float sp
 }
 
 void GhostGame::SpawnProjectile(Vector2 pos, Vector2 vel, float radius, Color color, bool friendly, bool homing,
-                                float damage, bool stripShield, bool isNovaBomb) {
+                                float damage, bool stripShield, bool isNovaBomb,
+                                bool isExplosive, bool piercing, float gravity) {
     for (auto& pr : projectiles_) {
         if (!pr.active) {
             pr.active = true;
@@ -966,6 +969,9 @@ void GhostGame::SpawnProjectile(Vector2 pos, Vector2 vel, float radius, Color co
             pr.homing = homing;
             pr.stripShield = stripShield;
             pr.isNovaBomb = isNovaBomb;
+            pr.isExplosive = isExplosive;
+            pr.piercing = piercing;
+            pr.gravity = gravity;
             pr.damage = damage;
             pr.pos = pos;
             pr.vel = vel;
@@ -1580,6 +1586,9 @@ void GhostGame::UpdatePlayingFixed(float dt) {
             }
         }
 
+        if (pr.gravity != 0.0f) {
+            pr.vel.y += pr.gravity * dt;
+        }
         pr.pos = Vector2Add(pr.pos, Vector2Scale(pr.vel, dt));
         pr.life -= dt;
         if (pr.life <= 0.0f || pr.pos.x < -60.0f || pr.pos.x > VIRTUAL_WIDTH + 60.0f ||
@@ -1595,11 +1604,21 @@ void GhostGame::UpdatePlayingFixed(float dt) {
                     Vector2 nodePos = { o.x + o.width * 0.5f, o.gapCenterY };
                     if (CheckCollisionCircles(pr.pos, pr.radius, nodePos, o.hazardRadius)) {
                         o.oracleDestroyed = true;
-                        pr.active = false;
-                        SpawnParticleBurst(nodePos, 24, pr.color, 80.0f, 280.0f, 5.5f, 0.45f);
+                        if (!pr.piercing) pr.active = false;
+                        SpawnParticleBurst(nodePos, pr.isExplosive ? 42 : 24, pr.color, 80.0f, pr.isExplosive ? 340.0f : 280.0f, pr.isExplosive ? 7.5f : 5.5f, 0.45f);
                         SpawnCollectible(nodePos, CollectibleKind::MOTE_OF_LIGHT);
                         TriggerVanguardMedal("ORACLE SHATTERED!", 10, GOLD);
                         break;
+                    }
+                }
+            }
+
+            // Briarbinds Void Seekers (stripShield) vaporize enemy projectiles on contact!
+            if (pr.active && pr.stripShield) {
+                for (auto& ep : projectiles_) {
+                    if (ep.active && !ep.friendly && CheckCollisionCircles(pr.pos, pr.radius + 10.0f, ep.pos, ep.radius)) {
+                        ep.active = false;
+                        SpawnParticleBurst(ep.pos, 10, pr.color, 40.0f, 160.0f, 4.0f, 0.25f);
                     }
                 }
             }
@@ -1608,8 +1627,8 @@ void GhostGame::UpdatePlayingFixed(float dt) {
             if (pr.active) {
                 for (auto& e : enemies_) {
                     if (e.active && CheckCollisionCircles(pr.pos, pr.radius, e.pos, e.radius)) {
-                        e.health -= 1.0f;
-                        pr.active = false;
+                        e.health -= (pr.isExplosive ? 2.0f : 1.0f);
+                        if (!pr.piercing) pr.active = false;
                         if (e.health <= 0.0f) {
                             e.active = false;
                             SpawnParticleBurst(e.pos, 28, e.color, 70.0f, 260.0f, 5.5f, 0.45f);
@@ -1618,7 +1637,20 @@ void GhostGame::UpdatePlayingFixed(float dt) {
                             profile_.glimmer += 10;
                             TriggerVanguardMedal("COMBATANT ELIMINATED", 10, e.color);
                         }
-                        break;
+                        if (pr.isExplosive) {
+                            SpawnParticleBurst(pr.pos, 38, ORANGE, 80.0f, 320.0f, 7.5f, 0.50f);
+                            for (auto& e2 : enemies_) {
+                                if (e2.active && Vector2Distance(pr.pos, e2.pos) < 115.0f) {
+                                    e2.active = false;
+                                    SpawnCollectible(e2.pos, CollectibleKind::MOTE_OF_LIGHT);
+                                    runGlimmerEarned_ += 10; profile_.glimmer += 10;
+                                }
+                            }
+                            for (auto& ep : projectiles_) {
+                                if (ep.active && !ep.friendly && Vector2Distance(pr.pos, ep.pos) < 115.0f) ep.active = false;
+                            }
+                        }
+                        if (!pr.piercing) break;
                     }
                 }
             }
@@ -1628,7 +1660,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
                 boss_.health -= pr.damage;
                 SpawnParticleBurst(pr.pos, pr.isNovaBomb ? 55 : 20, pr.color, 70.0f, pr.isNovaBomb ? 380.0f : 240.0f,
                                    pr.isNovaBomb ? 8.0f : 5.0f, pr.isNovaBomb ? 0.65f : 0.35f);
-                if (pr.isNovaBomb) {
+                if (pr.isNovaBomb || pr.isExplosive) {
                     screenShakeTrauma_ = std::max(screenShakeTrauma_, 0.6f);
                     for (auto& e : enemies_) {
                         if (e.active && Vector2Distance(pr.pos, e.pos) < 180.0f) {

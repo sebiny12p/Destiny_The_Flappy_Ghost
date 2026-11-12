@@ -285,6 +285,9 @@ struct Projectile {
     bool homing = false;
     bool stripShield = false;
     bool isNovaBomb = false;
+    bool isExplosive = false;
+    bool piercing = false;
+    float gravity = 0.0f;
     float damage = 16.0f;
     Vector2 pos = { 0.0f, 0.0f };
     Vector2 vel = { 0.0f, 0.0f };
