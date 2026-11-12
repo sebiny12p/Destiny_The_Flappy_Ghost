@@ -1,6 +1,6 @@
 # Destiny: The Flappy Ghost // Light & Darkness
 
-A high-performance, cross-platform (Windows & Android) C++20 arcade action game built with **Raylib 5.0**. Pilot an articulated polyhedral Ghost across 4 procedural Destiny sectors, harvest Motes of Light, attune across 6 Light and Darkness subclasses, weave through Vex laser grids, command tactical Combat Drones, unlock 12 exotic Shaders & 16 Vanguard Triumphs, and conquer Nightfall strikes.
+A high-performance, cross-platform (Windows & Android) C++20 arcade action game built with **Raylib 5.0**. Pilot an articulated polyhedral Ghost across **8 shuffled Destiny biomes**, harvest Motes of Light, attune across 6 Light and Darkness subclasses, weave through Vex laser grids, command 4 distinct Combat Drones, battle **8 unique Nightfall bosses**, unlock 12 exotic Shaders & 16 Vanguard Triumphs, and conquer Nightfall strikes.
 
 > **Studio:** Sebiny Labs  
 > **IP Disclaimer:** Non-commercial fan tribute created for educational and portfolio purposes. *Destiny*, *Ghost*, *The Traveler*, and related IP are trademarks and copyright of **Bungie, Inc.**
@@ -54,24 +54,29 @@ Tactical abilities work in every mode; Super abilities are tuned specifically fo
 
 Visit **The Tower** to equip and unlock gear with harvested Glimmer:
 - **12 Procedural Ghost Shells:** Including *Generalist Shell*, *Sagira's Shell*, *Tyrant Warmind*, *Harpy Vex*, *Ghost of the Deep*, and *Flawless Trials*.
-- **4 Manual-Fire Combat Drones:**
-  1. *Arc Sweeper* (Rapid twin Arc sparks)
-  2. *Solar Valkyrie* (3-way fan of heavy Solar flares)
-  3. *Void Tachyon* (High-velocity piercing singularity bolts)
-  4. *Stasis Hailstorm* (Glacial cryo-shards that freeze obstacles on impact)
+- **4 Distinct Manual-Fire Combat Drones (Nightfall):**
+  1. *Arc Soul Sentinel* (Agile 3-round homing Arc burst)
+  2. *Hellion Solar Mortar* (Parabolic arcing 30-dmg Solar AoE artillery clearing nearby foes & shots)
+  3. *Briarbinds Void Soul* (Shield-breaker Void seekers that shatter Boss Overshields & vaporize enemy fire)
+  4. *NTTE Chronal Portal* (Ultra-fast straight-line piercing precision Chronal rail-beams)
 - **12 Exotic Shaders:** Full scrollable palette wardrobe with live polyhedral shell preview.
 - **16 Vanguard Triumphs:** Scrollable triumph ledger with lore bounties and achievement toasts.
 - **Exotic Mods:** Mote Magnetism, Overshield Recharging, and Glimmer Boosters.
 
 ---
 
-## 4 Procedural Destiny Biomes
+## 8 Shuffled Destiny Biomes & Unique Nightfall Bosses
 
-1. **Old Russia Cosmodrome:** Rusting launch gantries, Fallen Ketch silhouettes, and crisp dawn starfields.
-2. **The Vault of Glass:** Shifting brass pillars, cycling Vex sync lasers, and Golden Oracles.
-3. **The Hellmouth of Luna:** Cracked Hive obsidian towers, green Soulfire lanterns, and Shrieker void wards.
-4. **The Ascendant Plane:** Taken blights, gravitational distortion wells, and negative-space portals.
+Every run shuffles the biome order so each flight starts in a fresh realm and cycles through all 8 sectors:
 
+1. **Cosmodrome Ruins (Fallen):** Rusted Golden-Age steel (`Sepiks Prime` ? 3-bolt Void spread fan).
+2. **The Vault of Glass (Vex Network):** Teal radiolarian brass & Vex lasers (`The Templar` ? rotating shield arcs & dual laser rails).
+3. **The Hellmouth Catacombs (Hive):** Gothic jade bone pillars (`Savathun's Song` ? opening Shrieker petals & homing Void seekers).
+4. **The Ascendant Realm (Taken):** Deep obsidian violet & Nightfall Taken Blights (`Taken Subjugator` ? vertical blinks & Axion darts).
+5. **The Dreaming City (Awoken Citadel):** Twilight amethyst & gilded spires (`Dul Incaru` ? 4-way starlight burst).
+6. **Europa // BrayTech Exoscience:** Glacial ice-blue & cryo lasers (`Atraks-1` ? aggressive darting & fast Stasis twin-lances).
+7. **Savathun's Throne World (Lucent):** Alabaster bone & luminous teal (`Savathun` ? moth wings & 4-bolt Lucent Blade Storm).
+8. **The Pale Heart (Inside The Traveler):** Prismatic gold/rose/cyan resonance (`The Witness` ? monolith rings & 5-way Prismatic Barrage).
 ---
 
 ## Controls
