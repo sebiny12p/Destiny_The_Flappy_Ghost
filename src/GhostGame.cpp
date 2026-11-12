@@ -1547,7 +1547,13 @@ void GhostGame::UpdatePlayingFixed(float dt) {
         if (!pr.active) continue;
 
         // Homing Drone / Wolfpack / Strand Threadling steering
-        if (pr.friendly && pr.homing) {
+        if (!pr.friendly && pr.homing && pr.pos.x > ghost_.pos.x + 90.0f) {
+            Vector2 toGhost = Vector2Normalize(Vector2Subtract(ghost_.pos, pr.pos));
+            float spd = Vector2Length(pr.vel);
+            Vector2 desired = Vector2Scale(toGhost, spd);
+            pr.vel.x = Lerp(pr.vel.x, desired.x, 1.8f * dt);
+            pr.vel.y = Lerp(pr.vel.y, desired.y, 2.2f * dt);
+        } else if (pr.friendly && pr.homing) {
             Vector2 bestTarget = { pr.pos.x + 300.0f, pr.pos.y };
             float bestDist = 99999.0f;
             for (const auto& e : enemies_) {
@@ -1690,24 +1696,89 @@ void GhostGame::UpdatePlayingFixed(float dt) {
 }
 
 void GhostGame::UpdateBossFixed(float dt) {
-    boss_.pos.x = Lerp(boss_.pos.x, VIRTUAL_WIDTH - 165.0f, 2.5f * dt);
-    if (ghost_.stasisFreezeTimer <= 0.0f) {
-        boss_.phaseAngle += 1.9f * dt;
-        boss_.targetY = VIRTUAL_HEIGHT * 0.5f + std::sin(boss_.phaseAngle) * 175.0f;
-        boss_.pos.y = Lerp(boss_.pos.y, boss_.targetY, 4.0f * dt);
+    float targetX = VIRTUAL_WIDTH - 165.0f;
+    if (boss_.bossType == 2 && boss_.pos.x <= VIRTUAL_WIDTH - 130.0f) {
+        targetX = (VIRTUAL_WIDTH - 165.0f) + std::cos(boss_.phaseAngle * 2.0f) * 32.0f;
     }
+    boss_.pos.x = Lerp(boss_.pos.x, targetX, 2.5f * dt);
 
     if (ghost_.stasisFreezeTimer <= 0.0f) {
+        float phaseSpeed = (boss_.bossType == 5) ? 3.1f : (boss_.bossType == 2) ? 2.2f : (boss_.bossType == 4) ? 2.5f : 1.85f;
+        boss_.phaseAngle += phaseSpeed * dt;
+        if (boss_.bossType == 3) {
+            // Taken Subjugator: blinks vertically every half-cycle
+            float stepWave = std::sin(boss_.phaseAngle * 1.15f);
+            if (std::abs(stepWave) > 0.92f) {
+                boss_.targetY = (stepWave > 0.0f) ? (VIRTUAL_HEIGHT * 0.28f) : (VIRTUAL_HEIGHT * 0.72f);
+            }
+            boss_.pos.y = Lerp(boss_.pos.y, boss_.targetY, 7.5f * dt);
+        } else if (boss_.bossType == 5) {
+            // Atraks-1 Exo: sharp, aggressive vertical darting
+            boss_.targetY = VIRTUAL_HEIGHT * 0.5f + std::sin(boss_.phaseAngle) * 195.0f;
+            boss_.pos.y = Lerp(boss_.pos.y, boss_.targetY, 6.2f * dt);
+        } else {
+            boss_.targetY = VIRTUAL_HEIGHT * 0.5f + std::sin(boss_.phaseAngle) * 175.0f;
+            boss_.pos.y = Lerp(boss_.pos.y, boss_.targetY, 4.0f * dt);
+        }
+
         boss_.attackTimer -= dt;
         if (boss_.attackTimer <= 0.0f) {
-            boss_.attackTimer = 1.95f;
             audio_.PlayLaserShot();
+            Vector2 muzzle = { boss_.pos.x - 48.0f, boss_.pos.y };
+            Vector2 dirToGhost = Vector2Normalize(Vector2Subtract(ghost_.pos, muzzle));
+            float baseAng = std::atan2(dirToGhost.y, dirToGhost.x);
 
-            Vector2 dirToGhost = Vector2Normalize(Vector2Subtract(ghost_.pos, boss_.pos));
-            Color projColor = (boss_.bossType == 0) ? PURPLE :
-                              (boss_.bossType == 1) ? RED :
-                              (boss_.bossType == 2) ? GREEN : SKYBLUE;
-            SpawnProjectile({ boss_.pos.x - 45.0f, boss_.pos.y }, Vector2Scale(dirToGhost, 440.0f), 10.0f, projColor, false, false);
+            switch (boss_.bossType) {
+                case 0: // Sepiks Prime: 3-bolt Void spread fan
+                    boss_.attackTimer = 1.90f;
+                    for (int k = -1; k <= 1; ++k) {
+                        float a = baseAng + k * 0.22f;
+                        SpawnProjectile(muzzle, { std::cos(a) * 410.0f, std::sin(a) * 410.0f }, 10.0f, PURPLE, false, false);
+                    }
+                    break;
+                case 1: // The Templar: Dual parallel high-speed Vex laser rails
+                    boss_.attackTimer = 1.65f;
+                    SpawnProjectile({ muzzle.x, muzzle.y - 34.0f }, { -500.0f, 0.0f }, 9.5f, RED, false, false);
+                    SpawnProjectile({ muzzle.x, muzzle.y + 34.0f }, { -500.0f, 0.0f }, 9.5f, RED, false, false);
+                    break;
+                case 2: // Savathun's Song: Homing Hive Void seeker + flanking orb
+                    boss_.attackTimer = 2.05f;
+                    SpawnProjectile(muzzle, Vector2Scale(dirToGhost, 340.0f), 11.0f, GREEN, false, true);
+                    SpawnProjectile(muzzle, { -390.0f, -90.0f }, 8.5f, LIME, false, false);
+                    break;
+                case 3: // Taken Subjugator: Twin dark-magenta Taken Axion darts
+                    boss_.attackTimer = 1.75f;
+                    SpawnProjectile({ muzzle.x, muzzle.y - 20.0f }, Vector2Scale(dirToGhost, 430.0f), 10.5f, MAGENTA, false, true);
+                    SpawnProjectile({ muzzle.x, muzzle.y + 20.0f }, Vector2Scale(dirToGhost, 430.0f), 10.5f, { 215, 110, 255, 255 }, false, false);
+                    break;
+                case 4: // Dul Incaru: Rotating 4-way starlight burst
+                    boss_.attackTimer = 1.60f;
+                    for (int k = 0; k < 4; ++k) {
+                        float a = baseAng + (k - 1.5f) * 0.24f;
+                        SpawnProjectile(muzzle, { std::cos(a) * 425.0f, std::sin(a) * 425.0f }, 9.0f, { 235, 185, 255, 255 }, false, false);
+                    }
+                    break;
+                case 5: // Atraks-1: Ultra-fast Stasis twin-lance sniper shot
+                    boss_.attackTimer = 1.35f;
+                    SpawnProjectile(muzzle, Vector2Scale(dirToGhost, 560.0f), 8.5f, SKYBLUE, false, false);
+                    SpawnProjectile({ muzzle.x + 28.0f, muzzle.y }, Vector2Scale(dirToGhost, 560.0f), 8.5f, WHITE, false, false);
+                    break;
+                case 6: // Savathun Witch Queen: 4-bolt Lucent Blade Storm fan
+                    boss_.attackTimer = 2.00f;
+                    for (int k = 0; k < 4; ++k) {
+                        float a = baseAng + (k - 1.5f) * 0.19f;
+                        SpawnProjectile(muzzle, { std::cos(a) * 440.0f, std::sin(a) * 440.0f }, 9.5f, { 75, 235, 195, 255 }, false, false);
+                    }
+                    break;
+                default: // The Witness: 5-way Prismatic Resonance Barrage
+                    boss_.attackTimer = 2.15f;
+                    for (int k = -2; k <= 2; ++k) {
+                        float a = baseAng + k * 0.17f;
+                        Color c = (k == 0) ? GOLD : (k % 2 == 0) ? SKYBLUE : MAGENTA;
+                        SpawnProjectile(muzzle, { std::cos(a) * 450.0f, std::sin(a) * 450.0f }, 9.5f, c, false, false);
+                    }
+                    break;
+            }
         }
     }
 

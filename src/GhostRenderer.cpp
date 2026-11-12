@@ -379,18 +379,85 @@ void GhostGame::RenderBoss() const {
     if (!boss_.active) return;
 
     Vector2 bp = boss_.pos;
-    Color bossCol = (boss_.bossType == 0) ? PURPLE :
-                    (boss_.bossType == 1) ? GOLD :
-                    (boss_.bossType == 2) ? GREEN : MAGENTA;
-
-    if (boss_.shieldImmune) {
-        DrawCircleLines(static_cast<int>(bp.x), static_cast<int>(bp.y), 74.0f + std::sin(globalTime_ * 8.0f) * 4.0f, SKYBLUE);
-        DrawCircle(static_cast<int>(bp.x), static_cast<int>(bp.y), 72.0f, { 100, 210, 255, 45 });
+    Color bossCol = PURPLE;
+    switch (boss_.bossType) {
+        case 0: bossCol = PURPLE; break;
+        case 1: bossCol = GOLD; break;
+        case 2: bossCol = GREEN; break;
+        case 3: bossCol = MAGENTA; break;
+        case 4: bossCol = { 235, 185, 255, 255 }; break;
+        case 5: bossCol = SKYBLUE; break;
+        case 6: bossCol = { 75, 235, 195, 255 }; break;
+        default: bossCol = { 255, 205, 120, 255 }; break;
     }
 
-    DrawPoly(bp, 8, 56.0f, globalTime_ * 35.0f, { 28, 30, 42, 255 });
-    DrawPolyLinesEx(bp, 8, 56.0f, globalTime_ * 35.0f, 3.5f, bossCol);
-    DrawCircleGradient(static_cast<int>(bp.x), static_cast<int>(bp.y), 28.0f, WHITE, bossCol);
+    if (boss_.shieldImmune) {
+        DrawCircleLines(static_cast<int>(bp.x), static_cast<int>(bp.y), 76.0f + std::sin(globalTime_ * 8.0f) * 4.0f, SKYBLUE);
+        DrawCircle(static_cast<int>(bp.x), static_cast<int>(bp.y), 74.0f, { 100, 210, 255, 45 });
+    }
+
+    if (boss_.bossType == 0) {
+        // Sepiks Prime: Round Fallen Servitor chassis + orbital ring + cyclops eye
+        DrawCircleV(bp, 52.0f, { 34, 24, 48, 255 });
+        DrawCircleLines(static_cast<int>(bp.x), static_cast<int>(bp.y), 52.0f, PURPLE);
+        DrawRing(bp, 58.0f, 65.0f, globalTime_ * 45.0f, globalTime_ * 45.0f + 290.0f, 24, { 175, 85, 255, 190 });
+        DrawCircleGradient(static_cast<int>(bp.x - 10.0f), static_cast<int>(bp.y), 24.0f, WHITE, PURPLE);
+    } else if (boss_.bossType == 1) {
+        // The Templar: Vex Hydra square-brass frame + rotating 3-arc shield + red optical eye
+        DrawPoly(bp, 4, 52.0f, 45.0f, { 42, 48, 44, 255 });
+        DrawPolyLinesEx(bp, 4, 52.0f, 45.0f, 3.5f, GOLD);
+        for (int a = 0; a < 3; ++a) {
+            float startA = globalTime_ * 65.0f + a * 120.0f;
+            DrawRing(bp, 58.0f, 65.0f, startA, startA + 72.0f, 12, { 70, 235, 255, 210 });
+        }
+        DrawCircleGradient(static_cast<int>(bp.x - 8.0f), static_cast<int>(bp.y), 20.0f, WHITE, RED);
+    } else if (boss_.bossType == 2) {
+        // Savathun's Song: 6 opening Hive Shrieker petals + glowing Soulfire core
+        float open = 8.0f + std::sin(globalTime_ * 4.5f) * 6.0f;
+        for (int p = 0; p < 6; ++p) {
+            float ang = (p * 60.0f + globalTime_ * 22.0f) * DEG2RAD;
+            Vector2 pc = { bp.x + std::cos(ang) * (28.0f + open), bp.y + std::sin(ang) * (28.0f + open) };
+            DrawPoly(pc, 3, 22.0f, p * 60.0f + globalTime_ * 22.0f, { 42, 54, 46, 255 });
+            DrawPolyLinesEx(pc, 3, 22.0f, p * 60.0f + globalTime_ * 22.0f, 2.5f, GREEN);
+        }
+        DrawCircleGradient(static_cast<int>(bp.x), static_cast<int>(bp.y), 24.0f, WHITE, GREEN);
+    } else if (boss_.bossType == 3) {
+        // Taken Subjugator: Tall jagged obsidian diamond + orbiting blight orbs
+        DrawPoly(bp, 4, 62.0f, 0.0f, { 16, 14, 24, 255 });
+        DrawPolyLinesEx(bp, 4, 62.0f, 0.0f, 3.5f, WHITE);
+        for (int o = 0; o < 3; ++o) {
+            float a = (o * 120.0f - globalTime_ * 95.0f) * DEG2RAD;
+            DrawCircleV({ bp.x + std::cos(a) * 58.0f, bp.y + std::sin(a) * 58.0f }, 9.0f, MAGENTA);
+        }
+        DrawCircleGradient(static_cast<int>(bp.x), static_cast<int>(bp.y), 20.0f, WHITE, MAGENTA);
+    } else if (boss_.bossType == 4) {
+        // Dul Incaru: Awoken starlight hexagon + gilded crescent wings
+        DrawTriangle({ bp.x + 12.0f, bp.y - 68.0f }, { bp.x - 18.0f, bp.y - 16.0f }, { bp.x + 42.0f, bp.y - 16.0f }, { 92, 48, 128, 220 });
+        DrawTriangle({ bp.x + 12.0f, bp.y + 68.0f }, { bp.x + 42.0f, bp.y + 16.0f }, { bp.x - 18.0f, bp.y + 16.0f }, { 92, 48, 128, 220 });
+        DrawPoly(bp, 6, 42.0f, 30.0f, { 38, 24, 64, 255 });
+        DrawPolyLinesEx(bp, 6, 42.0f, 30.0f, 3.0f, GOLD);
+        DrawCircleGradient(static_cast<int>(bp.x), static_cast<int>(bp.y), 20.0f, WHITE, bossCol);
+    } else if (boss_.bossType == 5) {
+        // Atraks-1: Sleek BrayTech white/cobalt Exo frame + twin glowing scanner eyes
+        DrawPoly(bp, 6, 52.0f, 0.0f, { 215, 230, 245, 255 });
+        DrawPolyLinesEx(bp, 6, 52.0f, 0.0f, 3.5f, SKYBLUE);
+        DrawCircle(static_cast<int>(bp.x - 16.0f), static_cast<int>(bp.y - 10.0f), 7.5f, { 25, 185, 255, 255 });
+        DrawCircle(static_cast<int>(bp.x - 16.0f), static_cast<int>(bp.y + 10.0f), 7.5f, { 25, 185, 255, 255 });
+    } else if (boss_.bossType == 6) {
+        // Savathun: Ornate Lucent Moth Wings + Hive Crown
+        DrawTriangle({ bp.x + 10.0f, bp.y - 72.0f }, { bp.x - 35.0f, bp.y }, { bp.x + 45.0f, bp.y - 8.0f }, { 75, 235, 195, 165 });
+        DrawTriangle({ bp.x + 10.0f, bp.y + 72.0f }, { bp.x + 45.0f, bp.y + 8.0f }, { bp.x - 35.0f, bp.y }, { 75, 235, 195, 165 });
+        DrawPoly(bp, 5, 40.0f, 180.0f, { 112, 118, 104, 255 });
+        DrawPolyLinesEx(bp, 5, 40.0f, 180.0f, 3.0f, GOLD);
+        DrawCircleGradient(static_cast<int>(bp.x - 6.0f), static_cast<int>(bp.y), 18.0f, WHITE, { 75, 235, 195, 255 });
+    } else {
+        // The Witness: Dark monolith + prismatic resonance rings + multi-layered crown halo
+        DrawRectangle(static_cast<int>(bp.x - 28.0f), static_cast<int>(bp.y - 54.0f), 56, 108, { 18, 16, 26, 255 });
+        DrawRectangleLinesEx({ bp.x - 28.0f, bp.y - 54.0f, 56.0f, 108.0f }, 3.0f, GOLD);
+        DrawRing(bp, 62.0f, 67.0f, globalTime_ * 80.0f, globalTime_ * 80.0f + 260.0f, 24, SKYBLUE);
+        DrawRing(bp, 70.0f, 74.0f, -globalTime_ * 60.0f, -globalTime_ * 60.0f + 240.0f, 24, MAGENTA);
+        DrawCircleGradient(static_cast<int>(bp.x), static_cast<int>(bp.y - 16.0f), 20.0f, WHITE, GOLD);
+    }
 
     float barW = 540.0f;
     float barX = (VIRTUAL_WIDTH - barW) * 0.5f;
