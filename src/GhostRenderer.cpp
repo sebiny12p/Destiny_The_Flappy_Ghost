@@ -105,26 +105,31 @@ void GhostGame::RenderFrame() {
             DrawPoly(ghost_.grappleAnchor, 6, 12.0f, globalTime_ * 160.0f, { 65, 245, 130, 255 });
         }
 
-        // Chaos Reach Arc Beam visual when Arc Super is active
-        if (ghost_.superActiveTimer > 0.0f &&
+        // Chaos Reach Arc Beam visual when Arc Super is active in Nightfall
+        if (isNightfallMode_ && ghost_.superActiveTimer > 0.0f &&
             static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::ARC_CALLER) {
-            float beamH = 38.0f + std::sin(globalTime_ * 45.0f) * 10.0f;
+            float beamH = 88.0f + std::sin(globalTime_ * 45.0f) * 12.0f;
             DrawRectangleGradientH(static_cast<int>(ghost_.pos.x + 15.0f),
                                    static_cast<int>(ghost_.pos.y - beamH * 0.5f),
                                    VIRTUAL_WIDTH, static_cast<int>(beamH),
-                                   { 80, 230, 255, 220 }, { 190, 250, 255, 160 });
+                                   { 80, 230, 255, 210 }, { 190, 250, 255, 150 });
             DrawRectangle(static_cast<int>(ghost_.pos.x + 15.0f),
                           static_cast<int>(ghost_.pos.y - beamH * 0.22f),
                           VIRTUAL_WIDTH, static_cast<int>(beamH * 0.44f), WHITE);
         }
 
-        // Solar Well Aura when Solar Super is active
-        if (ghost_.superActiveTimer > 0.0f &&
-            static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::SOLAR_DAWN) {
-            float r = 64.0f + std::sin(globalTime_ * 14.0f) * 6.0f;
+        // Solar Daybreak / Prismatic Transcendent Aura when active in Nightfall
+        if (isNightfallMode_ && ghost_.superActiveTimer > 0.0f &&
+            (static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::SOLAR_DAWN ||
+             static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::PRISMATIC_TRANSCENDENT)) {
+            Color auraCol = (static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::SOLAR_DAWN)
+                          ? Color{ 255, 180, 40, 140 } : Color{ 255, 120, 235, 140 };
+            Color ringCol = (static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::SOLAR_DAWN)
+                          ? GOLD : SKYBLUE;
+            float r = 74.0f + std::sin(globalTime_ * 14.0f) * 7.0f;
             DrawCircleGradient(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y),
-                               r, { 255, 180, 40, 140 }, { 255, 90, 10, 0 });
-            DrawCircleLines(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y), r, GOLD);
+                               r, auraCol, { auraCol.r, auraCol.g, auraCol.b, 0 });
+            DrawCircleLines(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y), r, ringCol);
         }
 
         // Overshield ring around Ghost
@@ -600,7 +605,8 @@ void GhostGame::RenderHud() const {
     DrawRectangleLinesEx({ 22.0f, 26.0f, 350.0f, 86.0f }, 1.5f, { 255, 255, 255, 65 });
 
     Vector2 iconCenter = { 62.0f, 68.0f };
-    DrawPoly(iconCenter, 4, 26.0f, 0.0f, (ghost_.superEnergy >= 100.0f) ? GOLD : subCol);
+    float superRatio = isNightfallMode_ ? std::clamp(ghost_.superEnergy / 100.0f, 0.0f, 1.0f) : 0.0f;
+    DrawPoly(iconCenter, 4, 26.0f, 0.0f, (isNightfallMode_ && superRatio >= 1.0f) ? GOLD : subCol);
     DrawPolyLinesEx(iconCenter, 4, 29.0f, 0.0f, 2.0f, WHITE);
 
     const char* subName = "VOIDWALKER // BLINK";
@@ -614,23 +620,30 @@ void GhostGame::RenderHud() const {
     }
     DrawText(subName, 102, 34, 16, WHITE);
 
-    float superRatio = std::clamp(ghost_.superEnergy / 100.0f, 0.0f, 1.0f);
-    DrawRectangle(102, 56, 245, 16, { 30, 36, 48, 255 });
-    Color superBarCol = (ghost_.superActiveTimer > 0.0f) ? WHITE :
-                        (superRatio >= 1.0f) ? GOLD : subCol;
-    DrawRectangle(102, 56, static_cast<int>(245.0f * superRatio), 16, superBarCol);
-    DrawRectangleLines(102, 56, 245, 16, WHITE);
-
-    if (ghost_.superActiveTimer > 0.0f) {
-        DrawText("SUPER ACTIVE!", 160, 57, 14, BLACK);
-    } else if (superRatio >= 1.0f) {
-        DrawText("SUPER READY [F / Q]", 145, 57, 14, BLACK);
-    }
-
     float tacReady = 1.0f - std::clamp(ghost_.tacticalCooldown / ghost_.tacticalMaxCooldown, 0.0f, 1.0f);
-    DrawRectangle(102, 80, 140, 10, { 30, 36, 48, 255 });
-    DrawRectangle(102, 80, static_cast<int>(140.0f * tacReady), 10, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
-    DrawText((tacReady >= 1.0f) ? "TACTICAL: READY" : "RECHARGING...", 250, 78, 12, LIGHTGRAY);
+    if (isNightfallMode_) {
+        DrawRectangle(102, 56, 245, 16, { 30, 36, 48, 255 });
+        Color superBarCol = (ghost_.superActiveTimer > 0.0f) ? WHITE :
+                            (superRatio >= 1.0f) ? GOLD : subCol;
+        DrawRectangle(102, 56, static_cast<int>(245.0f * superRatio), 16, superBarCol);
+        DrawRectangleLines(102, 56, 245, 16, WHITE);
+
+        if (ghost_.superActiveTimer > 0.0f) {
+            DrawText("SUPER ACTIVE!", 160, 57, 14, BLACK);
+        } else if (superRatio >= 1.0f) {
+            DrawText("SUPER READY [F / Q]", 145, 57, 14, BLACK);
+        }
+
+        DrawRectangle(102, 80, 140, 10, { 30, 36, 48, 255 });
+        DrawRectangle(102, 80, static_cast<int>(140.0f * tacReady), 10, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
+        DrawText((tacReady >= 1.0f) ? "TACTICAL: READY" : "RECHARGING...", 250, 78, 12, LIGHTGRAY);
+    } else {
+        DrawText("PATROL // TACTICAL FLIGHT MODE", 102, 56, 13, SKYBLUE);
+        DrawRectangle(102, 78, 155, 12, { 30, 36, 48, 255 });
+        DrawRectangle(102, 78, static_cast<int>(155.0f * tacReady), 12, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
+        DrawRectangleLines(102, 78, 155, 12, { 255, 255, 255, 120 });
+        DrawText((tacReady >= 1.0f) ? "BLINK READY" : "CHARGING...", 264, 78, 12, (tacReady >= 1.0f) ? WHITE : LIGHTGRAY);
+    }
 
     for (int i = 0; i < ghost_.overshieldCharges; ++i) {
         DrawPoly({ 36.0f + i * 24.0f, 126.0f }, 6, 9.0f, 0.0f, SKYBLUE);
@@ -675,7 +688,9 @@ void GhostGame::RenderHud() const {
     // Patrol mode has NO weapons or scan; Nightfall mode shows the manual [FIRE DRONE] button!
     float btnStartX = profile_.leftHandedControls ? 20.0f : (VIRTUAL_WIDTH - 378.0f);
     Rectangle drnBtn = { btnStartX, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-    Rectangle tacBtn = { btnStartX + 122.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+    Rectangle tacBtn = isNightfallMode_
+                     ? Rectangle{ btnStartX + 122.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f }
+                     : Rectangle{ profile_.leftHandedControls ? 20.0f : (VIRTUAL_WIDTH - 134.0f), VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
     Rectangle supBtn = { btnStartX + 244.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
 
     bool hasGamepad = IsGamepadAvailable(0);
@@ -701,11 +716,13 @@ void GhostGame::RenderHud() const {
     DrawText("BLINK / DASH", static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 14), 14, WHITE);
     DrawText(tacHint, static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 34), 12, LIGHTGRAY);
 
-    bool supFeedback = (touchFeedbackSup_ > 0.0f);
-    DrawRectangleRec(supBtn, supFeedback ? Color{ 145, 115, 35, 255 } : ((superRatio >= 1.0f) ? Color{ 95, 75, 20, 230 } : Color{ 25, 28, 35, 180 }));
-    DrawRectangleLinesEx(supBtn, supFeedback ? 2.5f : 2.0f, supFeedback ? WHITE : ((superRatio >= 1.0f) ? GOLD : GRAY));
-    DrawText("CAST SUPER", static_cast<int>(supBtn.x + 12), static_cast<int>(supBtn.y + 14), 14, (superRatio >= 1.0f || supFeedback) ? GOLD : GRAY);
-    DrawText(supHint, static_cast<int>(supBtn.x + (hasGamepad ? 24 : 32)), static_cast<int>(supBtn.y + 34), 12, LIGHTGRAY);
+    if (isNightfallMode_) {
+        bool supFeedback = (touchFeedbackSup_ > 0.0f);
+        DrawRectangleRec(supBtn, supFeedback ? Color{ 145, 115, 35, 255 } : ((superRatio >= 1.0f) ? Color{ 95, 75, 20, 230 } : Color{ 25, 28, 35, 180 }));
+        DrawRectangleLinesEx(supBtn, supFeedback ? 2.5f : 2.0f, supFeedback ? WHITE : ((superRatio >= 1.0f) ? GOLD : GRAY));
+        DrawText("CAST SUPER", static_cast<int>(supBtn.x + 12), static_cast<int>(supBtn.y + 14), 14, (superRatio >= 1.0f || supFeedback) ? GOLD : GRAY);
+        DrawText(supHint, static_cast<int>(supBtn.x + (hasGamepad ? 24 : 32)), static_cast<int>(supBtn.y + 34), 12, LIGHTGRAY);
+    }
 
     // First-Run Control Hint Pill (fades cleanly after 4.5s on a player's very first run)
     if (profile_.totalRunsStarted <= 1 && runTime_ < 4.5f) {
@@ -714,14 +731,16 @@ void GhostGame::RenderHud() const {
         unsigned char txtA = static_cast<unsigned char>(fade * 245.0f);
 #if defined(PLATFORM_ANDROID)
         const char* hint = isNightfallMode_
-            ? "CONTROLS: Tap Screen = Flap  |  [BLINK/DASH] & [SUPER]: Abilities  |  [FIRE DRONE]: Shoot"
-            : "CONTROLS: Tap Anywhere = Flap  |  Tap [BLINK/DASH] & [SUPER] for Paracausal Abilities";
+            ? "CONTROLS: Tap Screen = Flap  |  [BLINK/DASH] & [SUPER]: Combat  |  [FIRE DRONE]: Shoot"
+            : "CONTROLS: Tap Anywhere = Flap  |  Tap [BLINK / DASH] to Phase Through Hazards";
 #else
         const char* hint = hasGamepad
-            ? "CONTROLS: [(A)] Flap  |  [(B)/LB] Blink  |  [(Y)/RB] Super  |  [(X)/RT] Drone"
+            ? (isNightfallMode_
+                ? "CONTROLS: [(A)] Flap  |  [(B)/LB] Blink  |  [(Y)/RB] Super  |  [(X)/RT] Drone"
+                : "CONTROLS: [(A)] Flap  |  [(B)/LB] Tactical Blink")
             : (isNightfallMode_
                 ? "CONTROLS: [SPACE / Click] Flap  |  [SHIFT / RMB] Blink  |  [F / Q] Super  |  [C / X] Drone"
-                : "CONTROLS: [SPACE / Click] Flap  |  [SHIFT / RMB] Blink  |  [F / Q] Super");
+                : "CONTROLS: [SPACE / Click] Flap  |  [SHIFT / RMB] Tactical Blink");
 #endif
         int hw = MeasureText(hint, 14);
         DrawRectangle(VIRTUAL_WIDTH / 2 - hw / 2 - 18, 86, hw + 36, 32, { 10, 14, 24, bgA });
@@ -906,7 +925,7 @@ void GhostGame::RenderTitleDirector() {
     Rectangle btnSettings = { uiX + 1000.0f, 464.0f, 216.0f, 58.0f };
 
     const char* patrolLabel = hasGamepad ? "LAUNCH VANGUARD PATROL [(A)]" : "LAUNCH VANGUARD PATROL [SPACE]";
-    if (DrawDirectorButton(btnPatrol, patrolLabel, "Pure flight & abilities mode (no weapons/drones)", SKYBLUE)) {
+    if (DrawDirectorButton(btnPatrol, patrolLabel, "Pure flight & tactical blinks (no Supers/Drones)", SKYBLUE)) {
         StartNewRun(false);
     }
 
@@ -914,7 +933,7 @@ void GhostGame::RenderTitleDirector() {
     const char* nfLabel = hasGamepad ? "LAUNCH NIGHTFALL STRIKE [(X)]" : "LAUNCH NIGHTFALL STRIKE [N]";
     if (nightfallUnlocked) {
         int dIdx = std::clamp(profile_.equippedDrone, 0, static_cast<int>(NUM_DRONES) - 1);
-        std::string nfSub = std::string("Drone: ") + GetDroneCatalog()[dIdx].name + " [Manual Fire] +1.5x Glimmer";
+        std::string nfSub = std::string("Drone: ") + GetDroneCatalog()[dIdx].name + " + Supers | +1.5x Glimmer";
         if (DrawDirectorButton(btnNightfall, nfLabel, nfSub.c_str(), GOLD)) {
             StartNewRun(true);
         }
@@ -988,7 +1007,7 @@ void GhostGame::RenderSubclassArmory() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
     float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
     DrawText("GUARDIAN SUBCLASS ARMORY // LIGHT & DARKNESS", static_cast<int>(uiX + 50), 24, 26, WHITE);
-    DrawText("Light Subclasses are unlocked by default. Darkness Subclasses cost 500G; Prismatic costs 1500G.", static_cast<int>(uiX + 50), 56, 15, LIGHTGRAY);
+    DrawText("Tacticals work everywhere. Super abilities charge & unleash exclusively in Nightfall Strike!", static_cast<int>(uiX + 50), 56, 15, LIGHTGRAY);
 
     char glimHeader[64];
     std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
@@ -1008,27 +1027,27 @@ void GhostGame::RenderSubclassArmory() {
     const SubCard cards[NUM_SUBCLASSES] = {
         { 0, "VOIDWALKER", "VOID LIGHT",
           "TACTICAL [BLINK]: Short phase teleport (0.32s) through an immediate barrier ahead.",
-          "SUPER [NOVA BOMB]: Launches a heavy Void singularity that clears the next obstacle ahead.",
+          "NIGHTFALL SUPER [NOVA BOMB]: Hurls a Void singularity clearing bosses, shields & 1 barrier.",
           0, { 175, 85, 255, 255 } },
         { 1, "DAWNBLADE", "SOLAR LIGHT",
           "TACTICAL [ICARUS DASH]: Stabilize momentum, hover glide & phase through hazards.",
-          "SUPER [DAYBREAK WELL]: Radiant aura melts barriers on contact & grants immunity.",
+          "NIGHTFALL SUPER [DAYBREAK]: Every flap hurls homing Solar blades & burns enemy fire.",
           0, { 255, 145, 35, 255 } },
         { 2, "STORMCALLER", "ARC LIGHT",
           "TACTICAL [IONIC BLINK]: High-voltage phase dash with rapid vertical recovery.",
-          "SUPER [CHAOS REACH]: Channels a continuous high-energy Arc beam across the screen.",
+          "NIGHTFALL SUPER [CHAOS REACH]: Aimable Arc laser melting bosses, enemies & Oracles.",
           0, { 75, 220, 255, 255 } },
         { 3, "SHADEBINDER", "STASIS DARKNESS",
           "TACTICAL [FROST PULSE]: Freezes moving Vex lasers, Oracles & Boss shots for 2.5s.",
-          "SUPER [WINTER'S WRATH]: Shatters all frozen barriers on screen into Motes of Light.",
+          "NIGHTFALL SUPER [WINTER'S WRATH]: Freezes hazards & shatters all foes/shots into Motes.",
           500, { 70, 130, 255, 255 } },
         { 4, "THREADRUNNER", "STRAND DARKNESS",
           "TACTICAL [GRAPPLE]: Launches a Strand grapple line ahead to swing & phase upward.",
-          "SUPER [NEEDLESTORM]: Unleashes homing Strand Threadlings & clears barriers!",
+          "NIGHTFALL SUPER [NEEDLESTORM]: Unleashes a 12-Threadling swarm hunting foes & Bosses.",
           500, { 65, 245, 130, 255 } },
         { 5, "TRANSCENDENT", "PRISMATIC",
           "TACTICAL [PRISMATIC SURGE]: Freezes obstacles & surges with Light + Dark phase.",
-          "SUPER [TRANSCENDENCE]: Screen-wide barrier purge + prismatic homing barrage!",
+          "NIGHTFALL SUPER [TRANSCENDENCE]: 4x Tactical recharge + dual Light/Dark homing bursts!",
           1500, { 255, 125, 235, 255 } }
     };
 
@@ -1243,7 +1262,7 @@ void GhostGame::RenderShellHangar() {
         };
 
         DrawUpgradeRow(0, "MOTE MAGNETISM COIL", "Increases Mote of Light attraction radius.", profile_.upgrades.lightMagnetLevel, 5, 100);
-        DrawUpgradeRow(1, "PARACAUSAL CAPACITOR", "Boosts Super energy per Mote & Super duration.", profile_.upgrades.superEfficiencyLevel, 5, 120);
+        DrawUpgradeRow(1, "PARACAUSAL CAPACITOR", "Boosts Nightfall Super energy & duration.", profile_.upgrades.superEfficiencyLevel, 5, 120);
         DrawUpgradeRow(2, "PHASE BLINK ACCELERATOR", "Reduces Blink/Dash tactical cooldown.", profile_.upgrades.phaseCooldownLevel, 5, 120);
         DrawUpgradeRow(3, "VANGUARD OVERSHIELD", "Start every run with extra Overshield charges.", profile_.upgrades.overshieldCapLevel, 3, 250);
     } else if (towerTab_ == 2) {

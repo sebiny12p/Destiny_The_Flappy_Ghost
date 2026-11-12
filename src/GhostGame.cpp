@@ -377,7 +377,9 @@ void GhostGame::StartNewRun(bool dailyNightfall) {
     ghost_.vel = { 0.0f, -180.0f };
     ghost_.tacticalMaxCooldown = std::max(1.4f, 3.2f - profile_.upgrades.phaseCooldownLevel * 0.32f);
     ghost_.overshieldCharges = profile_.upgrades.overshieldCapLevel;
-    ghost_.superEnergy = 20.0f;
+    ghost_.superEnergy = isNightfallMode_ ? 25.0f : 0.0f;
+    ghost_.superActiveTimer = 0.0f;
+    ghost_.superPulseCooldown = 0.0f;
     if (isNightfallMode_ && profile_.equippedDrone >= 0 && profile_.equippedDrone < static_cast<int>(NUM_DRONES)) {
         ghost_.droneMaxCooldown = DRONE_CATALOG[profile_.equippedDrone].fireCooldown;
     }
@@ -481,6 +483,13 @@ void GhostGame::TriggerFlap() {
 
     const auto& shell = SHELL_CATALOG[profile_.equippedShell];
     SpawnParticleBurst({ ghost_.pos.x - 14.0f, ghost_.pos.y + 6.0f }, 9, shell.trailColor, 40.0f, 160.0f, 4.5f, 0.38f);
+
+    if (isNightfallMode_ && ghost_.superActiveTimer > 0.0f &&
+        static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::SOLAR_DAWN) {
+        Color solCol = { 255, 145, 35, 255 };
+        SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y - 10.0f }, { 800.0f, -65.0f }, 12.0f, solCol, true, true, 22.0f, true, false);
+        SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y + 10.0f }, { 800.0f,  65.0f }, 12.0f, GOLD,   true, true, 22.0f, true, false);
+    }
 }
 
 void GhostGame::TriggerTacticalAbility() {
@@ -571,96 +580,124 @@ void GhostGame::TriggerTacticalAbility() {
 }
 
 void GhostGame::TriggerSuperAbility() {
+    if (!isNightfallMode_) return; // Supers are exclusive to Nightfall Strike combat!
     if (ghost_.superEnergy < 100.0f || ghost_.superActiveTimer > 0.0f) return;
 
     profile_.totalSupersActivated++;
     ghost_.superEnergy = 0.0f;
-    float durationBonus = profile_.upgrades.superEfficiencyLevel * 0.45f;
-    ghost_.superActiveTimer = 4.8f + durationBonus;
-    ghost_.invulnerableTimer = std::max(ghost_.invulnerableTimer, ghost_.superActiveTimer + 0.5f);
+    ghost_.superPulseCooldown = 0.0f;
+    // Brief 1.0s cast buffer so activating never gets you clipped mid-frame (no 6s god-mode!)
+    ghost_.invulnerableTimer = std::max(ghost_.invulnerableTimer, 1.0f);
     ghost_.shellExpand = 2.0f;
     screenShakeTrauma_ = 0.65f;
-    flashColor_ = GetSubclassAccentColor();
-    flashAlpha_ = 0.55f;
+    Color subCol = GetSubclassAccentColor();
+    flashColor_ = subCol;
+    flashAlpha_ = 0.50f;
 
     audio_.PlaySuperActivate();
     UnlockTriumph(4);
     ProgressDailyBounty(0, 1); // SURGE OPERATIVE
 
     LightSubclass sub = static_cast<LightSubclass>(profile_.selectedSubclass);
-    SpawnParticleBurst(ghost_.pos, 60, GetSubclassAccentColor(), 120.0f, 520.0f, 8.0f, 0.8f);
+    SpawnParticleBurst(ghost_.pos, 60, subCol, 120.0f, 520.0f, 8.0f, 0.8f);
+    float upg = static_cast<float>(profile_.upgrades.superEfficiencyLevel);
 
     if (sub == LightSubclass::VOID_WALKER) {
-        // Nova Bomb: Fires a concentrated heavy Void singularity projectile ahead that detonates on the nearest obstacle/enemy/boss
-        // Clears a single focused hazard area rather than wiping the entire screen
-        Color subCol = GetSubclassAccentColor();
-        SpawnProjectile({ ghost_.pos.x + 24.0f, ghost_.pos.y }, { 680.0f, 0.0f }, 22.0f, subCol, true, true);
+        // Nova Bomb: Hurls a massive Void singularity forward that detonates in a huge AoE,
+        // shattering Boss Overshields & carving open 1 nearby barrier cleanly.
+        ghost_.superActiveTimer = 1.6f + upg * 0.15f;
+        SpawnProjectile({ ghost_.pos.x + 28.0f, ghost_.pos.y }, { 560.0f, 0.0f }, 34.0f, subCol, true, true, 58.0f, true, true);
         for (auto& o : obstacles_) {
-            if (o.active && o.x > ghost_.pos.x && o.x < ghost_.pos.x + 280.0f) {
-                SpawnParticleBurst({ o.x + o.width * 0.5f, o.gapCenterY }, 25, subCol, 70.0f, 260.0f, 5.5f, 0.45f);
-                SpawnCollectible({ o.x + o.width * 0.5f, o.gapCenterY }, CollectibleKind::MOTE_OF_LIGHT);
-                o.active = false;
-                scoreGates_++;
-                profile_.totalGatesCleared++;
-                break; // Only destroys the immediate obstacle ahead
+            if (o.active && o.x > ghost_.pos.x && o.x < ghost_.pos.x + 300.0f) {
+                o.gapHeight = std::min(430.0f, o.gapHeight + 140.0f);
+                o.oracleDestroyed = true;
+                SpawnParticleBurst({ o.x + o.width * 0.5f, o.gapCenterY }, 28, subCol, 70.0f, 260.0f, 5.5f, 0.45f);
+                break;
             }
         }
-        if (boss_.active) {
-            boss_.health -= 28.0f;
-            if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) boss_.shieldImmune = false;
+    } else if (sub == LightSubclass::SOLAR_DAWN) {
+        // Daybreak: 4.2s+ radiant flight state; every flap hurls twin homing Solar blades & aura melts enemy shots.
+        ghost_.superActiveTimer = 4.2f + upg * 0.35f;
+        for (int i = -1; i <= 1; ++i) {
+            SpawnProjectile({ ghost_.pos.x + 24.0f, ghost_.pos.y }, { 760.0f, i * 120.0f }, 13.0f, subCol, true, true, 22.0f, true, false);
         }
-    } else if (sub == LightSubclass::STASIS_SHADEBINDER || (!isNightfallMode_ && sub == LightSubclass::STRAND_RUNNER)) {
-        // Winter's Wrath Shatter vaporizes active barriers into Motes of Light!
-        for (auto& o : obstacles_) {
-            if (o.active && o.x > 0.0f && o.x < VIRTUAL_WIDTH + 100.0f) {
-                SpawnParticleBurst({ o.x + o.width * 0.5f, o.gapCenterY }, 35, GetSubclassAccentColor(), 90.0f, 350.0f, 7.0f, 0.6f);
-                SpawnCollectible({ o.x + o.width * 0.5f, o.gapCenterY }, CollectibleKind::MOTE_OF_LIGHT);
-                o.active = false;
-                scoreGates_++;
-                profile_.totalGatesCleared++;
+        for (auto& pr : projectiles_) {
+            if (pr.active && !pr.friendly && Vector2Distance(ghost_.pos, pr.pos) < 260.0f) {
+                SpawnParticleBurst(pr.pos, 12, GOLD, 40.0f, 160.0f, 4.0f, 0.3f);
+                pr.active = false;
             }
         }
-        if (boss_.active) {
-            boss_.health -= 45.0f;
-            if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) boss_.shieldImmune = false;
-        }
-    } else if (sub == LightSubclass::STRAND_RUNNER) {
-        // Needlestorm: Unleashes 9 homing Strand Threadlings!
-        for (int i = 0; i < 9; ++i) {
-            float vy = (i - 4) * 65.0f;
-            SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y },
-                            { 640.0f, vy }, 10.0f, GetSubclassAccentColor(), true, true);
-        }
-    } else if (sub == LightSubclass::PRISMATIC_TRANSCENDENT) {
-        // Transcendence: Full screen purge of barriers & vaporizes all enemies into Glimmer
+    } else if (sub == LightSubclass::ARC_CALLER) {
+        // Chaos Reach: 2.8s+ directed Arc laser beam at Ghost's Y height; aim up/down to melt Bosses, enemies & Oracles!
+        ghost_.superActiveTimer = 2.8f + upg * 0.25f;
+    } else if (sub == LightSubclass::STASIS_SHADEBINDER) {
+        // Winter's Wrath: Freezes all moving hazards & Boss fire for 3.8s+, shatters all active enemies, Oracles & enemy shots into Motes!
+        ghost_.superActiveTimer = 3.6f + upg * 0.30f;
+        ghost_.stasisFreezeTimer = 3.8f + upg * 0.35f;
         for (auto& o : obstacles_) {
-            if (o.active && o.x > 0.0f && o.x < VIRTUAL_WIDTH + 100.0f) {
-                SpawnParticleBurst({ o.x + o.width * 0.5f, o.gapCenterY }, 40, { 255, 125, 235, 255 }, 120.0f, 400.0f, 7.5f, 0.7f);
-                SpawnCollectible({ o.x + o.width * 0.5f, o.gapCenterY }, CollectibleKind::MOTE_OF_LIGHT);
-                o.active = false;
-                scoreGates_++;
-                profile_.totalGatesCleared++;
+            if (o.active) {
+                o.frozenByStasis = true;
+                if ((o.kind == ObstacleKind::ROTATING_ORACLE || o.kind == ObstacleKind::TAKEN_BLIGHT_WELL) && !o.oracleDestroyed) {
+                    o.oracleDestroyed = true;
+                    Vector2 np = { o.x + o.width * 0.5f, o.gapCenterY };
+                    SpawnParticleBurst(np, 24, subCol, 80.0f, 280.0f, 5.5f, 0.45f);
+                    SpawnCollectible(np, CollectibleKind::MOTE_OF_LIGHT);
+                }
+            }
+        }
+        for (auto& pr : projectiles_) {
+            if (pr.active && !pr.friendly) {
+                SpawnParticleBurst(pr.pos, 10, subCol, 50.0f, 180.0f, 4.0f, 0.3f);
+                pr.active = false;
             }
         }
         for (auto& e : enemies_) {
             if (e.active) {
                 e.active = false;
-                SpawnParticleBurst(e.pos, 35, GOLD, 100.0f, 350.0f, 6.0f, 0.6f);
+                SpawnParticleBurst(e.pos, 28, subCol, 90.0f, 320.0f, 6.0f, 0.5f);
                 SpawnCollectible(e.pos, CollectibleKind::MOTE_OF_LIGHT);
-                runGlimmerEarned_ += 25;
-                profile_.glimmer += 25;
-            }
-        }
-        if (isNightfallMode_) {
-            for (int i = 0; i < 12; ++i) {
-                float vy = (i - 6) * 55.0f;
-                SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y },
-                                { 720.0f, vy }, 12.0f, (i % 2 == 0) ? SKYBLUE : Color{ 255, 120, 220, 255 }, true, true);
+                runGlimmerEarned_ += 12;
+                profile_.glimmer += 12;
             }
         }
         if (boss_.active) {
-            boss_.health -= 55.0f;
-            if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) boss_.shieldImmune = false;
+            boss_.shieldImmune = false;
+            boss_.health -= 42.0f;
+        }
+    } else if (sub == LightSubclass::STRAND_RUNNER) {
+        // Needlestorm: Unleashes 12 homing Threadlings that swarm enemies, Oracles, Blights & Bosses!
+        ghost_.superActiveTimer = 2.6f + upg * 0.25f;
+        for (int i = 0; i < 12; ++i) {
+            float vy = (i - 5.5f) * 58.0f;
+            SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y },
+                            { 660.0f, vy }, 11.0f, subCol, true, true, 18.0f, true, false);
+        }
+    } else if (sub == LightSubclass::PRISMATIC_TRANSCENDENT) {
+        // Transcendence: 4.5s+ frenzy—instantly recharges Tactical (4x faster cooldown!), freezes moving hazards,
+        // clears enemy shots & strips Boss Overshields while launching Light + Darkness bursts!
+        ghost_.superActiveTimer = 4.5f + upg * 0.35f;
+        ghost_.tacticalCooldown = 0.0f;
+        ghost_.stasisFreezeTimer = 2.6f;
+        for (auto& o : obstacles_) {
+            if (o.active) {
+                o.frozenByStasis = true;
+                if ((o.kind == ObstacleKind::ROTATING_ORACLE || o.kind == ObstacleKind::TAKEN_BLIGHT_WELL) && !o.oracleDestroyed) {
+                    o.oracleDestroyed = true;
+                    Vector2 np = { o.x + o.width * 0.5f, o.gapCenterY };
+                    SpawnParticleBurst(np, 24, subCol, 80.0f, 280.0f, 5.5f, 0.45f);
+                    SpawnCollectible(np, CollectibleKind::MOTE_OF_LIGHT);
+                }
+            }
+        }
+        for (auto& pr : projectiles_) {
+            if (pr.active && !pr.friendly) {
+                SpawnParticleBurst(pr.pos, 10, subCol, 50.0f, 180.0f, 4.0f, 0.3f);
+                pr.active = false;
+            }
+        }
+        if (boss_.active) {
+            boss_.shieldImmune = false;
+            boss_.health -= 35.0f;
         }
     }
 }
@@ -789,10 +826,11 @@ void GhostGame::SpawnNextObstacle() {
         slot->gapHeight += 36.0f;
         slot->moveSpeedY = rng_.RangeFloat(1.0f, 2.0f);
         slot->hazardRadius = 26.0f;
-    } else if (biome == BiomeSector::ASCENDANT_PLANE && roll < 0.55f) {
+    } else if (isNightfallMode_ && biome == BiomeSector::ASCENDANT_PLANE && roll < 0.36f) {
         slot->kind = ObstacleKind::TAKEN_BLIGHT_WELL;
-        slot->moveSpeedY = rng_.RangeFloat(1.4f, 2.4f);
-        slot->hazardRadius = 30.0f;
+        slot->gapHeight += 48.0f;
+        slot->moveSpeedY = rng_.RangeFloat(1.2f, 2.0f);
+        slot->hazardRadius = 26.0f;
     } else {
         slot->kind = ObstacleKind::STANDARD_GATE;
         slot->moveSpeedY = (roll < 0.30f + difficulty * 0.30f) ? rng_.RangeFloat(1.2f, 2.2f) : 0.0f;
@@ -901,12 +939,16 @@ void GhostGame::SpawnParticleBurst(Vector2 pos, int count, Color color, float sp
     }
 }
 
-void GhostGame::SpawnProjectile(Vector2 pos, Vector2 vel, float radius, Color color, bool friendly, bool homing) {
+void GhostGame::SpawnProjectile(Vector2 pos, Vector2 vel, float radius, Color color, bool friendly, bool homing,
+                                float damage, bool stripShield, bool isNovaBomb) {
     for (auto& pr : projectiles_) {
         if (!pr.active) {
             pr.active = true;
             pr.friendly = friendly;
             pr.homing = homing;
+            pr.stripShield = stripShield;
+            pr.isNovaBomb = isNovaBomb;
+            pr.damage = damage;
             pr.pos = pos;
             pr.vel = vel;
             pr.radius = radius;
@@ -982,7 +1024,9 @@ void GhostGame::UpdateFrameInput() {
 
         float btnStartX = profile_.leftHandedControls ? 20.0f : (VIRTUAL_WIDTH - 378.0f);
         Rectangle drnBtn = { btnStartX, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
-        Rectangle tacBtn = { btnStartX + 122.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
+        Rectangle tacBtn = isNightfallMode_
+                         ? Rectangle{ btnStartX + 122.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f }
+                         : Rectangle{ profile_.leftHandedControls ? 20.0f : (VIRTUAL_WIDTH - 134.0f), VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
         Rectangle supBtn = { btnStartX + 244.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
         float pad = 16.0f;
         Rectangle drnHitbox = { drnBtn.x - pad, drnBtn.y - pad, drnBtn.width + pad * 2.0f, drnBtn.height + pad * 2.0f };
@@ -1008,7 +1052,7 @@ void GhostGame::UpdateFrameInput() {
                 TriggerTacticalAbility();
                 continue;
             }
-            if (CheckCollisionPointRec(ev.pos, supHitbox)) {
+            if (isNightfallMode_ && CheckCollisionPointRec(ev.pos, supHitbox)) {
                 touchFeedbackSup_ = 0.25f;
                 TriggerSuperAbility();
                 continue;
@@ -1036,7 +1080,7 @@ void GhostGame::UpdateFrameInput() {
         }
 
         bool padSup = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1));
-        if (padSup || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_Q)) {
+        if (isNightfallMode_ && (padSup || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_Q))) {
             TriggerSuperAbility();
         }
 
@@ -1215,7 +1259,10 @@ void GhostGame::UpdatePlayingFixed(float dt) {
     }
     if (biomeBannerTimer_ > 0.0f) biomeBannerTimer_ -= dt;
 
-    if (ghost_.tacticalCooldown > 0.0f) ghost_.tacticalCooldown = std::max(0.0f, ghost_.tacticalCooldown - dt);
+    float tacDecayRate = (isNightfallMode_ && ghost_.superActiveTimer > 0.0f &&
+                          static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::PRISMATIC_TRANSCENDENT)
+                         ? 4.0f : 1.0f;
+    if (ghost_.tacticalCooldown > 0.0f) ghost_.tacticalCooldown = std::max(0.0f, ghost_.tacticalCooldown - tacDecayRate * dt);
     if (ghost_.phaseTimer > 0.0f) ghost_.phaseTimer = std::max(0.0f, ghost_.phaseTimer - dt);
     if (ghost_.grappleTimer > 0.0f) {
         ghost_.grappleTimer = std::max(0.0f, ghost_.grappleTimer - dt);
@@ -1226,28 +1273,67 @@ void GhostGame::UpdatePlayingFixed(float dt) {
     if (ghost_.droneCooldown > 0.0f) ghost_.droneCooldown = std::max(0.0f, ghost_.droneCooldown - dt);
     if (ghost_.dronePulseAnim > 0.0f) ghost_.dronePulseAnim = std::max(0.0f, ghost_.dronePulseAnim - 4.5f * dt);
 
-    if (ghost_.superActiveTimer > 0.0f) {
+    if (isNightfallMode_ && ghost_.superActiveTimer > 0.0f) {
         ghost_.superActiveTimer = std::max(0.0f, ghost_.superActiveTimer - dt);
+        if (ghost_.superPulseCooldown > 0.0f) ghost_.superPulseCooldown -= dt;
         LightSubclass sub = static_cast<LightSubclass>(profile_.selectedSubclass);
-        if (sub == LightSubclass::ARC_CALLER && std::fmod(runTime_, 0.06f) < dt) {
+
+        if (sub == LightSubclass::ARC_CALLER) {
+            // Chaos Reach Beam: Melts enemies, Oracles, Blights & enemy shots in beam corridor (ghost.y +/- 48px)
+            float beamHalfH = 48.0f;
             for (auto& o : obstacles_) {
-                if (o.active && o.x > ghost_.pos.x && o.x < VIRTUAL_WIDTH) {
-                    o.gapHeight = std::min(440.0f, o.gapHeight + 240.0f * dt);
+                if (o.active && !o.oracleDestroyed && o.x > ghost_.pos.x &&
+                    (o.kind == ObstacleKind::ROTATING_ORACLE || o.kind == ObstacleKind::TAKEN_BLIGHT_WELL) &&
+                    std::abs(o.gapCenterY - ghost_.pos.y) <= (beamHalfH + o.hazardRadius)) {
                     o.oracleDestroyed = true;
+                    Vector2 np = { o.x + o.width * 0.5f, o.gapCenterY };
+                    SpawnParticleBurst(np, 18, SKYBLUE, 70.0f, 240.0f, 5.0f, 0.4f);
+                    SpawnCollectible(np, CollectibleKind::MOTE_OF_LIGHT);
                 }
             }
-            if (boss_.active) {
-                boss_.health -= 26.0f * dt;
+            for (auto& pr : projectiles_) {
+                if (pr.active && !pr.friendly && pr.pos.x > ghost_.pos.x &&
+                    std::abs(pr.pos.y - ghost_.pos.y) <= (beamHalfH + pr.radius)) {
+                    pr.active = false;
+                }
+            }
+            for (auto& e : enemies_) {
+                if (e.active && e.pos.x > ghost_.pos.x &&
+                    std::abs(e.pos.y - ghost_.pos.y) <= (beamHalfH + e.radius)) {
+                    e.active = false;
+                    SpawnParticleBurst(e.pos, 22, SKYBLUE, 70.0f, 240.0f, 5.0f, 0.4f);
+                    SpawnCollectible(e.pos, CollectibleKind::MOTE_OF_LIGHT);
+                    runGlimmerEarned_ += 10;
+                    profile_.glimmer += 10;
+                }
+            }
+            if (boss_.active && std::abs(boss_.pos.y - ghost_.pos.y) < 82.0f) {
+                boss_.health -= 38.0f * dt;
                 if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) {
                     boss_.shieldImmune = false;
+                    audio_.PlayShieldBreak();
+                    TriggerVanguardMedal("BOSS SHIELD SHATTERED!", 25, SKYBLUE);
                 }
             }
-        } else if (isNightfallMode_ && (sub == LightSubclass::SOLAR_DAWN || sub == LightSubclass::STRAND_RUNNER) && std::fmod(runTime_, 0.22f) < dt) {
-            SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y },
-                            { 760.0f, rng_.RangeFloat(-80.0f, 80.0f) }, 11.0f, GetSubclassAccentColor(), true, true);
+        } else if (sub == LightSubclass::SOLAR_DAWN) {
+            // Daybreak Solar Aura melts enemy projectiles within 105px
+            for (auto& pr : projectiles_) {
+                if (pr.active && !pr.friendly && Vector2Distance(ghost_.pos, pr.pos) < 105.0f) {
+                    SpawnParticleBurst(pr.pos, 10, GOLD, 40.0f, 160.0f, 4.0f, 0.3f);
+                    pr.active = false;
+                }
+            }
+        } else if (sub == LightSubclass::STRAND_RUNNER && ghost_.superPulseCooldown <= 0.0f) {
+            ghost_.superPulseCooldown = 0.35f;
+            SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y - 12.0f }, { 700.0f, -65.0f }, 10.0f, GetSubclassAccentColor(), true, true, 18.0f, true, false);
+            SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y + 12.0f }, { 700.0f,  65.0f }, 10.0f, GetSubclassAccentColor(), true, true, 18.0f, true, false);
+        } else if (sub == LightSubclass::PRISMATIC_TRANSCENDENT && ghost_.superPulseCooldown <= 0.0f) {
+            ghost_.superPulseCooldown = 0.32f;
+            SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y - 10.0f }, { 760.0f, -45.0f }, 12.0f, SKYBLUE, true, true, 20.0f, true, false);
+            SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y + 10.0f }, { 760.0f,  45.0f }, 12.0f, Color{ 255, 130, 235, 255 }, true, true, 20.0f, true, false);
         }
-    } else {
-        float trickle = 1.4f + profile_.upgrades.superEfficiencyLevel * 0.25f;
+    } else if (isNightfallMode_) {
+        float trickle = 1.6f + profile_.upgrades.superEfficiencyLevel * 0.30f;
         ghost_.superEnergy = std::min(100.0f, ghost_.superEnergy + trickle * dt);
     }
 
@@ -1331,10 +1417,14 @@ void GhostGame::UpdatePlayingFixed(float dt) {
             if (runGlimmerEarned_ >= 100) UnlockTriumph(11); // LIGHT HARVESTER
             if (profile_.totalGlimmerEarnedLifetime >= 3000) UnlockTriumph(14); // THE TRAVELER'S CHOSEN
 
-            // Riskrunner Perk: Close call near barrier edge grants +18% Super & +10 Glimmer
+            // Riskrunner Perk: Close call near barrier edge grants +18% Nightfall Super (or -0.6s Tactical CD in Patrol) & +10 Glimmer
             if (static_cast<ExoticPerk>(profile_.equippedExoticPerk) == ExoticPerk::RISKRUNNER_CONDUCTOR) {
                 if (std::abs(ghost_.pos.y - gapTop) < 38.0f || std::abs(ghost_.pos.y - gapBottom) < 38.0f) {
-                    ghost_.superEnergy = std::min(100.0f, ghost_.superEnergy + 18.0f);
+                    if (isNightfallMode_) {
+                        ghost_.superEnergy = std::min(100.0f, ghost_.superEnergy + 18.0f);
+                    } else {
+                        ghost_.tacticalCooldown = std::max(0.0f, ghost_.tacticalCooldown - 0.6f);
+                    }
                     TriggerVanguardMedal("ARC CONDUCTOR // CLOSE CALL!", 10, SKYBLUE);
                     SpawnParticleBurst(ghost_.pos, 20, SKYBLUE, 60.0f, 220.0f, 5.0f, 0.35f);
                 }
@@ -1369,9 +1459,6 @@ void GhostGame::UpdatePlayingFixed(float dt) {
         if (hitObstacle) {
             if (ghost_.phaseTimer > 0.0f) {
                 UnlockTriumph(5);
-            } else if (ghost_.superActiveTimer > 0.0f) {
-                SpawnParticleBurst({ o.x + o.width * 0.5f, ghost_.pos.y }, 25, GetSubclassAccentColor(), 90.0f, 340.0f, 6.0f, 0.45f);
-                o.active = false;
             } else {
                 HandleFatalImpact();
                 if (state_ != ScreenState::PLAYING) return;
@@ -1401,27 +1488,31 @@ void GhostGame::UpdatePlayingFixed(float dt) {
         if (CheckCollisionCircles(ghost_.pos, ghost_.radius + 6.0f, c.pos, c.radius)) {
             c.active = false;
             if (c.kind == CollectibleKind::MOTE_OF_LIGHT) {
-                runMotes_++;
-                profile_.totalMotesCollected++;
-                ProgressDailyBounty(2, 1); // MOTE SYNTHESIS
                 int glim = isNightfallMode_ ? 3 : 2;
                 runGlimmerEarned_ += glim;
                 profile_.glimmer += glim;
-                float superGain = 14.0f + profile_.upgrades.superEfficiencyLevel * 2.2f;
-                ghost_.superEnergy = std::min(100.0f, ghost_.superEnergy + superGain);
-                audio_.PlayMotePickup();
-                SpawnParticleBurst(c.pos, 16, SKYBLUE, 60.0f, 220.0f, 4.5f, 0.38f);
-
-                // Exotic Perk: Crimson Redrix Core restores +1 Overshield every 8 Motes!
-                if (static_cast<ExoticPerk>(profile_.equippedExoticPerk) == ExoticPerk::CRIMSON_REDRIX &&
-                    (runMotes_ % 8 == 0)) {
-                    ghost_.overshieldCharges = std::min(3, ghost_.overshieldCharges + 1);
-                    TriggerVanguardMedal("CRIMSON SIPHON // +1 OVERSHIELD", 15, { 255, 70, 85, 255 });
+                if (isNightfallMode_) {
+                    float superGain = 14.0f + profile_.upgrades.superEfficiencyLevel * 2.2f;
+                    ghost_.superEnergy = std::min(100.0f, ghost_.superEnergy + superGain);
                 }
-            } else if (c.kind == CollectibleKind::EXOTIC_ENGRAM) {
+                audio_.PlayMotePickup();
+                SpawnParticleBurst(c.pos, 16, SKYBLUE, 40.0f, 180.0f, 4.5f, 0.4f);
+                ProgressDailyBounty(2, 1); // MOTE COLLECTOR
+
+                if (static_cast<ExoticPerk>(profile_.equippedExoticPerk) == ExoticPerk::CRIMSON_REDRIX &&
+                    (runMotes_ % 10 == 0)) {
+                    ghost_.overshieldCharges = std::min(3 + profile_.upgrades.overshieldCapLevel, ghost_.overshieldCharges + 1);
+                    TriggerVanguardMedal("CRIMSON REDRIX // OVERSHIELD RESTORED", 15, RED);
+                }
+            } else {
                 runGlimmerEarned_ += 50;
                 profile_.glimmer += 50;
-                ghost_.superEnergy = std::min(100.0f, ghost_.superEnergy + 45.0f);
+                ghost_.overshieldCharges = std::min(3 + profile_.upgrades.overshieldCapLevel, ghost_.overshieldCharges + 1);
+                if (isNightfallMode_) {
+                    ghost_.superEnergy = std::min(100.0f, ghost_.superEnergy + 45.0f);
+                } else {
+                    ghost_.tacticalCooldown = 0.0f; // Instant Tactical charge in Patrol!
+                }
                 ghost_.overshieldCharges = std::min(3, ghost_.overshieldCharges + 1);
                 audio_.PlayExoticPickup();
                 SpawnParticleBurst(c.pos, 35, GOLD, 80.0f, 320.0f, 6.0f, 0.55f);
@@ -1510,9 +1601,23 @@ void GhostGame::UpdatePlayingFixed(float dt) {
 
             if (pr.active && boss_.active && CheckCollisionCircles(pr.pos, pr.radius, boss_.pos, 58.0f)) {
                 pr.active = false;
-                boss_.health -= 16.0f;
-                SpawnParticleBurst(pr.pos, 20, pr.color, 70.0f, 240.0f, 5.0f, 0.35f);
-                if (boss_.shieldImmune && boss_.health <= boss_.maxHealth * 0.65f) {
+                boss_.health -= pr.damage;
+                SpawnParticleBurst(pr.pos, pr.isNovaBomb ? 55 : 20, pr.color, 70.0f, pr.isNovaBomb ? 380.0f : 240.0f,
+                                   pr.isNovaBomb ? 8.0f : 5.0f, pr.isNovaBomb ? 0.65f : 0.35f);
+                if (pr.isNovaBomb) {
+                    screenShakeTrauma_ = std::max(screenShakeTrauma_, 0.6f);
+                    for (auto& e : enemies_) {
+                        if (e.active && Vector2Distance(pr.pos, e.pos) < 180.0f) {
+                            e.active = false;
+                            SpawnCollectible(e.pos, CollectibleKind::MOTE_OF_LIGHT);
+                            runGlimmerEarned_ += 10; profile_.glimmer += 10;
+                        }
+                    }
+                    for (auto& ep : projectiles_) {
+                        if (ep.active && !ep.friendly && Vector2Distance(pr.pos, ep.pos) < 220.0f) ep.active = false;
+                    }
+                }
+                if (boss_.shieldImmune && (pr.stripShield || boss_.health <= boss_.maxHealth * 0.65f)) {
                     boss_.shieldImmune = false;
                     audio_.PlayShieldBreak();
                     screenShakeTrauma_ = 0.45f;

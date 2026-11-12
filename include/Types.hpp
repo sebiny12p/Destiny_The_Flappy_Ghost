@@ -230,9 +230,10 @@ struct GhostPlayer {
     // Stasis Freeze field timer
     float stasisFreezeTimer = 0.0f;
 
-    // Super ability
+    // Super ability (Nightfall Strike only)
     float superEnergy = 0.0f;
     float superActiveTimer = 0.0f;
+    float superPulseCooldown = 0.0f;
 
     // Overshield
     int overshieldCharges = 0;
@@ -277,6 +278,9 @@ struct Projectile {
     bool active = false;
     bool friendly = false;
     bool homing = false;
+    bool stripShield = false;
+    bool isNovaBomb = false;
+    float damage = 16.0f;
     Vector2 pos = { 0.0f, 0.0f };
     Vector2 vel = { 0.0f, 0.0f };
     float radius = 8.0f;

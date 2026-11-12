@@ -58,7 +58,8 @@ private:
     void SpawnPatrolEnemy(Vector2 pos, EnemyType type);
     void SpawnBossEncounter();
     void SpawnParticleBurst(Vector2 pos, int count, Color color, float speedMin, float speedMax, float size, float life);
-    void SpawnProjectile(Vector2 pos, Vector2 vel, float radius, Color color, bool friendly, bool homing = false);
+    void SpawnProjectile(Vector2 pos, Vector2 vel, float radius, Color color, bool friendly, bool homing = false,
+                         float damage = 16.0f, bool stripShield = false, bool isNovaBomb = false);
 
     // Helpers
     BiomeSector GetCurrentBiome() const;

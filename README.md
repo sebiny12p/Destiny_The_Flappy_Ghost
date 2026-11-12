@@ -22,31 +22,31 @@ A high-performance, cross-platform (Windows & Android) C++20 arcade action game 
 Destiny: The Flappy Ghost features two distinct flight protocols tailored for both casual exploration and hardcore combat:
 
 ### 1. Vanguard Patrol (Pure Flight & Precision)
-- **Focus:** Classic aerial navigation, precision barrier weaving, and paracausal movement.
-- **Rules:** Weapons and Combat Drones are deactivated. Focus entirely on navigating treacherous terrain, timing jumps, tactical blinks, and unleashing Super abilities.
-- **Hostiles:** Enemies appear as extremely rare "Easter egg" cosmic encounters, keeping the run smooth, zen, and skill-focused.
+- **Focus:** Pure skill-based aerial navigation, barrier weaving, and tactical blinks.
+- **Rules:** Supers, Combat Drones, and lethal Oracles/Taken Blights are disabled so your Patrol high score strictly rewards precision flying and tactical timing.
+- **Hostiles:** Enemies appear only as rare scenic encounters.
 - **Entry:** Unlocked and playable from your very first launch directly from the Director.
 
-### 2. Nightfall Strike (High-Intensity Combat)
-- **Focus:** Full-scale combat operations against enemy swarms, elite barrier projections, and raid bosses.
+### 2. Nightfall Strike (High-Intensity Combat & Supers)
+- **Focus:** Full-scale combat operations featuring **Super Abilities**, Combat Drones, Oracles, Taken Blights, enemy swarms, and Raid Bosses.
 - **Unlock Condition:** Unlocked once you purchase your first **Combat Drone** from The Tower Hangar (starting at 200 Glimmer).
-- **Combat Mechanics:** Equip your chosen Combat Drone and manually trigger tactical fire with `[C / X]` or the on-screen drone button.
-- **Rewards:** High risk, high reward — earns an automatic **+1.5x Glimmer Multiplier** on all harvested Motes of Light!
+- **Combat Mechanics:** Charge Super energy from Motes & combat, shatter Boss Overshields with Supers, and fire your Drone with `[C / X]` or the on-screen button.
+- **Rewards:** High risk, high reward — earns **+1.5x Glimmer** on Motes of Light!
 
 ---
 
 ## Guardian Subclasses (Light & Darkness)
 
-Attune between 6 distinct subclass configurations in the **Subclass Armory**, each with custom tactical movement abilities, particle signatures, and screen-clearing Supers:
+Tactical abilities work in every mode; Super abilities are tuned specifically for **Nightfall Strike** combat:
 
-| Subclass | Affinity | Tactical Ability | Super Ability |
+| Subclass | Affinity | Tactical Ability | Nightfall Super Ability |
 | :--- | :--- | :--- | :--- |
-| **Voidwalker** | Void Light | **Blink:** Short-range phase teleport with 0.32s intangibility | **Nova Pulse:** Singularity blast vaporizing active barriers into Motes |
-| **Dawnblade** | Solar Light | **Icarus Dash:** Forward momentum stabilizer & 3-way flare hover | **Daybreak Well:** Radiant aura melting obstacles on contact |
-| **Stormcaller** | Arc Light | **Ionic Blink:** High-voltage dash firing a piercing Arc bolt ahead | **Chaos Reach:** Continuous high-energy Arc beam across the screen |
-| **Shadebinder** | Stasis Darkness | **Frost Pulse:** Freezes moving Vex lasers and boss fire for 2.5s | **Winter's Wrath:** Shatters all frozen barriers into Motes of Light |
-| **Threadrunner** | Strand Darkness | **Grapple:** Launches a grapple line ahead to swing & phase upward | **Needlestorm:** Unleashes 9 homing Strand Threadlings |
-| **Transcendent** | Prismatic | **Prismatic Surge:** Freezes obstacles & fires twin piercing bolts | **Transcendence:** Screen-wide barrier purge + 12 homing missiles |
+| **Voidwalker** | Void Light | **Blink:** Short phase teleport (0.32s) | **Nova Bomb:** Massive Void orb shattering shields & clearing 1 hazard |
+| **Dawnblade** | Solar Light | **Icarus Dash:** Hover glide & hazard phase | **Daybreak:** Twin homing Solar blades on every flap + aura shield |
+| **Stormcaller** | Arc Light | **Ionic Blink:** High-voltage phase dash | **Chaos Reach:** Aimable Arc laser melting enemies, Oracles & Bosses |
+| **Shadebinder** | Stasis Darkness | **Frost Pulse:** Freezes lasers & boss fire | **Winter's Wrath:** Freezes hazards & shatters all foes/shots into Motes |
+| **Threadrunner** | Strand Darkness | **Grapple:** Forward-upward grapple swing | **Needlestorm:** 12+ homing Threadlings hunting foes & Bosses |
+| **Transcendent** | Prismatic | **Prismatic Surge:** Freezes lasers + phase | **Transcendence:** 4x Tactical recharge + dual Light/Dark bursts |
 
 ---
 
