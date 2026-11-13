@@ -3,7 +3,10 @@
 A high-performance, cross-platform (Windows & Android) C++20 arcade action game built with **Raylib 5.0**. Pilot an articulated polyhedral Ghost across **8 shuffled Destiny biomes**, harvest Motes of Light, attune across 6 Light and Darkness subclasses, weave through Vex laser grids, command 4 distinct Combat Drones, battle **8 unique Nightfall bosses**, unlock 12 exotic Shaders & 16 Vanguard Triumphs, and conquer Nightfall strikes.
 
 > **Studio:** Sebiny Labs  
-> **IP Disclaimer:** Non-commercial fan tribute created for educational and portfolio purposes. *Destiny*, *Ghost*, *The Traveler*, and related IP are trademarks and copyright of **Bungie, Inc.**
+> **IP Disclaimer:** Non-commercial fan tribute created for educational and portfolio purposes. *Destiny*, *Ghost*, *The Traveler*, and related IP are trademarks and copyright of **Bungie, Inc.**  
+> **Playable Builds:** [Download Windows `.zip` & Android `.apk` (GitHub Releases)](https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/releases)
+
+![Destiny: The Flappy Ghost Gameplay](docs/gameplay.gif)
 
 ---
 
