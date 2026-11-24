@@ -1155,10 +1155,35 @@ void GhostGame::UpdateFrameInput() {
     } else if (state_ == ScreenState::TITLE_DIRECTOR) {
         if (screenTransitionCooldown_ <= 0.0f) {
             bool hasGamepad = IsGamepadAvailable(0);
-            // Launch Vanguard Patrol: Space, Enter, or Gamepad (A) / Start
-            if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) ||
+            // Toggle Patrol / Nightfall with Left/Right or Tab
+            if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT))) {
+                menuSelectNightfall_ = false;
+                audio_.PlayUiSelect();
+            } else if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D) || IsKeyPressed(KEY_TAB) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT))) {
+                menuSelectNightfall_ = true;
+                audio_.PlayUiSelect();
+            }
+            // Launch Selected Mode: Space, Enter, or Gamepad (A) / Start
+            else if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) ||
                 (hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT)))) {
-                StartNewRun(false);
+                if (!menuSelectNightfall_) {
+                    StartNewRun(false);
+                } else if (HasUnlockedAnyDrone()) {
+                    StartNewRun(true);
+                } else {
+                    towerTab_ = 2;
+                    activeToast_.active = true;
+                    activeToast_.title = "NIGHTFALL REQUIRES A COMBAT DRONE";
+                    activeToast_.subtitle = "Unlock your first Combat Drone here (starting at 200 Glimmer)!";
+                    activeToast_.timer = 4.0f;
+                    SetScreenState(ScreenState::SHELL_HANGAR);
+                    audio_.PlayUiSelect();
+                }
+            }
+            // Loadout shortcut: L
+            else if (IsKeyPressed(KEY_L)) {
+                SetScreenState(ScreenState::SUBCLASS_ARMORY);
+                audio_.PlayUiSelect();
             }
             // Launch Nightfall Strike: N or Gamepad (X)
             else if (IsKeyPressed(KEY_N) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_LEFT))) {

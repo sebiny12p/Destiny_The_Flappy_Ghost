@@ -1035,143 +1035,117 @@ void GhostGame::RenderTitleFrontPage() {
 }
 
 void GhostGame::RenderTitleDirector() {
-    const char* preTitle = "DIRECTOR // VANGUARD FLIGHT TELEMETRY";
-    int ptw = MeasureText(preTitle, 15);
-    DrawText(preTitle, (VIRTUAL_WIDTH - ptw) / 2, 28, 15, { 170, 210, 240, 220 });
-
     const char* mainDestiny = "DESTINY";
     int mdw = MeasureText(mainDestiny, 52);
-    DrawText(mainDestiny, (VIRTUAL_WIDTH - mdw) / 2, 48, 52, WHITE);
+    DrawText(mainDestiny, (VIRTUAL_WIDTH - mdw) / 2, 34, 52, WHITE);
 
     const char* subGameTitle = "THE FLAPPY GHOST";
-    int fgw = MeasureText(subGameTitle, 20);
-    DrawText(subGameTitle, (VIRTUAL_WIDTH - fgw) / 2, 104, 20, SKYBLUE);
+    int fgw = MeasureText(subGameTitle, 18);
+    DrawText(subGameTitle, (VIRTUAL_WIDTH - fgw) / 2, 90, 18, SKYBLUE);
 
-    DrawLine(VIRTUAL_WIDTH / 2 - 280, 134, VIRTUAL_WIDTH / 2 + 280, 134, { 255, 255, 255, 90 });
+    char glimPill[64];
+    std::snprintf(glimPill, sizeof(glimPill), "GLIMMER: %d", profile_.glimmer);
+    int gpw = MeasureText(glimPill, 15);
+    Rectangle pillRec = { (VIRTUAL_WIDTH - (gpw + 36.0f)) * 0.5f, 120.0f, gpw + 36.0f, 28.0f };
+    DrawRectangleRec(pillRec, { 14, 22, 36, 200 });
+    DrawRectangleLinesEx(pillRec, 1.2f, { 110, 185, 240, 140 });
+    DrawText(glimPill, static_cast<int>(pillRec.x + 18.0f), static_cast<int>(pillRec.y + 7.0f), 15, SKYBLUE);
 
-    Vector2 previewPos = { VIRTUAL_WIDTH * 0.5f, 238.0f + std::sin(globalTime_ * 2.5f) * 8.0f };
-    DrawCircleLines(static_cast<int>(previewPos.x), static_cast<int>(previewPos.y), 78.0f, { 255, 255, 255, 45 });
-    RenderGhostRig(previewPos, 36.0f, std::sin(globalTime_ * 1.7f) * 8.0f,
+    Vector2 previewPos = { VIRTUAL_WIDTH * 0.5f, 232.0f + std::sin(globalTime_ * 2.5f) * 8.0f };
+    DrawCircleLines(static_cast<int>(previewPos.x), static_cast<int>(previewPos.y), 74.0f, { 255, 255, 255, 40 });
+    RenderGhostRig(previewPos, 35.0f, std::sin(globalTime_ * 1.7f) * 8.0f,
                    0.25f + 0.15f * std::sin(globalTime_ * 3.2f),
                    globalTime_ * 1.4f, { std::cos(globalTime_ * 1.5f) * 5.0f, std::sin(globalTime_ * 2.1f) * 3.0f },
                    profile_.equippedShell, 1.0f);
 
-    const auto& equippedShell = GetShellCatalog()[profile_.equippedShell];
-    int snw = MeasureText(equippedShell.name, 16);
-    DrawText(equippedShell.name, (VIRTUAL_WIDTH - snw) / 2, 326, 16, SKYBLUE);
+    bool nightfallUnlocked = HasUnlockedAnyDrone();
+    float cx = VIRTUAL_WIDTH * 0.5f;
 
-    char statLine[160];
-    std::snprintf(statLine, sizeof(statLine),
-                  "GLIMMER: %d   |   BEST PATROL: %d GATES   |   BEST NIGHTFALL: %d GATES   |   BOSSES SLAIN: %d",
-                  profile_.glimmer, profile_.bestScoreStandard, profile_.bestScoreNightfall, profile_.totalBossesDefeated);
-    int slw = MeasureText(statLine, 16);
-    DrawText(statLine, (VIRTUAL_WIDTH - slw) / 2, 355, 16, LIGHTGRAY);
+    // 2-Segment Mode Toggle: [ PATROL ] | [ NIGHTFALL ]
+    float toggleW = 360.0f;
+    Rectangle segPatrol    = { cx - toggleW * 0.5f, 336.0f, toggleW * 0.5f - 3.0f, 38.0f };
+    Rectangle segNightfall = { cx + 3.0f,           336.0f, toggleW * 0.5f - 3.0f, 38.0f };
 
-    auto DrawDirectorButton = [&](Rectangle r, const char* title, const char* sub, Color accent) -> bool {
+    bool patSel = !menuSelectNightfall_;
+    DrawRectangleRec(segPatrol, patSel ? SKYBLUE : Color{ 16, 24, 38, 220 });
+    DrawRectangleLinesEx(segPatrol, 1.5f, SKYBLUE);
+    int pw = MeasureText("PATROL", 15);
+    DrawText("PATROL", static_cast<int>(segPatrol.x + (segPatrol.width - pw) * 0.5f), static_cast<int>(segPatrol.y + 11.0f), 15, patSel ? BLACK : WHITE);
+    if (IsButtonClicked(segPatrol)) {
+        menuSelectNightfall_ = false;
+        audio_.PlayUiSelect();
+    }
+
+    Color nfAccent = nightfallUnlocked ? GOLD : RED;
+    bool nfSel = menuSelectNightfall_;
+    DrawRectangleRec(segNightfall, nfSel ? nfAccent : Color{ 16, 24, 38, 220 });
+    DrawRectangleLinesEx(segNightfall, 1.5f, nfAccent);
+    const char* nfSegLbl = nightfallUnlocked ? "NIGHTFALL" : "NIGHTFALL [LOCKED]";
+    int nfw = MeasureText(nfSegLbl, 14);
+    DrawText(nfSegLbl, static_cast<int>(segNightfall.x + (segNightfall.width - nfw) * 0.5f), static_cast<int>(segNightfall.y + 12.0f), 14,
+             nfSel ? (nightfallUnlocked ? BLACK : WHITE) : (nightfallUnlocked ? GOLD : LIGHTGRAY));
+    if (IsButtonClicked(segNightfall)) {
+        menuSelectNightfall_ = true;
+        audio_.PlayUiSelect();
+    }
+
+    auto DrawCleanHubBtn = [&](Rectangle r, const char* label, int fs, Color accent, bool primary) -> bool {
         bool hov = IsRectHovered(r);
-        DrawRectangleRec(r, hov ? Color{ 28, 42, 66, 235 } : Color{ 14, 20, 34, 215 });
-        DrawRectangleLinesEx(r, hov ? 2.5f : 1.5f, hov ? accent : Color{ 140, 165, 195, 140 });
-        DrawRectangle(static_cast<int>(r.x), static_cast<int>(r.y), 6, static_cast<int>(r.height), accent);
-
-        int maxW = static_cast<int>(r.width) - 28;
-        int titleFs = 20;
-        while (titleFs > 12 && MeasureText(title, titleFs) > maxW) titleFs--;
-        int subFs = 14;
-        while (subFs > 10 && MeasureText(sub, subFs) > maxW) subFs--;
-
-        int textBlockH = titleFs + 5 + subFs;
-        int topPad = std::max(8, (static_cast<int>(r.height) - textBlockH) / 2);
-        DrawText(title, static_cast<int>(r.x + 18), static_cast<int>(r.y) + topPad, titleFs, WHITE);
-        DrawText(sub, static_cast<int>(r.x + 18), static_cast<int>(r.y) + topPad + titleFs + 5, subFs, LIGHTGRAY);
+        Color bg = primary
+            ? (hov ? Color{ 34, 54, 86, 245 } : Color{ 18, 30, 50, 235 })
+            : (hov ? Color{ 28, 42, 66, 235 } : Color{ 14, 20, 34, 215 });
+        DrawRectangleRec(r, bg);
+        DrawRectangleLinesEx(r, hov ? 2.5f : 1.6f, hov ? accent : Color{ 130, 160, 195, 150 });
+        DrawRectangle(static_cast<int>(r.x), static_cast<int>(r.y), 5, static_cast<int>(r.height), accent);
+        int lw = MeasureText(label, fs);
+        int ty = static_cast<int>(r.y + (r.height - fs) * 0.5f);
+        DrawText(label, static_cast<int>(r.x + (r.width - lw) * 0.5f), ty, fs, WHITE);
         return IsButtonClicked(r);
     };
 
-    bool hasGamepad = IsGamepadAvailable(0);
-
-    float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
-    Rectangle btnPatrol   = { uiX + 180.0f, 392.0f, 440.0f, 62.0f };
-    Rectangle btnNightfall= { uiX + 660.0f, 392.0f, 440.0f, 62.0f };
-    Rectangle btnSubclass = { uiX + 72.0f, 464.0f, 216.0f, 58.0f };
-    Rectangle btnHangar   = { uiX + 304.0f, 464.0f, 216.0f, 58.0f };
-    Rectangle btnTriumphs = { uiX + 536.0f, 464.0f, 216.0f, 58.0f };
-    Rectangle btnCareer   = { uiX + 768.0f, 464.0f, 216.0f, 58.0f };
-    Rectangle btnSettings = { uiX + 1000.0f, 464.0f, 216.0f, 58.0f };
-
-    const char* patrolLabel = hasGamepad ? "LAUNCH VANGUARD PATROL [(A)]" : "LAUNCH VANGUARD PATROL [SPACE]";
-    if (DrawDirectorButton(btnPatrol, patrolLabel, "Pure flight & tactical blinks (no Supers/Drones)", SKYBLUE)) {
-        StartNewRun(false);
-    }
-
-    bool nightfallUnlocked = HasUnlockedAnyDrone();
-    const char* nfLabel = hasGamepad ? "LAUNCH NIGHTFALL STRIKE [(X)]" : "LAUNCH NIGHTFALL STRIKE [N]";
-    if (nightfallUnlocked) {
-        int dIdx = std::clamp(profile_.equippedDrone, 0, static_cast<int>(NUM_DRONES) - 1);
-        std::string nfSub = std::string("Drone: ") + GetDroneCatalog()[dIdx].name + " + Supers | +1.5x Glimmer";
-        if (DrawDirectorButton(btnNightfall, nfLabel, nfSub.c_str(), GOLD)) {
+    // Button 1: PLAY
+    Color playAccent = (!menuSelectNightfall_) ? SKYBLUE : (nightfallUnlocked ? GOLD : RED);
+    const char* playLbl = (menuSelectNightfall_ && !nightfallUnlocked) ? "UNLOCK DRONE (200G)" : "PLAY";
+    Rectangle btnPlay = { cx - 180.0f, 384.0f, 360.0f, 58.0f };
+    if (DrawCleanHubBtn(btnPlay, playLbl, (menuSelectNightfall_ && !nightfallUnlocked) ? 18 : 24, playAccent, true)) {
+        if (!menuSelectNightfall_) {
+            StartNewRun(false);
+        } else if (nightfallUnlocked) {
             StartNewRun(true);
-        }
-    } else {
-        if (DrawDirectorButton(btnNightfall, "NIGHTFALL STRIKE [LOCKED]", "Unlock your first Combat Drone in The Tower (200G)!", RED)) {
-            towerTab_ = 2; // Open directly to Combat Drones tab in The Tower!
+        } else {
+            towerTab_ = 2;
             activeToast_.active = true;
             activeToast_.title = "NIGHTFALL REQUIRES A COMBAT DRONE";
-            activeToast_.subtitle = "Unlock your first manual-fire Combat Drone here (starting at 200 Glimmer)!";
+            activeToast_.subtitle = "Unlock your first Combat Drone here (starting at 200 Glimmer)!";
             activeToast_.timer = 4.0f;
             SetScreenState(ScreenState::SHELL_HANGAR);
             audio_.PlayUiSelect();
         }
     }
 
-    const char* curSubLabel = "Equipped: Voidwalker";
-    switch (static_cast<LightSubclass>(profile_.selectedSubclass)) {
-        case LightSubclass::VOID_WALKER:            curSubLabel = "Equipped: Voidwalker"; break;
-        case LightSubclass::SOLAR_DAWN:             curSubLabel = "Equipped: Dawnblade"; break;
-        case LightSubclass::ARC_CALLER:             curSubLabel = "Equipped: Stormcaller"; break;
-        case LightSubclass::STASIS_SHADEBINDER:     curSubLabel = "Equipped: Shadebinder"; break;
-        case LightSubclass::STRAND_RUNNER:          curSubLabel = "Equipped: Threadrunner"; break;
-        case LightSubclass::PRISMATIC_TRANSCENDENT: curSubLabel = "Equipped: Transcendent"; break;
-    }
-    const char* subBtnTitle = hasGamepad ? "SUBCLASS [(LB)]" : "SUBCLASS [U]";
-    if (DrawDirectorButton(btnSubclass, subBtnTitle, curSubLabel, GetSubclassAccentColor())) {
+    // Row of 3 Clean Single-Word Hub Buttons: LOADOUT | RECORDS | SETTINGS
+    float rowW = 636.0f;
+    float btnW = 200.0f;
+    float gap  = 18.0f;
+    float rowX = cx - rowW * 0.5f;
+    Rectangle btnLoadout  = { rowX,                    458.0f, btnW, 52.0f };
+    Rectangle btnRecords  = { rowX + (btnW + gap),     458.0f, btnW, 52.0f };
+    Rectangle btnSettings = { rowX + (btnW + gap) * 2, 458.0f, btnW, 52.0f };
+
+    if (DrawCleanHubBtn(btnLoadout, "LOADOUT", 19, GetSubclassAccentColor(), false)) {
         SetScreenState(ScreenState::SUBCLASS_ARMORY);
         audio_.PlayUiSelect();
     }
-
-    const char* towerTitle = hasGamepad ? "TOWER [(Y)]" : "TOWER [T]";
-    if (DrawDirectorButton(btnHangar, towerTitle, "Shells & Drones", ORANGE)) {
-        SetScreenState(ScreenState::SHELL_HANGAR);
-        audio_.PlayUiSelect();
-    }
-
-    int unlockedCount = 0;
-    for (bool b : profile_.unlockedTriumphs) if (b) unlockedCount++;
-    char triSub[64];
-    std::snprintf(triSub, sizeof(triSub), "%d / %d Triumphs", unlockedCount, static_cast<int>(NUM_TRIUMPHS));
-    const char* triTitle = hasGamepad ? "TRIUMPHS [(RB)]" : "TRIUMPHS [R]";
-    if (DrawDirectorButton(btnTriumphs, triTitle, triSub, GREEN)) {
+    if (DrawCleanHubBtn(btnRecords, "RECORDS", 19, GREEN, false)) {
         SetScreenState(ScreenState::TRIUMPHS_LOG);
         audio_.PlayUiSelect();
     }
-
-    char carSub[64];
-    std::snprintf(carSub, sizeof(carSub), "Runs: %d | Gates: %d", profile_.totalRunsStarted, profile_.totalDistanceFlown);
-    if (DrawDirectorButton(btnCareer, "CAREER [C]", carSub, GOLD)) {
-        SetScreenState(ScreenState::CAREER_STATS);
-        audio_.PlayUiSelect();
-    }
-
-    const char* setBtnTitle = hasGamepad ? "SETTINGS [BACK]" : "SETTINGS [S]";
-    if (DrawDirectorButton(btnSettings, setBtnTitle, "Audio & Controls", PURPLE)) {
+    if (DrawCleanHubBtn(btnSettings, "SETTINGS", 19, PURPLE, false)) {
+        settingsTab_ = 0;
         settingsPrevState_ = ScreenState::TITLE_DIRECTOR;
         SetScreenState(ScreenState::SETTINGS_VIEW);
         audio_.PlayUiSelect();
     }
-
-    const char* ctrlHint = hasGamepad
-                         ? "CONTROLS: [(A) / START] Launch Patrol  |  [(X)] Nightfall  |  [(Y)] Tower  |  [(B)] Back"
-                         : "CONTROLS: [SPACE] Patrol  |  [N] Nightfall  |  [T] Tower  |  [C] Career  |  [N-Key in run] Next OST Track";
-    int chw = MeasureText(ctrlHint, 14);
-    DrawText(ctrlHint, (VIRTUAL_WIDTH - chw) / 2, 545, 14, { 180, 210, 235, 215 });
 
     RenderBottomBrandingFooter();
 }
@@ -1179,13 +1153,29 @@ void GhostGame::RenderTitleDirector() {
 void GhostGame::RenderSubclassArmory() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
     float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
-    DrawText("GUARDIAN SUBCLASS ARMORY // LIGHT & DARKNESS", static_cast<int>(uiX + 50), 24, 26, WHITE);
-    DrawText("Tacticals work everywhere. Super abilities charge & unleash exclusively in Nightfall Strike!", static_cast<int>(uiX + 50), 56, 15, LIGHTGRAY);
+    DrawText("LOADOUT", static_cast<int>(uiX + 50), 22, 26, WHITE);
 
     char glimHeader[64];
-    std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
+    std::snprintf(glimHeader, sizeof(glimHeader), "GLIMMER: %d", profile_.glimmer);
     int ghw = MeasureText(glimHeader, 20);
-    DrawText(glimHeader, static_cast<int>(uiX + 1230.0f) - ghw, 28, 20, SKYBLUE);
+    DrawText(glimHeader, static_cast<int>(uiX + 1230.0f) - ghw, 26, 20, SKYBLUE);
+
+    const char* loadoutTabs[6] = { "SUBCLASS", "SHELLS I", "SHELLS II", "DRONES", "SHADERS", "CATALYSTS" };
+    Color loadoutCols[6] = { GetSubclassAccentColor(), SKYBLUE, ORANGE, GREEN, Color{ 255, 120, 220, 255 }, GOLD };
+    for (int t = 0; t < 6; ++t) {
+        Rectangle tabR = { uiX + 50.0f + t * 198.0f, 58.0f, 188.0f, 34.0f };
+        bool active = (t == 0);
+        DrawRectangleRec(tabR, active ? loadoutCols[t] : Color{ 22, 30, 48, 255 });
+        DrawRectangleLinesEx(tabR, 1.5f, active ? WHITE : loadoutCols[t]);
+        int tw = MeasureText(loadoutTabs[t], 14);
+        DrawText(loadoutTabs[t], static_cast<int>(tabR.x + (tabR.width - tw) * 0.5f), static_cast<int>(tabR.y + 10), 14, active ? BLACK : WHITE);
+        if (t > 0 && IsButtonClicked(tabR)) {
+            towerTab_ = t - 1;
+            SetScreenState(ScreenState::SHELL_HANGAR);
+            audio_.PlayUiSelect();
+            return;
+        }
+    }
 
     struct SubCard {
         int idx;
@@ -1228,7 +1218,7 @@ void GhostGame::RenderSubclassArmory() {
     for (int i = 0; i < static_cast<int>(NUM_SUBCLASSES); ++i) {
         int col = i % 3;
         int row = i / 3;
-        Rectangle cardRect = { uiX + 50.0f + col * 398.0f, 86.0f + row * 242.0f, 384.0f, 228.0f };
+        Rectangle cardRect = { uiX + 50.0f + col * 398.0f, 102.0f + row * 234.0f, 384.0f, 224.0f };
         int innerW = static_cast<int>(cardRect.width) - 32; // 352px strictly inside cardRect
         bool unlocked = profile_.unlockedSubclasses[i];
         bool selected = (profile_.selectedSubclass == i);
@@ -1306,39 +1296,29 @@ void GhostGame::RenderSubclassArmory() {
 void GhostGame::RenderShellHangar() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
     float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
-    DrawText("THE TOWER // SHELLS, DRONES, SHADERS & EXOTIC CURIOS", static_cast<int>(uiX + 60), 24, 25, WHITE);
+    DrawText("LOADOUT", static_cast<int>(uiX + 50), 22, 26, WHITE);
 
     char glimHeader[64];
-    std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
+    std::snprintf(glimHeader, sizeof(glimHeader), "GLIMMER: %d", profile_.glimmer);
     int ghw = MeasureText(glimHeader, 20);
-    DrawText(glimHeader, static_cast<int>(uiX + 1220.0f) - ghw, 28, 20, SKYBLUE);
+    DrawText(glimHeader, static_cast<int>(uiX + 1230.0f) - ghw, 26, 20, SKYBLUE);
 
-    // 5 Sub-tabs inside The Tower:
-    // [0] Shells I | [1] Shells II | [2] Combat Drones | [3] Eva's Shaders | [4] Xur's Catalysts
-    const char* tabLabels[5] = {
-        "SHELLS I: VANGUARD",
-        "SHELLS II: EXOTIC",
-        "COMBAT DRONES",
-        "EVA'S SHADERS",
-        "XUR'S CATALYSTS"
-    };
-    Color tabColors[5] = {
-        SKYBLUE,
-        ORANGE,
-        GREEN,
-        Color{ 255, 120, 220, 255 },
-        GOLD
-    };
-    for (int t = 0; t < 5; ++t) {
-        Rectangle tabR = { uiX + 60.0f + t * 234.0f, 60.0f, 224.0f, 34.0f };
-        bool active = (towerTab_ == t);
-        DrawRectangleRec(tabR, active ? tabColors[t] : Color{ 22, 30, 48, 255 });
-        DrawRectangleLinesEx(tabR, 1.5f, active ? WHITE : tabColors[t]);
-        int tw = MeasureText(tabLabels[t], 14);
-        DrawText(tabLabels[t], static_cast<int>(tabR.x + (tabR.width - tw) * 0.5f),
-                 static_cast<int>(tabR.y + 10), 14, active ? BLACK : WHITE);
+    const char* loadoutTabs[6] = { "SUBCLASS", "SHELLS I", "SHELLS II", "DRONES", "SHADERS", "CATALYSTS" };
+    Color loadoutCols[6] = { GetSubclassAccentColor(), SKYBLUE, ORANGE, GREEN, Color{ 255, 120, 220, 255 }, GOLD };
+    for (int t = 0; t < 6; ++t) {
+        Rectangle tabR = { uiX + 50.0f + t * 198.0f, 58.0f, 188.0f, 34.0f };
+        bool active = (t > 0 && towerTab_ == (t - 1));
+        DrawRectangleRec(tabR, active ? loadoutCols[t] : Color{ 22, 30, 48, 255 });
+        DrawRectangleLinesEx(tabR, 1.5f, active ? WHITE : loadoutCols[t]);
+        int tw = MeasureText(loadoutTabs[t], 14);
+        DrawText(loadoutTabs[t], static_cast<int>(tabR.x + (tabR.width - tw) * 0.5f), static_cast<int>(tabR.y + 10), 14, active ? BLACK : WHITE);
         if (IsButtonClicked(tabR)) {
-            towerTab_ = t;
+            if (t == 0) {
+                SetScreenState(ScreenState::SUBCLASS_ARMORY);
+                audio_.PlayUiSelect();
+                return;
+            }
+            towerTab_ = t - 1;
             audio_.PlayUiSelect();
         }
     }
@@ -1680,16 +1660,78 @@ void GhostGame::RenderSettingsView() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 245 });
     float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
 
-    const char* sTitle = "SYSTEM SETTINGS // AUDIO, VISUALS & CONTROLS";
-    DrawText(sTitle, static_cast<int>(uiX + 70), 32, 26, WHITE);
+    DrawText("SETTINGS", static_cast<int>(uiX + 70), 28, 26, WHITE);
+    Rectangle tabSet0 = { uiX + 380.0f, 24.0f, 220.0f, 34.0f };
+    Rectangle tabSet1 = { uiX + 612.0f, 24.0f, 220.0f, 34.0f };
+    DrawRectangleRec(tabSet0, (settingsTab_ == 0) ? SKYBLUE : Color{ 22, 30, 48, 255 });
+    DrawRectangleLinesEx(tabSet0, 1.5f, (settingsTab_ == 0) ? WHITE : SKYBLUE);
+    int s0w = MeasureText("OPTIONS", 14);
+    DrawText("OPTIONS", static_cast<int>(tabSet0.x + (tabSet0.width - s0w) * 0.5f), 34, 14, (settingsTab_ == 0) ? BLACK : WHITE);
+    DrawRectangleRec(tabSet1, (settingsTab_ == 1) ? GOLD : Color{ 22, 30, 48, 255 });
+    DrawRectangleLinesEx(tabSet1, 1.5f, (settingsTab_ == 1) ? WHITE : GOLD);
+    int s1w = MeasureText("CONTROLS", 14);
+    DrawText("CONTROLS", static_cast<int>(tabSet1.x + (tabSet1.width - s1w) * 0.5f), 34, 14, (settingsTab_ == 1) ? BLACK : WHITE);
+    if (IsButtonClicked(tabSet0)) { settingsTab_ = 0; audio_.PlayUiSelect(); }
+    if (IsButtonClicked(tabSet1)) { settingsTab_ = 1; audio_.PlayUiSelect(); }
 
-    // Active Input Device Readout
     char devBuf[128];
-    std::snprintf(devBuf, sizeof(devBuf), "ACTIVE INPUT: %s", activeInputDevice_.c_str());
-    int dw = MeasureText(devBuf, 16);
-    DrawText(devBuf, static_cast<int>(uiX + 1210.0f) - dw, 38, 16, GOLD);
+    std::snprintf(devBuf, sizeof(devBuf), "INPUT: %s", activeInputDevice_.c_str());
+    int dw = MeasureText(devBuf, 15);
+    DrawText(devBuf, static_cast<int>(uiX + 1210.0f) - dw, 34, 15, GOLD);
 
     DrawLine(static_cast<int>(uiX + 70), 72, static_cast<int>(uiX + 1210), 72, { 255, 255, 255, 55 });
+
+    if (settingsTab_ == 1) {
+        auto DrawCtrlCard = [&](float x, const char* hdr, Color col, const std::initializer_list<const char*>& rows) {
+            Rectangle cr = { x, 96.0f, 360.0f, 420.0f };
+            DrawRectangleRec(cr, { 14, 20, 36, 230 });
+            DrawRectangleLinesEx(cr, 2.0f, col);
+            DrawRectangle(static_cast<int>(cr.x), static_cast<int>(cr.y), static_cast<int>(cr.width), 36, { 22, 32, 52, 245 });
+            DrawText(hdr, static_cast<int>(cr.x + 18), static_cast<int>(cr.y + 10), 16, col);
+            float ry = cr.y + 54.0f;
+            for (const char* line : rows) {
+                DrawText(line, static_cast<int>(cr.x + 18), static_cast<int>(ry), 14, WHITE);
+                ry += 38.0f;
+            }
+        };
+        DrawCtrlCard(uiX + 70.0f, "KEYBOARD & MOUSE", SKYBLUE, {
+            "SPACE / W / Click : Flap",
+            "SHIFT / E / R-Click : Tactical Blink",
+            "C / X : Fire Combat Drone",
+            "F / Q : Cast Nightfall Super",
+            "N : Next Soundtrack",
+            "M : Mute Audio",
+            "F11 / Alt+Enter : Fullscreen",
+            "ESC / P : Pause Flight"
+        });
+        DrawCtrlCard(uiX + 460.0f, "GAMEPAD CONTROLLER", GOLD, {
+            "(A) / Cross : Flap",
+            "(B) / LB : Tactical Blink",
+            "(X) / RT : Fire Combat Drone",
+            "(Y) / RB : Cast Nightfall Super",
+            "R-Stick Click : Next Soundtrack",
+            "START / Options : Pause Flight"
+        });
+        DrawCtrlCard(uiX + 850.0f, "MOBILE & TOUCH", GREEN, {
+            "Tap Anywhere : Flap",
+            "Hold Tap (Dawnblade) : Solar Glide",
+            "[BLINK / DASH] : Tactical Ability",
+            "[FIRE DRONE] : Combat Drone (Nightfall)",
+            "[CAST SUPER] : Super Ability (Nightfall)",
+            "Top-Right [II] : Pause Flight"
+        });
+        DrawLine(static_cast<int>(uiX + 70), 545, static_cast<int>(uiX + 1210), 545, { 255, 255, 255, 45 });
+        Rectangle backBtn = { uiX + 70.0f, 580.0f, 260.0f, 48.0f };
+        DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
+        DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
+        DrawText("< BACK", static_cast<int>(backBtn.x + 98), static_cast<int>(backBtn.y + 16), 16, WHITE);
+        if (IsButtonClicked(backBtn) || IsKeyPressed(KEY_ESCAPE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) {
+            SaveData();
+            SetScreenState(settingsPrevState_);
+            audio_.PlayUiSelect();
+        }
+        return;
+    }
 
     // --- LEFT COLUMN: AUDIO CONTROLS ---
     DrawText("AUDIO BALANCING", static_cast<int>(uiX + 70), 92, 18, SKYBLUE);
@@ -1891,8 +1933,18 @@ void GhostGame::RenderCareerStats() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 24, 245 });
     float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
 
-    const char* sTitle = "VANGUARD CAREER DOSSIER";
-    DrawText(sTitle, static_cast<int>(uiX + 70), 32, 22, GOLD);
+    DrawText("RECORDS", static_cast<int>(uiX + 70), 28, 26, WHITE);
+    Rectangle tabTri = { uiX + 430.0f, 24.0f, 200.0f, 34.0f };
+    Rectangle tabCar = { uiX + 642.0f, 24.0f, 200.0f, 34.0f };
+    DrawRectangleRec(tabTri, Color{ 22, 30, 48, 255 });
+    DrawRectangleLinesEx(tabTri, 1.5f, GREEN);
+    int ttw = MeasureText("TRIUMPHS", 14);
+    DrawText("TRIUMPHS", static_cast<int>(tabTri.x + (tabTri.width - ttw) * 0.5f), 34, 14, WHITE);
+    DrawRectangleRec(tabCar, GOLD);
+    DrawRectangleLinesEx(tabCar, 1.5f, WHITE);
+    int tcw = MeasureText("CAREER", 14);
+    DrawText("CAREER", static_cast<int>(tabCar.x + (tabCar.width - tcw) * 0.5f), 34, 14, BLACK);
+    if (IsButtonClicked(tabTri)) { SetScreenState(ScreenState::TRIUMPHS_LOG); audio_.PlayUiSelect(); return; }
 
     char glimBuf[128];
     std::snprintf(glimBuf, sizeof(glimBuf), "CURRENT GLIMMER IN VAULT: %d G", profile_.glimmer);
@@ -1998,7 +2050,18 @@ void GhostGame::RenderCareerStats() {
 void GhostGame::RenderTriumphsLog() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 8, 12, 22, 230 });
     float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
-    DrawText("VANGUARD RECORD // DAILY BOUNTIES & TRIUMPHS", static_cast<int>(uiX + 70), 32, 26, WHITE);
+    DrawText("RECORDS", static_cast<int>(uiX + 70), 28, 26, WHITE);
+    Rectangle tabTri = { uiX + 430.0f, 24.0f, 200.0f, 34.0f };
+    Rectangle tabCar = { uiX + 642.0f, 24.0f, 200.0f, 34.0f };
+    DrawRectangleRec(tabTri, GREEN);
+    DrawRectangleLinesEx(tabTri, 1.5f, WHITE);
+    int ttw = MeasureText("TRIUMPHS", 14);
+    DrawText("TRIUMPHS", static_cast<int>(tabTri.x + (tabTri.width - ttw) * 0.5f), 34, 14, BLACK);
+    DrawRectangleRec(tabCar, Color{ 22, 30, 48, 255 });
+    DrawRectangleLinesEx(tabCar, 1.5f, GOLD);
+    int tcw = MeasureText("CAREER", 14);
+    DrawText("CAREER", static_cast<int>(tabCar.x + (tabCar.width - tcw) * 0.5f), 34, 14, WHITE);
+    if (IsButtonClicked(tabCar)) { SetScreenState(ScreenState::CAREER_STATS); audio_.PlayUiSelect(); return; }
 
     char glimHeader[64];
     std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);

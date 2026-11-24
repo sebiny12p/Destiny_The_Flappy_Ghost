@@ -147,6 +147,8 @@ private:
     float touchFeedbackDrn_ = 0.0f;
     float touchFeedbackPause_ = 0.0f;
     // Settings state & confirmation modal
+    bool menuSelectNightfall_ = false;
+    int settingsTab_ = 0;
     bool showResetConfirm_ = false;
     ScreenState settingsPrevState_ = ScreenState::TITLE_DIRECTOR;
     std::string activeInputDevice_ = "KEYBOARD & MOUSE";
