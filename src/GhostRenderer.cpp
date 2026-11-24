@@ -1646,7 +1646,7 @@ void GhostGame::RenderShellHangar() {
         }
     }
 
-    Rectangle backBtn = { uiX + 60.0f, 585.0f, 235.0f, 48.0f };
+    Rectangle backBtn = { uiX + 50.0f, 585.0f, 235.0f, 48.0f };
     DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
@@ -1947,9 +1947,9 @@ void GhostGame::RenderCareerStats() {
     if (IsButtonClicked(tabTri)) { SetScreenState(ScreenState::TRIUMPHS_LOG); audio_.PlayUiSelect(); return; }
 
     char glimBuf[128];
-    std::snprintf(glimBuf, sizeof(glimBuf), "CURRENT GLIMMER IN VAULT: %d G", profile_.glimmer);
-    int gbw = MeasureText(glimBuf, 15);
-    DrawText(glimBuf, static_cast<int>(uiX + 1210.0f) - gbw, 36, 15, SKYBLUE);
+    std::snprintf(glimBuf, sizeof(glimBuf), "GLIMMER: %d", profile_.glimmer);
+    int gbw = MeasureText(glimBuf, 18);
+    DrawText(glimBuf, static_cast<int>(uiX + 1210.0f) - gbw, 32, 18, SKYBLUE);
 
     DrawLine(static_cast<int>(uiX + 70), 68, static_cast<int>(uiX + 1210), 68, { 255, 255, 255, 55 });
 
@@ -2036,11 +2036,10 @@ void GhostGame::RenderCareerStats() {
     DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Current Soundtrack:", audio_.GetCurrentActionTrackName(), ORANGE);
 
     // Bottom Navigation Bar
-    DrawLine(static_cast<int>(uiX + 70), 580, static_cast<int>(uiX + 1210), 580, { 255, 255, 255, 45 });
-    Rectangle statsBackBtn = { uiX + 70.0f, 600.0f, 260.0f, 48.0f };
+    Rectangle statsBackBtn = { uiX + 70.0f, 585.0f, 235.0f, 48.0f };
     DrawRectangleRec(statsBackBtn, IsRectHovered(statsBackBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
-    DrawRectangleLinesEx(statsBackBtn, 2.0f, ORANGE);
-    DrawText("< BACK TO DIRECTOR [ESC]", static_cast<int>(statsBackBtn.x + 26), static_cast<int>(statsBackBtn.y + 16), 16, WHITE);
+    DrawRectangleLinesEx(statsBackBtn, 2.0f, SKYBLUE);
+    DrawText("< RETURN TO DIRECTOR", static_cast<int>(statsBackBtn.x + 18), static_cast<int>(statsBackBtn.y + 16), 16, WHITE);
     if (IsButtonClicked(statsBackBtn) || IsKeyPressed(KEY_ESCAPE) || (IsGamepadAvailable(0) && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))) {
         SetScreenState(ScreenState::TITLE_DIRECTOR);
         audio_.PlayUiSelect();
@@ -2064,9 +2063,10 @@ void GhostGame::RenderTriumphsLog() {
     if (IsButtonClicked(tabCar)) { SetScreenState(ScreenState::CAREER_STATS); audio_.PlayUiSelect(); return; }
 
     char glimHeader[64];
-    std::snprintf(glimHeader, sizeof(glimHeader), "AVAILABLE GLIMMER: %d", profile_.glimmer);
+    std::snprintf(glimHeader, sizeof(glimHeader), "GLIMMER: %d", profile_.glimmer);
     int ghw = MeasureText(glimHeader, 18);
-    DrawText(glimHeader, static_cast<int>(uiX + 1210.0f) - ghw, 36, 18, SKYBLUE);
+    DrawText(glimHeader, static_cast<int>(uiX + 1210.0f) - ghw, 32, 18, SKYBLUE);
+    DrawLine(static_cast<int>(uiX + 70), 68, static_cast<int>(uiX + 1210), 68, { 255, 255, 255, 55 });
 
     // --- SECTION 1: ROTATING DAILY VANGUARD BOUNTIES (3 ACTIVE) ---
     DrawText("ACTIVE DAILY BOUNTIES (RESETS EVERY 24H)", static_cast<int>(uiX + 70), 72, 16, GOLD);
@@ -2160,7 +2160,7 @@ void GhostGame::RenderTriumphsLog() {
         DrawRectangleRec(thumbR, hov ? GOLD : Color{ 80, 140, 200, 220 });
     }
 
-    Rectangle backBtn = { uiX + 70.0f, 580.0f, 235.0f, 48.0f };
+    Rectangle backBtn = { uiX + 70.0f, 585.0f, 235.0f, 48.0f };
     DrawRectangleRec(backBtn, IsRectHovered(backBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 35, 52, 255 });
     DrawRectangleLinesEx(backBtn, 2.0f, SKYBLUE);
     DrawText("< RETURN TO DIRECTOR", static_cast<int>(backBtn.x + 18), static_cast<int>(backBtn.y + 16), 16, WHITE);
