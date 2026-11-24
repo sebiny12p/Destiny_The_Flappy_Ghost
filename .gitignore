@@ -8,3 +8,6 @@ obj/
 flappy_ghost_save.dat
 railfinity_save.dat
 *.apk.idsig
+/*.exe
+/*.apk
+/*.zip

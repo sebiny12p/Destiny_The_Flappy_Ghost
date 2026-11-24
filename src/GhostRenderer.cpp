@@ -13,6 +13,82 @@
 namespace FlappyGhost {
 
 namespace {
+Font g_uiFontBody{};
+Font g_uiFontBold{};
+
+Font LoadCrispUiFont(const std::initializer_list<const char*>& paths, int baseSize) {
+    int codepoints[232];
+    int count = 0;
+    for (int cp = 32; cp <= 255; ++cp) codepoints[count++] = cp;
+    codepoints[count++] = 8211;
+    codepoints[count++] = 8212;
+    codepoints[count++] = 8226;
+    codepoints[count++] = 8776;
+    for (const char* p : paths) {
+#if !defined(PLATFORM_ANDROID)
+        if (!FileExists(p)) continue;
+#endif
+        Font f = LoadFontEx(p, baseSize, codepoints, count);
+        if (f.texture.id != 0) {
+            SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
+            return f;
+        }
+    }
+    return Font{};
+}
+
+int MeasureGameText(const char* text, int fontSize) {
+    if (!text || !text[0]) return 0;
+    const Font& f = (fontSize >= 20) ? g_uiFontBold : g_uiFontBody;
+    if (f.texture.id == 0) return ::MeasureText(text, fontSize);
+    float scaledFs = static_cast<float>(fontSize) * 1.10f;
+    float spacing = std::max(0.5f, static_cast<float>(fontSize) * 0.03f);
+    Vector2 sz = MeasureTextEx(f, text, scaledFs, spacing);
+    return static_cast<int>(std::ceil(sz.x));
+}
+
+void DrawGameText(const char* text, int posX, int posY, int fontSize, Color color) {
+    if (!text || !text[0]) return;
+    const Font& f = (fontSize >= 20) ? g_uiFontBold : g_uiFontBody;
+    if (f.texture.id == 0) {
+        ::DrawText(text, posX, posY, fontSize, color);
+        return;
+    }
+    float scaledFs = static_cast<float>(fontSize) * 1.10f;
+    float spacing = std::max(0.5f, static_cast<float>(fontSize) * 0.03f);
+    Vector2 pos = { static_cast<float>(posX), static_cast<float>(posY) - scaledFs * 0.06f };
+    if (color.a > 40 && (static_cast<int>(color.r) + static_cast<int>(color.g) + static_cast<int>(color.b)) > 95) {
+        unsigned char shA = static_cast<unsigned char>(std::min(220, static_cast<int>(color.a * 0.72f)));
+        DrawTextEx(f, text, { pos.x + 1.0f, pos.y + 1.0f }, scaledFs, spacing, { 0, 0, 0, shA });
+    }
+    DrawTextEx(f, text, pos, scaledFs, spacing, color);
+}
+} // namespace
+
+void GhostGame::InitUiFonts() {
+    if (g_uiFontBody.texture.id == 0) {
+        g_uiFontBody = LoadCrispUiFont({ "assets/ui_medium.ttf", "ui_medium.ttf", "../assets/ui_medium.ttf", "build/assets/ui_medium.ttf" }, 34);
+    }
+    if (g_uiFontBold.texture.id == 0) {
+        g_uiFontBold = LoadCrispUiFont({ "assets/ui_bold.ttf", "ui_bold.ttf", "../assets/ui_bold.ttf", "build/assets/ui_bold.ttf" }, 68);
+    }
+}
+
+void GhostGame::ShutdownUiFonts() {
+    if (g_uiFontBody.texture.id != 0) {
+        UnloadFont(g_uiFontBody);
+        g_uiFontBody = Font{};
+    }
+    if (g_uiFontBold.texture.id != 0) {
+        UnloadFont(g_uiFontBold);
+        g_uiFontBold = Font{};
+    }
+}
+
+#define MeasureText MeasureGameText
+#define DrawText DrawGameText
+
+namespace {
 void DrawTextWrapped(const char* text, int x, int y, int maxWidth, int fontSize, int lineHeight, Color color) {
     if (!text || !text[0]) return;
     std::string input(text);

@@ -155,6 +155,7 @@ void GhostGame::UpdateVirtualResolution() {
 
 void GhostGame::Init() {
     UpdateVirtualResolution();
+    InitUiFonts();
 
     audio_.Init();
     LoadSaveData();
@@ -192,6 +193,7 @@ void GhostGame::Init() {
 
 void GhostGame::Shutdown() {
     SaveData();
+    ShutdownUiFonts();
     audio_.Shutdown();
     if (splashLogo_.id != 0) {
         UnloadTexture(splashLogo_);
@@ -399,6 +401,8 @@ void GhostGame::StartNewRun(bool dailyNightfall) {
     for (auto& pr : projectiles_) pr.active = false;
 
     nextObstacleSpawnX_ = 760.0f;
+    lastObstacleGapY_ = VIRTUAL_HEIGHT * 0.5f;
+    lastObstacleMoving_ = false;
     for (int i = 0; i < 4; ++i) {
         SpawnNextObstacle();
     }
@@ -818,16 +822,12 @@ void GhostGame::SpawnNextObstacle() {
     slot->oracleDestroyed = false;
     slot->oracleHealth = 1.0f;
 
-    float difficulty = std::min(1.0f, static_cast<float>(scoreGates_) / 70.0f);
-    float minGap = isNightfallMode_ ? 148.0f : 156.0f;
-    slot->gapHeight = std::max(minGap, 210.0f - difficulty * 50.0f);
+    float difficulty = std::min(1.0f, static_cast<float>(scoreGates_) / 90.0f);
+    float minGap = isNightfallMode_ ? 162.0f : 168.0f;
+    slot->gapHeight = std::max(minGap, 215.0f - difficulty * 47.0f);
     if (boss_.active) {
         slot->gapHeight += 28.0f;
     }
-
-    float margin = 125.0f + slot->gapHeight * 0.5f;
-    slot->baseGapY = rng_.RangeFloat(margin, VIRTUAL_HEIGHT - margin);
-    slot->gapCenterY = slot->baseGapY;
     slot->movePhase = rng_.RangeFloat(0.0f, 6.28f);
 
     float roll = rng_.NextFloat();
@@ -836,23 +836,41 @@ void GhostGame::SpawnNextObstacle() {
         slot->moveSpeedY = 0.0f;
     } else if ((biome == BiomeSector::VAULT_OF_GLASS || biome == BiomeSector::EUROPA_BRAYTECH) && roll < 0.45f) {
         slot->kind = ObstacleKind::MOVING_VEX_LASER;
-        slot->moveSpeedY = rng_.RangeFloat(1.6f, 2.8f);
+        slot->moveSpeedY = rng_.RangeFloat(1.35f, 2.05f);
     } else if (isNightfallMode_ && (biome == BiomeSector::VAULT_OF_GLASS || biome == BiomeSector::HELLMOUTH || biome == BiomeSector::DREAMING_CITY || biome == BiomeSector::SAVATHUNS_THRONE_WORLD) && roll < 0.72f) {
         slot->kind = ObstacleKind::ROTATING_ORACLE;
         slot->gapHeight += 36.0f;
-        slot->moveSpeedY = rng_.RangeFloat(1.0f, 2.0f);
+        slot->moveSpeedY = rng_.RangeFloat(0.95f, 1.65f);
         slot->hazardRadius = 26.0f;
     } else if (isNightfallMode_ && (biome == BiomeSector::ASCENDANT_PLANE || biome == BiomeSector::PALE_HEART) && roll < 0.36f) {
         slot->kind = ObstacleKind::TAKEN_BLIGHT_WELL;
         slot->gapHeight += 48.0f;
-        slot->moveSpeedY = rng_.RangeFloat(1.2f, 2.0f);
+        slot->moveSpeedY = rng_.RangeFloat(1.0f, 1.65f);
         slot->hazardRadius = 26.0f;
     } else {
         slot->kind = ObstacleKind::STANDARD_GATE;
-        slot->moveSpeedY = (roll < 0.30f + difficulty * 0.30f) ? rng_.RangeFloat(1.2f, 2.2f) : 0.0f;
+        slot->moveSpeedY = (roll < 0.25f + difficulty * 0.25f) ? rng_.RangeFloat(1.05f, 1.80f) : 0.0f;
     }
 
-    float spacing = std::max(300.0f, 385.0f - difficulty * 65.0f);
+    bool willMove = (slot->moveSpeedY > 0.0f);
+    float margin = 94.0f + slot->gapHeight * 0.5f + (willMove ? 48.0f : 12.0f);
+    float maxAllowedY = std::max(margin + 10.0f, static_cast<float>(VIRTUAL_HEIGHT) - margin);
+    float oscPenalty = (lastObstacleMoving_ ? 34.0f : 0.0f) + (willMove ? 34.0f : 0.0f);
+    float maxUpStep   = std::max(105.0f, 210.0f - difficulty * 45.0f - oscPenalty);
+    float maxDownStep = std::max(95.0f,  180.0f - difficulty * 40.0f - oscPenalty);
+    float loY = std::max(margin, lastObstacleGapY_ - maxUpStep);
+    float hiY = std::min(maxAllowedY, lastObstacleGapY_ + maxDownStep);
+    if (loY > hiY) {
+        float mid = std::clamp(0.5f * (loY + hiY), margin, maxAllowedY);
+        loY = mid;
+        hiY = mid;
+    }
+    slot->baseGapY = (scoreGates_ == 0) ? rng_.RangeFloat(margin, maxAllowedY) : rng_.RangeFloat(loY, hiY);
+    slot->gapCenterY = slot->baseGapY;
+    lastObstacleGapY_ = slot->baseGapY;
+    lastObstacleMoving_ = willMove;
+
+    float spacing = std::max(348.0f, 395.0f - difficulty * 45.0f);
     float midX = slot->x + spacing * 0.52f;
     float midY = rng_.RangeFloat(150.0f, VIRTUAL_HEIGHT - 150.0f);
 
@@ -1265,7 +1283,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
     runTime_ += dt;
     distanceMeters_ += (scrollSpeed_ * 0.025f) * dt;
 
-    float targetSpeed = (isNightfallMode_ ? 345.0f : 310.0f) + std::min(190.0f, scoreGates_ * 2.6f);
+    float targetSpeed = (isNightfallMode_ ? 340.0f : 310.0f) + std::min(130.0f, scoreGates_ * 1.65f);
     if (ghost_.stasisFreezeTimer > 0.0f) {
         targetSpeed *= 0.72f; // Stasis slows incoming barrier velocity!
     }
@@ -1409,7 +1427,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
         o.x -= scrollSpeed_ * dt;
 
         if (o.moveSpeedY > 0.0f && !o.frozenByStasis && ghost_.stasisFreezeTimer <= 0.0f) {
-            o.gapCenterY = o.baseGapY + std::sin(runTime_ * o.moveSpeedY + o.movePhase) * 68.0f;
+            o.gapCenterY = o.baseGapY + std::sin(runTime_ * o.moveSpeedY + o.movePhase) * 48.0f;
         }
 
         if (o.kind == ObstacleKind::TAKEN_BLIGHT_WELL && !o.oracleDestroyed && !o.frozenByStasis) {

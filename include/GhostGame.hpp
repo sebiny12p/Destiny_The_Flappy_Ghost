@@ -72,6 +72,8 @@ private:
     bool IsRectHovered(Rectangle rect) const;
 
     // Rendering (implemented in GhostRenderer.cpp)
+    void InitUiFonts();
+    void ShutdownUiFonts();
     void RenderFrame();
     void RenderStarfieldAndBackdrop() const;
     void RenderBiomeEnvironment() const;
@@ -119,6 +121,8 @@ private:
     float distanceMeters_ = 0.0f;
     float scrollSpeed_ = 310.0f;
     float nextObstacleSpawnX_ = 0.0f;
+    float lastObstacleGapY_ = 360.0f;
+    bool lastObstacleMoving_ = false;
     int scoreGates_ = 0;
     int streakGates_ = 0;
     int runMotes_ = 0;
