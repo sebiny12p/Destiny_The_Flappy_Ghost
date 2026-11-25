@@ -350,8 +350,63 @@ void GhostGame::TriggerVanguardMedal(const char* medalName, int glimmerBonus, Co
     runGlimmerEarned_ += glimmerBonus;
 }
 
+bool GhostGame::HasAffordableLoadoutTab(int tab) const {
+    if (tab == 0) {
+        static constexpr int SUB_COSTS[NUM_SUBCLASSES] = { 0, 0, 0, 500, 500, 1500 };
+        for (size_t i = 0; i < NUM_SUBCLASSES; ++i) {
+            if (!profile_.unlockedSubclasses[i] && profile_.glimmer >= SUB_COSTS[i]) return true;
+        }
+        return false;
+    }
+    if (tab == 1 || tab == 2) {
+        const auto& shells = GetShellCatalog();
+        int startIdx = (tab == 1) ? 0 : 6;
+        for (int localIdx = 0; localIdx < 6; ++localIdx) {
+            int idx = startIdx + localIdx;
+            if (idx < static_cast<int>(NUM_SHELLS) && !profile_.unlockedShells[idx] && profile_.glimmer >= shells[idx].glimmerCost) {
+                return true;
+            }
+        }
+        if (profile_.upgrades.lightMagnetLevel < 5 && profile_.glimmer >= 100 * (profile_.upgrades.lightMagnetLevel + 1)) return true;
+        if (profile_.upgrades.superEfficiencyLevel < 5 && profile_.glimmer >= 120 * (profile_.upgrades.superEfficiencyLevel + 1)) return true;
+        if (profile_.upgrades.phaseCooldownLevel < 5 && profile_.glimmer >= 120 * (profile_.upgrades.phaseCooldownLevel + 1)) return true;
+        if (profile_.upgrades.overshieldCapLevel < 3 && profile_.glimmer >= 250 * (profile_.upgrades.overshieldCapLevel + 1)) return true;
+        return false;
+    }
+    if (tab == 3) {
+        const auto& drones = GetDroneCatalog();
+        for (size_t i = 0; i < NUM_DRONES; ++i) {
+            if (!profile_.unlockedDrones[i] && profile_.glimmer >= drones[i].glimmerCost) return true;
+        }
+        return false;
+    }
+    if (tab == 4) {
+        const auto& shaders = GetShaderCatalog();
+        for (size_t i = 0; i < NUM_SHADERS; ++i) {
+            if (!profile_.unlockedShaders[i] && profile_.glimmer >= shaders[i].glimmerCost) return true;
+        }
+        return false;
+    }
+    if (tab == 5) {
+        const auto& exotics = GetExoticCatalog();
+        for (size_t i = 0; i < NUM_EXOTIC_PERKS; ++i) {
+            if (!profile_.unlockedExotics[i] && profile_.glimmer >= exotics[i].glimmerCost) return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+bool GhostGame::HasAnyAffordableUpgrade() const {
+    for (int t = 0; t < 6; ++t) {
+        if (HasAffordableLoadoutTab(t)) return true;
+    }
+    return false;
+}
+
 void GhostGame::StartNewRun(bool dailyNightfall) {
     isNightfallMode_ = dailyNightfall;
+    unpauseRampTimer_ = 0.0f;
     if (dailyNightfall) {
         activeSeed_ = PCG32::GetDailyNightfallSeed();
     } else {
@@ -1016,6 +1071,16 @@ void GhostGame::UpdateFrameInput() {
         ToggleFullscreen();
     }
 
+    if (IsGamepadAvailable(0)) {
+        activeInputDevice_ = GetGamepadName(0);
+        if (activeInputDevice_.empty()) activeInputDevice_ = "GAMEPAD CONTROLLER";
+    } else if (GetTouchPointCount() > 0) {
+        activeInputDevice_ = "TOUCH SCREEN";
+    } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ESCAPE) ||
+               IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
+        activeInputDevice_ = "KEYBOARD & MOUSE";
+    }
+
     if (state_ == ScreenState::PLAYING) {
         // Music Jukebox Skip: N or Gamepad Right Stick Click
         if (IsKeyPressed(KEY_N) || (IsGamepadAvailable(0) && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_THUMB))) {
@@ -1236,8 +1301,11 @@ void GhostGame::UpdateFrameInput() {
         bool padResume = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN));
         bool padBack = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
         if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P) || IsKeyPressed(KEY_SPACE) || padResume) {
+            unpauseRampTimer_ = 0.75f;
             SetScreenState(ScreenState::PLAYING);
             audio_.PlayUiSelect();
+        } else if (IsKeyPressed(KEY_R)) {
+            StartNewRun(isNightfallMode_);
         } else if (padBack) {
             SaveData();
             SetScreenState(ScreenState::TITLE_DIRECTOR);
@@ -1246,23 +1314,56 @@ void GhostGame::UpdateFrameInput() {
     } else if (state_ == ScreenState::LIGHT_FADED) {
         bool hasGamepad = IsGamepadAvailable(0);
         bool padRestart = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT));
+        bool padLoadout = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_UP);
         bool padDirector = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
         if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_R) || padRestart) {
             StartNewRun(isNightfallMode_);
+        } else if (IsKeyPressed(KEY_L) || padLoadout) {
+            SetScreenState(ScreenState::SUBCLASS_ARMORY);
+            audio_.PlayUiSelect();
         } else if (IsKeyPressed(KEY_ESCAPE) || padDirector) {
             SetScreenState(ScreenState::TITLE_DIRECTOR);
             audio_.PlayUiSelect();
         }
     } else if (state_ != ScreenState::TITLE_DIRECTOR && state_ != ScreenState::TITLE_FRONT_PAGE) {
-        bool hasGamepad = IsGamepadAvailable(0);
-        bool padBack = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
-        if (IsKeyPressed(KEY_ESCAPE) || padBack) {
-            if (state_ == ScreenState::SETTINGS_VIEW) {
-                SetScreenState(settingsPrevState_);
-            } else {
-                SetScreenState(ScreenState::TITLE_DIRECTOR);
+        if (screenTransitionCooldown_ <= 0.0f) {
+            bool hasGamepad = IsGamepadAvailable(0);
+            bool padBack = hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
+            int tabDelta = 0;
+            if (IsKeyPressed(KEY_Q) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_LEFT_TRIGGER_1))) tabDelta = -1;
+            else if (IsKeyPressed(KEY_E) || (hasGamepad && IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_TRIGGER_1))) tabDelta = 1;
+
+            if (IsKeyPressed(KEY_ESCAPE) || padBack) {
+                if (state_ == ScreenState::SETTINGS_VIEW) {
+                    if (showResetConfirm_) {
+                        showResetConfirm_ = false;
+                    } else {
+                        SaveData();
+                        SetScreenState(settingsPrevState_);
+                    }
+                } else {
+                    SetScreenState(ScreenState::TITLE_DIRECTOR);
+                }
+                audio_.PlayUiSelect();
+            } else if (tabDelta != 0) {
+                if (state_ == ScreenState::SUBCLASS_ARMORY || state_ == ScreenState::SHELL_HANGAR) {
+                    int curTab = (state_ == ScreenState::SUBCLASS_ARMORY) ? 0 : (towerTab_ + 1);
+                    int nextTab = (curTab + tabDelta + 6) % 6;
+                    if (nextTab == 0) {
+                        SetScreenState(ScreenState::SUBCLASS_ARMORY);
+                    } else {
+                        towerTab_ = nextTab - 1;
+                        if (state_ != ScreenState::SHELL_HANGAR) SetScreenState(ScreenState::SHELL_HANGAR);
+                    }
+                    audio_.PlayUiSelect();
+                } else if (state_ == ScreenState::TRIUMPHS_LOG || state_ == ScreenState::CAREER_STATS) {
+                    SetScreenState(state_ == ScreenState::TRIUMPHS_LOG ? ScreenState::CAREER_STATS : ScreenState::TRIUMPHS_LOG);
+                    audio_.PlayUiSelect();
+                } else if (state_ == ScreenState::SETTINGS_VIEW) {
+                    settingsTab_ = 1 - settingsTab_;
+                    audio_.PlayUiSelect();
+                }
             }
-            audio_.PlayUiSelect();
         }
     }
 
@@ -1892,6 +1993,13 @@ void GhostGame::RunFrame() {
         screenTransitionCooldown_ = std::max(0.0f, screenTransitionCooldown_ - frameDt);
     }
 
+#if !defined(PLATFORM_ANDROID)
+    if (state_ == ScreenState::PLAYING && (!IsWindowFocused() || IsWindowMinimized())) {
+        unpauseRampTimer_ = 0.0f;
+        SetScreenState(ScreenState::PAUSED);
+    }
+#endif
+
     UpdateFrameInput();
 
     int musicMode = (state_ == ScreenState::SPLASH_INTRO || state_ == ScreenState::TITLE_FRONT_PAGE) ? 0 :
@@ -1899,7 +2007,13 @@ void GhostGame::RunFrame() {
     audio_.UpdateMusic(musicMode);
 
     while (accumulator_ >= FIXED_DT) {
-        UpdateFixed(FIXED_DT);
+        float simScale = 1.0f;
+        if (state_ == ScreenState::PLAYING && unpauseRampTimer_ > 0.0f) {
+            float frac = std::clamp(unpauseRampTimer_ / 0.75f, 0.0f, 1.0f);
+            simScale = 1.0f - 0.75f * frac;
+            unpauseRampTimer_ = std::max(0.0f, unpauseRampTimer_ - FIXED_DT);
+        }
+        UpdateFixed(FIXED_DT * simScale);
         accumulator_ -= FIXED_DT;
     }
 

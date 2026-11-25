@@ -36,6 +36,8 @@ private:
     void ProgressDailyBounty(int bountyType, int count = 1);
     void TriggerVanguardMedal(const char* medalName, int glimmerBonus, Color col = GOLD);
     bool HasUnlockedAnyDrone() const;
+    bool HasAffordableLoadoutTab(int tab) const;
+    bool HasAnyAffordableUpgrade() const;
 
     // Run lifecycle
     void StartNewRun(bool dailyNightfall);
@@ -116,6 +118,7 @@ private:
     uint64_t activeSeed_ = 0;
 
     float accumulator_ = 0.0f;
+    float unpauseRampTimer_ = 0.0f;
     float globalTime_ = 0.0f;
     float runTime_ = 0.0f;
     float distanceMeters_ = 0.0f;

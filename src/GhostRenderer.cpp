@@ -63,6 +63,16 @@ void DrawGameText(const char* text, int posX, int posY, int fontSize, Color colo
     }
     DrawTextEx(f, text, pos, scaledFs, spacing, color);
 }
+
+void DrawUpgradeBadge(Rectangle r, float globalTime) {
+    float pulse = 0.5f + 0.5f * std::sin(globalTime * 5.0f);
+    Vector2 c = { r.x + r.width - 10.0f, r.y + 10.0f };
+    DrawCircleV(c, 8.5f + pulse * 1.5f, Color{ 255, 210, 40, static_cast<unsigned char>(85 + pulse * 80) });
+    DrawCircleV(c, 7.5f, GOLD);
+    DrawCircleLines(static_cast<int>(c.x), static_cast<int>(c.y), 7.5f, WHITE);
+    int ew = MeasureGameText("!", 12);
+    DrawGameText("!", static_cast<int>(c.x - ew * 0.5f), static_cast<int>(c.y - 6.0f), 12, BLACK);
+}
 } // namespace
 
 void GhostGame::InitUiFonts() {
@@ -928,6 +938,15 @@ void GhostGame::RenderHud() const {
         DrawLine(VIRTUAL_WIDTH / 2 - tw / 2 - 24, 132, VIRTUAL_WIDTH / 2 + tw / 2 + 24, 132, { 255, 255, 255, alphaByte });
         DrawText(bName, VIRTUAL_WIDTH / 2 - tw / 2, 141, 20, { 255, 255, 255, alphaByte });
     }
+
+    if (unpauseRampTimer_ > 0.0f) {
+        const char* resMsg = "RESUMING...";
+        int rw = MeasureText(resMsg, 15);
+        Rectangle pill = { VIRTUAL_WIDTH * 0.5f - (rw + 36.0f) * 0.5f, 44.0f, rw + 36.0f, 30.0f };
+        DrawRectangleRec(pill, { 12, 20, 34, 215 });
+        DrawRectangleLinesEx(pill, 1.5f, SKYBLUE);
+        DrawText(resMsg, static_cast<int>(pill.x + (pill.width - rw) * 0.5f), static_cast<int>(pill.y + 8.0f), 15, SKYBLUE);
+    }
 }
 
 void GhostGame::RenderSplashIntro() {
@@ -1136,6 +1155,9 @@ void GhostGame::RenderTitleDirector() {
         SetScreenState(ScreenState::SUBCLASS_ARMORY);
         audio_.PlayUiSelect();
     }
+    if (HasAnyAffordableUpgrade()) {
+        DrawUpgradeBadge(btnLoadout, globalTime_);
+    }
     if (DrawCleanHubBtn(btnRecords, "RECORDS", 19, GREEN, false)) {
         SetScreenState(ScreenState::TRIUMPHS_LOG);
         audio_.PlayUiSelect();
@@ -1169,6 +1191,9 @@ void GhostGame::RenderSubclassArmory() {
         DrawRectangleLinesEx(tabR, 1.5f, active ? WHITE : loadoutCols[t]);
         int tw = MeasureText(loadoutTabs[t], 14);
         DrawText(loadoutTabs[t], static_cast<int>(tabR.x + (tabR.width - tw) * 0.5f), static_cast<int>(tabR.y + 10), 14, active ? BLACK : WHITE);
+        if (HasAffordableLoadoutTab(t)) {
+            DrawUpgradeBadge(tabR, globalTime_);
+        }
         if (t > 0 && IsButtonClicked(tabR)) {
             towerTab_ = t - 1;
             SetScreenState(ScreenState::SHELL_HANGAR);
@@ -1312,6 +1337,9 @@ void GhostGame::RenderShellHangar() {
         DrawRectangleLinesEx(tabR, 1.5f, active ? WHITE : loadoutCols[t]);
         int tw = MeasureText(loadoutTabs[t], 14);
         DrawText(loadoutTabs[t], static_cast<int>(tabR.x + (tabR.width - tw) * 0.5f), static_cast<int>(tabR.y + 10), 14, active ? BLACK : WHITE);
+        if (HasAffordableLoadoutTab(t)) {
+            DrawUpgradeBadge(tabR, globalTime_);
+        }
         if (IsButtonClicked(tabR)) {
             if (t == 0) {
                 SetScreenState(ScreenState::SUBCLASS_ARMORY);
@@ -2174,34 +2202,49 @@ void GhostGame::RenderPauseOverlay() {
     DrawRectangle(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT, { 6, 10, 18, 195 });
     const char* pTitle = "GHOST TELEMETRY PAUSED";
     int pw = MeasureText(pTitle, 38);
-    DrawText(pTitle, (VIRTUAL_WIDTH - pw) / 2, 230, 38, WHITE);
+    DrawText(pTitle, (VIRTUAL_WIDTH - pw) / 2, 196, 38, WHITE);
 
-    Rectangle resumeBtn   = { VIRTUAL_WIDTH / 2.0f - 160.0f, 290.0f, 320.0f, 52.0f };
-    Rectangle settingsBtn = { VIRTUAL_WIDTH / 2.0f - 160.0f, 356.0f, 320.0f, 52.0f };
-    Rectangle dirBtn      = { VIRTUAL_WIDTH / 2.0f - 160.0f, 422.0f, 320.0f, 52.0f };
+#if defined(PLATFORM_ANDROID)
+    bool touchClean = true;
+#else
+    bool touchClean = (activeInputDevice_ == "TOUCH SCREEN");
+#endif
+    bool hasPad = IsGamepadAvailable(0);
 
-    DrawRectangleRec(resumeBtn, IsRectHovered(resumeBtn) ? Color{ 40, 75, 110, 255 } : Color{ 22, 36, 56, 255 });
-    DrawRectangleLinesEx(resumeBtn, 2.0f, SKYBLUE);
-    DrawText("RESUME PATROL [SPACE / (A)]", static_cast<int>(resumeBtn.x + 36), static_cast<int>(resumeBtn.y + 17), 17, WHITE);
+    const char* resLbl = touchClean ? "RESUME"   : (hasPad ? "RESUME (A)"    : "RESUME [SPACE]");
+    const char* rstLbl = touchClean ? "RESTART"  : "RESTART [R]";
+    const char* setLbl = "SETTINGS";
+    const char* dirLbl = touchClean ? "DIRECTOR" : (hasPad ? "DIRECTOR (B)"  : "DIRECTOR [ESC]");
 
-    DrawRectangleRec(settingsBtn, IsRectHovered(settingsBtn) ? Color{ 55, 45, 80, 255 } : Color{ 28, 22, 42, 255 });
-    DrawRectangleLinesEx(settingsBtn, 2.0f, PURPLE);
-    DrawText("SYSTEM SETTINGS", static_cast<int>(settingsBtn.x + 85), static_cast<int>(settingsBtn.y + 17), 17, WHITE);
+    auto DrawPauseBtn = [&](Rectangle r, const char* lbl, Color borderCol, Color hovBg, Color idleBg) -> bool {
+        bool hov = IsRectHovered(r);
+        DrawRectangleRec(r, hov ? hovBg : idleBg);
+        DrawRectangleLinesEx(r, 2.0f, borderCol);
+        int lw = MeasureText(lbl, 17);
+        DrawText(lbl, static_cast<int>(r.x + (r.width - lw) * 0.5f), static_cast<int>(r.y + (r.height - 17.0f) * 0.5f), 17, WHITE);
+        return IsButtonClicked(r);
+    };
 
-    DrawRectangleRec(dirBtn, IsRectHovered(dirBtn) ? Color{ 75, 35, 45, 255 } : Color{ 38, 22, 30, 255 });
-    DrawRectangleLinesEx(dirBtn, 2.0f, ORANGE);
-    DrawText("RETURN TO DIRECTOR", static_cast<int>(dirBtn.x + 62), static_cast<int>(dirBtn.y + 17), 17, WHITE);
+    Rectangle resumeBtn   = { VIRTUAL_WIDTH / 2.0f - 160.0f, 258.0f, 320.0f, 50.0f };
+    Rectangle restartBtn  = { VIRTUAL_WIDTH / 2.0f - 160.0f, 320.0f, 320.0f, 50.0f };
+    Rectangle settingsBtn = { VIRTUAL_WIDTH / 2.0f - 160.0f, 382.0f, 320.0f, 50.0f };
+    Rectangle dirBtn      = { VIRTUAL_WIDTH / 2.0f - 160.0f, 444.0f, 320.0f, 50.0f };
 
-    if (IsButtonClicked(resumeBtn)) {
+    if (DrawPauseBtn(resumeBtn, resLbl, SKYBLUE, Color{ 40, 75, 110, 255 }, Color{ 22, 36, 56, 255 })) {
+        unpauseRampTimer_ = 0.75f;
         SetScreenState(ScreenState::PLAYING);
         audio_.PlayUiSelect();
     }
-    if (IsButtonClicked(settingsBtn)) {
+    if (DrawPauseBtn(restartBtn, rstLbl, GREEN, Color{ 38, 86, 66, 255 }, Color{ 20, 48, 38, 255 })) {
+        StartNewRun(isNightfallMode_);
+    }
+    if (DrawPauseBtn(settingsBtn, setLbl, PURPLE, Color{ 55, 45, 80, 255 }, Color{ 28, 22, 42, 255 })) {
+        settingsTab_ = 0;
         settingsPrevState_ = ScreenState::PAUSED;
         SetScreenState(ScreenState::SETTINGS_VIEW);
         audio_.PlayUiSelect();
     }
-    if (IsButtonClicked(dirBtn)) {
+    if (DrawPauseBtn(dirBtn, dirLbl, ORANGE, Color{ 75, 35, 45, 255 }, Color{ 38, 22, 30, 255 })) {
         SaveData();
         SetScreenState(ScreenState::TITLE_DIRECTOR);
         audio_.PlayUiSelect();
@@ -2235,21 +2278,44 @@ void GhostGame::RenderLightFadedOverlay() {
     DrawText(line2, VIRTUAL_WIDTH / 2 - 190, 374, 18, SKYBLUE);
     DrawText(line3, VIRTUAL_WIDTH / 2 - 190, 408, 18, WHITE);
 
-    Rectangle revBtn = { VIRTUAL_WIDTH / 2.0f - 230.0f, 482.0f, 220.0f, 56.0f };
-    Rectangle dirBtn = { VIRTUAL_WIDTH / 2.0f + 10.0f,  482.0f, 220.0f, 56.0f };
+#if defined(PLATFORM_ANDROID)
+    bool touchClean = true;
+#else
+    bool touchClean = (activeInputDevice_ == "TOUCH SCREEN");
+#endif
+    bool hasPad = IsGamepadAvailable(0);
 
-    DrawRectangleRec(revBtn, IsRectHovered(revBtn) ? Color{ 45, 95, 75, 255 } : Color{ 25, 62, 48, 255 });
-    DrawRectangleLinesEx(revBtn, 2.0f, GREEN);
-    DrawText("REVIVE [SPACE]", static_cast<int>(revBtn.x + 38), static_cast<int>(revBtn.y + 19), 18, WHITE);
+    const char* revLbl = touchClean ? "REVIVE"   : (hasPad ? "REVIVE (A)"   : "REVIVE [SPACE]");
+    const char* ldtLbl = touchClean ? "LOADOUT"  : (hasPad ? "LOADOUT (Y)"  : "LOADOUT [L]");
+    const char* dirLbl = touchClean ? "DIRECTOR" : (hasPad ? "DIRECTOR (B)" : "DIRECTOR [ESC]");
 
-    DrawRectangleRec(dirBtn, IsRectHovered(dirBtn) ? Color{ 45, 65, 95, 255 } : Color{ 25, 38, 58, 255 });
-    DrawRectangleLinesEx(dirBtn, 2.0f, SKYBLUE);
-    DrawText("DIRECTOR [ESC]", static_cast<int>(dirBtn.x + 38), static_cast<int>(dirBtn.y + 19), 18, WHITE);
+    float btnW = 192.0f;
+    float gap = 14.0f;
+    float rowX = VIRTUAL_WIDTH * 0.5f - (btnW * 3.0f + gap * 2.0f) * 0.5f;
+    Rectangle revBtn = { rowX,                     482.0f, btnW, 56.0f };
+    Rectangle ldtBtn = { rowX + (btnW + gap),      482.0f, btnW, 56.0f };
+    Rectangle dirBtn = { rowX + (btnW + gap) * 2,  482.0f, btnW, 56.0f };
 
-    if (IsButtonClicked(revBtn)) {
+    auto DrawOverBtn = [&](Rectangle r, const char* lbl, Color borderCol, Color hovBg, Color idleBg) -> bool {
+        bool hov = IsRectHovered(r);
+        DrawRectangleRec(r, hov ? hovBg : idleBg);
+        DrawRectangleLinesEx(r, 2.0f, borderCol);
+        int lw = MeasureText(lbl, 17);
+        DrawText(lbl, static_cast<int>(r.x + (r.width - lw) * 0.5f), static_cast<int>(r.y + (r.height - 17.0f) * 0.5f), 17, WHITE);
+        return IsButtonClicked(r);
+    };
+
+    if (DrawOverBtn(revBtn, revLbl, GREEN, Color{ 45, 95, 75, 255 }, Color{ 25, 62, 48, 255 })) {
         StartNewRun(isNightfallMode_);
     }
-    if (IsButtonClicked(dirBtn)) {
+    if (DrawOverBtn(ldtBtn, ldtLbl, GetSubclassAccentColor(), Color{ 48, 42, 82, 255 }, Color{ 26, 24, 48, 255 })) {
+        SetScreenState(ScreenState::SUBCLASS_ARMORY);
+        audio_.PlayUiSelect();
+    }
+    if (HasAnyAffordableUpgrade()) {
+        DrawUpgradeBadge(ldtBtn, globalTime_);
+    }
+    if (DrawOverBtn(dirBtn, dirLbl, SKYBLUE, Color{ 45, 65, 95, 255 }, Color{ 25, 38, 58, 255 })) {
         SetScreenState(ScreenState::TITLE_DIRECTOR);
         audio_.PlayUiSelect();
     }
