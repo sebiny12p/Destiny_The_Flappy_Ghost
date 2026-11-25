@@ -16,7 +16,8 @@ A high-performance, cross-platform (Windows & Android) C++20 arcade action game 
 - 🏆 **16 Vanguard Triumphs:** Scrollable triumph dossier with real-time progress bars, completion checkmarks, toast pop-ups, and Glimmer bounties.
 - 📊 **Lifetime Career Stats Dossier:** Real-time telemetry tracking lifetime flight distance, motes harvested, supers unleashed, nightfalls conquered, favorite shell, and favorite subclass.
 - 🎵 **Expanded Soundtrack Jukebox:** 4 authentic Destiny action tracks (*The Last Array*, *Sepiks Redux*, *Shadowkeep / Hashladun*, and *The Witch Queen*) with in-game track selector and mute toggles.
-- ⚙️ **System Settings & Accessibility:** Fullscreen toggle (`F11 / Alt+Enter`), left-handed touch controls, screen flash accessibility toggles, and native gamepad support.
+- ⚙️ **System Settings & Accessibility:** Fullscreen toggle (`F11 / Alt+Enter`), left-handed touch controls, screen flash accessibility toggles, auto-pause on window focus loss, smooth `0.75s` unpause speed ramp-in, and native gamepad support.
+- ✨ **Streamlined Hub & Crisp Typography:** Anti-aliased `Roboto` UI rendering, clean 4-button Director hub (`PLAY`, `LOADOUT`, `RECORDS`, `SETTINGS`), `Q`/`E` (`LB`/`RB`) tab cycling, and live `"!"` upgrade badges.
 
 ---
 
@@ -32,7 +33,7 @@ Destiny: The Flappy Ghost features two distinct flight protocols tailored for bo
 
 ### 2. Nightfall Strike (High-Intensity Combat & Supers)
 - **Focus:** Full-scale combat operations featuring **Super Abilities**, Combat Drones, Oracles, Taken Blights, enemy swarms, and Raid Bosses.
-- **Unlock Condition:** Unlocked once you purchase your first **Combat Drone** from The Tower Hangar (starting at 200 Glimmer).
+- **Unlock Condition:** Unlocked once you purchase your first **Combat Drone** from the **Loadout -> Drones** tab (starting at 200 Glimmer).
 - **Combat Mechanics:** Charge Super energy from Motes & combat, shatter Boss Overshields with Supers, and fire your Drone with `[C / X]` or the on-screen button.
 - **Rewards:** High risk, high reward — earns **+1.5x Glimmer** on Motes of Light!
 
@@ -53,9 +54,9 @@ Tactical abilities work in every mode; Super abilities are tuned specifically fo
 
 ---
 
-## The Tower & Persistent Progression (`flappy_ghost_save.dat`)
+## Loadout & Persistent Progression (`flappy_ghost_save.dat`)
 
-Visit **The Tower** to equip and unlock gear with harvested Glimmer:
+Open **Loadout** from the Director or Game Over screen to equip and unlock gear with harvested Glimmer:
 - **12 Procedural Ghost Shells:** Including *Generalist Shell*, *Sagira's Shell*, *Tyrant Warmind*, *Harpy Vex*, *Ghost of the Deep*, and *Flawless Trials*.
 - **4 Distinct Manual-Fire Combat Drones (Nightfall):**
   1. *Arc Soul Sentinel* (Agile 3-round homing Arc burst)
@@ -72,14 +73,14 @@ Visit **The Tower** to equip and unlock gear with harvested Glimmer:
 
 Every run shuffles the biome order so each flight starts in a fresh realm and cycles through all 8 sectors:
 
-1. **Cosmodrome Ruins (Fallen):** Rusted Golden-Age steel (`Sepiks Prime` ? 3-bolt Void spread fan).
-2. **The Vault of Glass (Vex Network):** Teal radiolarian brass & Vex lasers (`The Templar` ? rotating shield arcs & dual laser rails).
-3. **The Hellmouth Catacombs (Hive):** Gothic jade bone pillars (`Savathun's Song` ? opening Shrieker petals & homing Void seekers).
-4. **The Ascendant Realm (Taken):** Deep obsidian violet & Nightfall Taken Blights (`Taken Subjugator` ? vertical blinks & Axion darts).
-5. **The Dreaming City (Awoken Citadel):** Twilight amethyst & gilded spires (`Dul Incaru` ? 4-way starlight burst).
-6. **Europa // BrayTech Exoscience:** Glacial ice-blue & cryo lasers (`Atraks-1` ? aggressive darting & fast Stasis twin-lances).
-7. **Savathun's Throne World (Lucent):** Alabaster bone & luminous teal (`Savathun` ? moth wings & 4-bolt Lucent Blade Storm).
-8. **The Pale Heart (Inside The Traveler):** Prismatic gold/rose/cyan resonance (`The Witness` ? monolith rings & 5-way Prismatic Barrage).
+1. **Cosmodrome Ruins (Fallen):** Rusted Golden-Age steel (`Sepiks Prime` — 3-bolt Void spread fan).
+2. **The Vault of Glass (Vex Network):** Teal radiolarian brass & Vex lasers (`The Templar` — rotating shield arcs & dual laser rails).
+3. **The Hellmouth Catacombs (Hive):** Gothic jade bone pillars (`Savathun's Song` — opening Shrieker petals & homing Void seekers).
+4. **The Ascendant Realm (Taken):** Deep obsidian violet & Nightfall Taken Blights (`Taken Subjugator` — vertical blinks & Axion darts).
+5. **The Dreaming City (Awoken Citadel):** Twilight amethyst & gilded spires (`Dul Incaru` — 4-way starlight burst).
+6. **Europa // BrayTech Exoscience:** Glacial ice-blue & cryo lasers (`Atraks-1` — aggressive darting & fast Stasis twin-lances).
+7. **Savathun's Throne World (Lucent):** Alabaster bone & luminous teal (`Savathun` — moth wings & 4-bolt Lucent Blade Storm).
+8. **The Pale Heart (Inside The Traveler):** Prismatic gold/rose/cyan resonance (`The Witness` — monolith rings & 5-way Prismatic Barrage).
 ---
 
 ## Controls
@@ -90,8 +91,9 @@ Every run shuffles the biome order so each flight starts in a fresh realm and cy
 | **Tactical Ability / Blink** | `SHIFT` / `E` / `Right Click` | `B` / `Circle` or `LB` / `L1` | Tap `[BLINK / DASH]` Button |
 | **Cast Super Ability** | `F` / `Q` | `Y` / `Triangle` or `RB` / `R1` | Tap `[SUPER]` Button |
 | **Fire Combat Drone (Nightfall)** | `C` / `X` | `RT` / `R2` or `X` / `Square` | Tap `[DRONE FIRE]` Button |
-| **Open Director / Pause** | `ESC` | `START` / `Options` | Tap Top-Right `[DIRECTOR]` Button |
-| **Soundtrack Selector** | `N` (Next Track) / `M` (Mute) | Via Director Settings | Via Director Settings |
+| **Pause / Back** | `ESC` / `P` | `START` / `B` | Tap Top-Right `[II]` Button |
+| **Cycle Menu Tabs** | `Q` / `E` | `LB` / `RB` (`L1` / `R1`) | Tap Tab Header |
+| **Soundtrack Selector** | `N` (Next Track) / `M` (Mute) | `R-Stick Click` or Settings | Via Settings Menu |
 | **Toggle Fullscreen** | `F11` or `ALT + ENTER` | — | Native Immersive Fullscreen |
 
 ---
