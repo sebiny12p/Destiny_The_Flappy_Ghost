@@ -113,6 +113,7 @@ struct GhostShellDef {
     const char* name;
     const char* loreSubtitle;
     int glimmerCost;
+    int shardCost;
     Color primaryColor;
     Color secondaryColor;
     Color coreColor;
@@ -125,6 +126,7 @@ struct ExoticPerkDef {
     const char* name;
     const char* description;
     int glimmerCost;
+    int shardCost;
     Color accentColor;
 };
 
@@ -156,6 +158,7 @@ struct CombatDroneDef {
     const char* name;
     const char* description;
     int glimmerCost;
+    int shardCost;
     float fireCooldown;
     Color color;
 };
@@ -212,6 +215,8 @@ struct SaveProfile {
     int totalSupersActivated = 0;
     int totalBlinkTeleports = 0;
     int totalBountiesCompleted = 0;
+    int legendaryShards = 0;
+    int totalShardsEarnedLifetime = 0;
 };
 
 struct GhostPlayer {

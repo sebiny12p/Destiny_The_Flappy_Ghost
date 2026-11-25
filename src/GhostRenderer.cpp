@@ -830,20 +830,27 @@ void GhostGame::RenderHud() const {
         DrawPoly({ 36.0f + i * 24.0f, 126.0f }, 6, 9.0f, 0.0f, SKYBLUE);
     }
 
-    // Top-Right Score, Glimmer & Streak Tracker
-    DrawRectangle(VIRTUAL_WIDTH - 295, 26, 273, 86, { 10, 14, 24, 200 });
-    DrawRectangleLinesEx({ VIRTUAL_WIDTH - 295.0f, 26.0f, 273.0f, 86.0f }, 1.5f, { 255, 255, 255, 65 });
+    // Top-Right Score, Glimmer, Shards & Streak Tracker
+    float hudBoxH = isNightfallMode_ ? 104.0f : 86.0f;
+    DrawRectangle(VIRTUAL_WIDTH - 295, 26, 273, static_cast<int>(hudBoxH), { 10, 14, 24, 200 });
+    DrawRectangleLinesEx({ VIRTUAL_WIDTH - 295.0f, 26.0f, 273.0f, hudBoxH }, 1.5f, { 255, 255, 255, 65 });
 
     char scoreBuf[64];
     std::snprintf(scoreBuf, sizeof(scoreBuf), "GATES: %d  (x%d)", scoreGates_, streakGates_);
-    DrawText(scoreBuf, VIRTUAL_WIDTH - 278, 34, 24, WHITE);
+    DrawText(scoreBuf, VIRTUAL_WIDTH - 278, 33, 23, WHITE);
 
     char glimBuf[64];
     std::snprintf(glimBuf, sizeof(glimBuf), "GLIMMER: %d (+%d)", profile_.glimmer, runGlimmerEarned_);
-    DrawText(glimBuf, VIRTUAL_WIDTH - 278, 66, 16, SKYBLUE);
+    DrawText(glimBuf, VIRTUAL_WIDTH - 278, 62, 15, SKYBLUE);
 
-    DrawText(isNightfallMode_ ? "MODE: NIGHTFALL STRIKE" : "MODE: VANGUARD PATROL",
-             VIRTUAL_WIDTH - 278, 88, 14, isNightfallMode_ ? GOLD : LIGHTGRAY);
+    if (isNightfallMode_) {
+        char shardBuf[64];
+        std::snprintf(shardBuf, sizeof(shardBuf), "SHARDS: %d (+%d)", profile_.legendaryShards, runShardsEarned_);
+        DrawText(shardBuf, VIRTUAL_WIDTH - 278, 82, 15, Color{ 215, 135, 255, 255 });
+        DrawText("MODE: NIGHTFALL STRIKE", VIRTUAL_WIDTH - 278, 103, 13, GOLD);
+    } else {
+        DrawText("MODE: VANGUARD PATROL", VIRTUAL_WIDTH - 278, 86, 14, LIGHTGRAY);
+    }
 
     // On-Screen Holographic Touch Pause Button (Mobile-Friendly)
     Rectangle pauseBtn = { VIRTUAL_WIDTH - 362.0f, 26.0f, 54.0f, 54.0f };
@@ -858,7 +865,11 @@ void GhostGame::RenderHud() const {
     // Vanguard Streak Medal Callout Popup
     if (activeMedal_.active) {
         char medTxt[128];
-        std::snprintf(medTxt, sizeof(medTxt), "%s  (+%d GLIMMER)", activeMedal_.medalName.c_str(), activeMedal_.bonusGlimmer);
+        if (activeMedal_.bonusGlimmer > 0) {
+            std::snprintf(medTxt, sizeof(medTxt), "%s  (+%d GLIMMER)", activeMedal_.medalName.c_str(), activeMedal_.bonusGlimmer);
+        } else {
+            std::snprintf(medTxt, sizeof(medTxt), "%s", activeMedal_.medalName.c_str());
+        }
         int mw = MeasureText(medTxt, 20);
         DrawRectangle(VIRTUAL_WIDTH / 2 - mw / 2 - 20, 28, mw + 40, 34, { 14, 20, 34, 235 });
         DrawRectangleLines(VIRTUAL_WIDTH / 2 - mw / 2 - 20, 28, mw + 40, 34, activeMedal_.color);
@@ -1062,12 +1073,12 @@ void GhostGame::RenderTitleDirector() {
     int fgw = MeasureText(subGameTitle, 18);
     DrawText(subGameTitle, (VIRTUAL_WIDTH - fgw) / 2, 90, 18, SKYBLUE);
 
-    char glimPill[64];
-    std::snprintf(glimPill, sizeof(glimPill), "GLIMMER: %d", profile_.glimmer);
+    char glimPill[96];
+    std::snprintf(glimPill, sizeof(glimPill), "GLIMMER: %d   |   SHARDS: %d", profile_.glimmer, profile_.legendaryShards);
     int gpw = MeasureText(glimPill, 15);
     Rectangle pillRec = { (VIRTUAL_WIDTH - (gpw + 36.0f)) * 0.5f, 120.0f, gpw + 36.0f, 28.0f };
     DrawRectangleRec(pillRec, { 14, 22, 36, 200 });
-    DrawRectangleLinesEx(pillRec, 1.2f, { 110, 185, 240, 140 });
+    DrawRectangleLinesEx(pillRec, 1.2f, { 145, 165, 245, 150 });
     DrawText(glimPill, static_cast<int>(pillRec.x + 18.0f), static_cast<int>(pillRec.y + 7.0f), 15, SKYBLUE);
 
     Vector2 previewPos = { VIRTUAL_WIDTH * 0.5f, 232.0f + std::sin(globalTime_ * 2.5f) * 8.0f };
@@ -1177,10 +1188,10 @@ void GhostGame::RenderSubclassArmory() {
     float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
     DrawText("LOADOUT", static_cast<int>(uiX + 50), 22, 26, WHITE);
 
-    char glimHeader[64];
-    std::snprintf(glimHeader, sizeof(glimHeader), "GLIMMER: %d", profile_.glimmer);
-    int ghw = MeasureText(glimHeader, 20);
-    DrawText(glimHeader, static_cast<int>(uiX + 1230.0f) - ghw, 26, 20, SKYBLUE);
+    char glimHeader[96];
+    std::snprintf(glimHeader, sizeof(glimHeader), "GLIMMER: %d   |   SHARDS: %d", profile_.glimmer, profile_.legendaryShards);
+    int ghw = MeasureText(glimHeader, 19);
+    DrawText(glimHeader, static_cast<int>(uiX + 1230.0f) - ghw, 26, 19, SKYBLUE);
 
     const char* loadoutTabs[6] = { "SUBCLASS", "SHELLS I", "SHELLS II", "DRONES", "SHADERS", "CATALYSTS" };
     Color loadoutCols[6] = { GetSubclassAccentColor(), SKYBLUE, ORANGE, GREEN, Color{ 255, 120, 220, 255 }, GOLD };
@@ -1209,6 +1220,7 @@ void GhostGame::RenderSubclassArmory() {
         const char* tacticalDesc;
         const char* superDesc;
         int glimmerCost;
+        int shardCost;
         Color col;
     };
 
@@ -1216,27 +1228,27 @@ void GhostGame::RenderSubclassArmory() {
         { 0, "VOIDWALKER", "VOID LIGHT",
           "TACTICAL [BLINK]: Short phase teleport (0.32s) through an immediate barrier ahead.",
           "NIGHTFALL SUPER [NOVA BOMB]: Hurls a Void singularity clearing bosses, shields & 1 barrier.",
-          0, { 175, 85, 255, 255 } },
+          0, 0, { 175, 85, 255, 255 } },
         { 1, "DAWNBLADE", "SOLAR LIGHT",
           "TACTICAL [ICARUS DASH]: Stabilize momentum, hover glide & phase through hazards.",
           "NIGHTFALL SUPER [DAYBREAK]: Every flap hurls homing Solar blades & burns enemy fire.",
-          0, { 255, 145, 35, 255 } },
+          0, 0, { 255, 145, 35, 255 } },
         { 2, "STORMCALLER", "ARC LIGHT",
           "TACTICAL [IONIC BLINK]: High-voltage phase dash with rapid vertical recovery.",
           "NIGHTFALL SUPER [CHAOS REACH]: Aimable Arc laser melting bosses, enemies & Oracles.",
-          0, { 75, 220, 255, 255 } },
+          0, 0, { 75, 220, 255, 255 } },
         { 3, "SHADEBINDER", "STASIS DARKNESS",
           "TACTICAL [FROST PULSE]: Freezes moving Vex lasers, Oracles & Boss shots for 2.5s.",
           "NIGHTFALL SUPER [WINTER'S WRATH]: Freezes hazards & shatters all foes/shots into Motes.",
-          500, { 70, 130, 255, 255 } },
+          500, 0, { 70, 130, 255, 255 } },
         { 4, "THREADRUNNER", "STRAND DARKNESS",
           "TACTICAL [GRAPPLE]: Launches a Strand grapple line ahead to swing & phase upward.",
           "NIGHTFALL SUPER [NEEDLESTORM]: Unleashes a 12-Threadling swarm hunting foes & Bosses.",
-          500, { 65, 245, 130, 255 } },
+          500, 0, { 65, 245, 130, 255 } },
         { 5, "TRANSCENDENT", "PRISMATIC",
           "TACTICAL [PRISMATIC SURGE]: Freezes obstacles & surges with Light + Dark phase.",
           "NIGHTFALL SUPER [TRANSCENDENCE]: 4x Tactical recharge + dual Light/Dark homing bursts!",
-          1500, { 255, 125, 235, 255 } }
+          1500, 15, { 255, 125, 235, 255 } }
     };
 
     // Clean, spacious 3x2 grid (Row 0 = 3 Light Subclasses, Row 1 = 3 Darkness/Prismatic Subclasses)
@@ -1284,10 +1296,14 @@ void GhostGame::RenderSubclassArmory() {
             DrawText(btnLabel, static_cast<int>(equipBtn.x + (equipBtn.width - blw) * 0.5f),
                      static_cast<int>(equipBtn.y + 11), 16, WHITE);
         } else {
-            bool canAfford = (profile_.glimmer >= cards[i].glimmerCost);
+            bool canAfford = (profile_.glimmer >= cards[i].glimmerCost && profile_.legendaryShards >= cards[i].shardCost);
             DrawRectangleRec(equipBtn, canAfford ? Color{ 28, 82, 58, 255 } : Color{ 48, 30, 36, 255 });
-            char costTxt[48];
-            std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%d GLIMMER)", cards[i].glimmerCost);
+            char costTxt[64];
+            if (cards[i].shardCost > 0) {
+                std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%dG, %d SHARDS)", cards[i].glimmerCost, cards[i].shardCost);
+            } else {
+                std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%d GLIMMER)", cards[i].glimmerCost);
+            }
             int blw = MeasureText(costTxt, 15);
             DrawText(costTxt, static_cast<int>(equipBtn.x + (equipBtn.width - blw) * 0.5f),
                      static_cast<int>(equipBtn.y + 12), 15, canAfford ? GREEN : RED);
@@ -1298,10 +1314,14 @@ void GhostGame::RenderSubclassArmory() {
                 profile_.selectedSubclass = i;
                 SaveData();
                 audio_.PlayUiSelect();
-            } else if (profile_.glimmer >= cards[i].glimmerCost) {
+            } else if (profile_.glimmer >= cards[i].glimmerCost && profile_.legendaryShards >= cards[i].shardCost) {
                 profile_.glimmer -= cards[i].glimmerCost;
+                profile_.legendaryShards -= cards[i].shardCost;
                 profile_.unlockedSubclasses[i] = true;
                 profile_.selectedSubclass = i;
+                int subUnlocked = 0;
+                for (bool u : profile_.unlockedSubclasses) if (u) subUnlocked++;
+                if (subUnlocked >= static_cast<int>(NUM_SUBCLASSES)) UnlockTriumph(13);
                 SaveData();
                 audio_.PlayExoticPickup();
             }
@@ -1323,10 +1343,10 @@ void GhostGame::RenderShellHangar() {
     float uiX = (VIRTUAL_WIDTH - 1280.0f) * 0.5f;
     DrawText("LOADOUT", static_cast<int>(uiX + 50), 22, 26, WHITE);
 
-    char glimHeader[64];
-    std::snprintf(glimHeader, sizeof(glimHeader), "GLIMMER: %d", profile_.glimmer);
-    int ghw = MeasureText(glimHeader, 20);
-    DrawText(glimHeader, static_cast<int>(uiX + 1230.0f) - ghw, 26, 20, SKYBLUE);
+    char glimHeader[96];
+    std::snprintf(glimHeader, sizeof(glimHeader), "GLIMMER: %d   |   SHARDS: %d", profile_.glimmer, profile_.legendaryShards);
+    int ghw = MeasureText(glimHeader, 19);
+    DrawText(glimHeader, static_cast<int>(uiX + 1230.0f) - ghw, 26, 19, SKYBLUE);
 
     const char* loadoutTabs[6] = { "SUBCLASS", "SHELLS I", "SHELLS II", "DRONES", "SHADERS", "CATALYSTS" };
     Color loadoutCols[6] = { GetSubclassAccentColor(), SKYBLUE, ORANGE, GREEN, Color{ 255, 120, 220, 255 }, GOLD };
@@ -1383,11 +1403,16 @@ void GhostGame::RenderShellHangar() {
                 DrawRectangleRec(actBtn, { 38, 68, 98, 255 });
                 DrawText("EQUIP SHELL", static_cast<int>(actBtn.x + 64), static_cast<int>(actBtn.y + 9), 15, WHITE);
             } else {
-                bool canAfford = (profile_.glimmer >= catalog[i].glimmerCost);
+                bool canAfford = (profile_.glimmer >= catalog[i].glimmerCost && profile_.legendaryShards >= catalog[i].shardCost);
                 DrawRectangleRec(actBtn, canAfford ? Color{ 30, 85, 60, 255 } : Color{ 45, 30, 35, 255 });
                 char costTxt[64];
-                std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%d GLIMMER)", catalog[i].glimmerCost);
-                DrawText(costTxt, static_cast<int>(actBtn.x + 26), static_cast<int>(actBtn.y + 9), 14, canAfford ? GREEN : RED);
+                if (catalog[i].shardCost > 0) {
+                    std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%dG, %d SHARDS)", catalog[i].glimmerCost, catalog[i].shardCost);
+                } else {
+                    std::snprintf(costTxt, sizeof(costTxt), "UNLOCK (%d GLIMMER)", catalog[i].glimmerCost);
+                }
+                int cw = MeasureText(costTxt, 13);
+                DrawText(costTxt, static_cast<int>(actBtn.x + (actBtn.width - cw) * 0.5f), static_cast<int>(actBtn.y + 10), 13, canAfford ? GREEN : RED);
             }
 
             if (IsButtonClicked(r)) {
@@ -1395,8 +1420,9 @@ void GhostGame::RenderShellHangar() {
                     profile_.equippedShell = i;
                     SaveData();
                     audio_.PlayUiSelect();
-                } else if (profile_.glimmer >= catalog[i].glimmerCost) {
+                } else if (profile_.glimmer >= catalog[i].glimmerCost && profile_.legendaryShards >= catalog[i].shardCost) {
                     profile_.glimmer -= catalog[i].glimmerCost;
+                    profile_.legendaryShards -= catalog[i].shardCost;
                     profile_.unlockedShells[i] = true;
                     profile_.equippedShell = i;
                     SaveData();
@@ -1449,7 +1475,7 @@ void GhostGame::RenderShellHangar() {
     } else if (towerTab_ == 2) {
         // Tab 2: Manual-Fire Combat Drones (Unlocks Nightfall Mode!)
         DrawText("VANGUARD COMBAT DRONES // NIGHTFALL STRIKE ARSENAL", static_cast<int>(uiX + 60), 114, 22, GREEN);
-        DrawText("Unlocking your first Combat Drone unlocks NIGHTFALL STRIKE mode! Press [C / X] in Nightfall to fire your Drone.",
+        DrawText("Unlocking your first Drone unlocks NIGHTFALL STRIKE — earn Legendary Shards in Nightfall (+1/10 Gates, +2 Engram, +5 Boss)!",
                  static_cast<int>(uiX + 60), 142, 15, LIGHTGRAY);
 
         const auto& drones = GetDroneCatalog();
@@ -1477,16 +1503,23 @@ void GhostGame::RenderShellHangar() {
             Rectangle btn = { dr.x + 104.0f, dr.y + 112.0f, 250.0f, 38.0f };
             if (equipped) {
                 DrawRectangleRec(btn, GOLD);
-                DrawText("EQUIPPED DRONE", static_cast<int>(btn.x + 54), static_cast<int>(btn.y + 11), 15, BLACK);
+                int bw = MeasureText("EQUIPPED DRONE", 15);
+                DrawText("EQUIPPED DRONE", static_cast<int>(btn.x + (btn.width - bw) * 0.5f), static_cast<int>(btn.y + 11), 15, BLACK);
             } else if (unlocked) {
                 DrawRectangleRec(btn, Color{ 38, 68, 98, 255 });
-                DrawText("EQUIP DRONE", static_cast<int>(btn.x + 68), static_cast<int>(btn.y + 11), 15, WHITE);
+                int bw = MeasureText("EQUIP DRONE", 15);
+                DrawText("EQUIP DRONE", static_cast<int>(btn.x + (btn.width - bw) * 0.5f), static_cast<int>(btn.y + 11), 15, WHITE);
             } else {
-                bool canBuy = (profile_.glimmer >= drones[i].glimmerCost);
+                bool canBuy = (profile_.glimmer >= drones[i].glimmerCost && profile_.legendaryShards >= drones[i].shardCost);
                 DrawRectangleRec(btn, canBuy ? Color{ 30, 88, 60, 255 } : Color{ 48, 30, 35, 255 });
                 char cstr[64];
-                std::snprintf(cstr, sizeof(cstr), "UNLOCK (%d GLIMMER)", drones[i].glimmerCost);
-                DrawText(cstr, static_cast<int>(btn.x + 34), static_cast<int>(btn.y + 11), 15, canBuy ? GREEN : RED);
+                if (drones[i].shardCost > 0) {
+                    std::snprintf(cstr, sizeof(cstr), "UNLOCK (%dG, %d SHARDS)", drones[i].glimmerCost, drones[i].shardCost);
+                } else {
+                    std::snprintf(cstr, sizeof(cstr), "UNLOCK (%d GLIMMER)", drones[i].glimmerCost);
+                }
+                int bw = MeasureText(cstr, 14);
+                DrawText(cstr, static_cast<int>(btn.x + (btn.width - bw) * 0.5f), static_cast<int>(btn.y + 12), 14, canBuy ? GREEN : RED);
             }
 
             if (IsButtonClicked(dr)) {
@@ -1494,9 +1527,10 @@ void GhostGame::RenderShellHangar() {
                     profile_.equippedDrone = i;
                     SaveData();
                     audio_.PlayUiSelect();
-                } else if (profile_.glimmer >= drones[i].glimmerCost) {
+                } else if (profile_.glimmer >= drones[i].glimmerCost && profile_.legendaryShards >= drones[i].shardCost) {
                     bool wasFirstDrone = !HasUnlockedAnyDrone();
                     profile_.glimmer -= drones[i].glimmerCost;
+                    profile_.legendaryShards -= drones[i].shardCost;
                     profile_.unlockedDrones[i] = true;
                     profile_.equippedDrone = i;
                     SaveData();
@@ -1626,7 +1660,7 @@ void GhostGame::RenderShellHangar() {
     } else {
         // Tab 4: Xur's Exotic Ghost Catalysts
         DrawText("XUR, AGENT OF THE NINE // EXOTIC GHOST CATALYSTS", static_cast<int>(uiX + 60), 118, 22, GOLD);
-        DrawText("Equip an Exotic Catalyst into your Ghost core for passive paracausal combat effects.", static_cast<int>(uiX + 60), 146, 16, LIGHTGRAY);
+        DrawText("Trade Glimmer & Nightfall Legendary Shards with Xur for passive Exotic combat catalysts.", static_cast<int>(uiX + 60), 146, 16, LIGHTGRAY);
 
         const auto& exotics = GetExoticCatalog();
         for (int i = 0; i < static_cast<int>(NUM_EXOTIC_PERKS); ++i) {
@@ -1643,19 +1677,26 @@ void GhostGame::RenderShellHangar() {
             DrawText(exotics[i].name, static_cast<int>(er.x + 96), static_cast<int>(er.y + 18), 20, exotics[i].accentColor);
             DrawTextWrapped(exotics[i].description, static_cast<int>(er.x + 96), static_cast<int>(er.y + 48), 440, 15, 20, WHITE);
 
-            Rectangle btn = { er.x + 96.0f, er.y + 106.0f, 240.0f, 38.0f };
+            Rectangle btn = { er.x + 96.0f, er.y + 106.0f, 250.0f, 38.0f };
             if (equipped) {
                 DrawRectangleRec(btn, GOLD);
-                DrawText("EQUIPPED CATALYST", static_cast<int>(btn.x + 38), static_cast<int>(btn.y + 11), 15, BLACK);
+                int bw = MeasureText("EQUIPPED CATALYST", 15);
+                DrawText("EQUIPPED CATALYST", static_cast<int>(btn.x + (btn.width - bw) * 0.5f), static_cast<int>(btn.y + 11), 15, BLACK);
             } else if (unlocked) {
                 DrawRectangleRec(btn, { 38, 68, 98, 255 });
-                DrawText("EQUIP CATALYST", static_cast<int>(btn.x + 52), static_cast<int>(btn.y + 11), 15, WHITE);
+                int bw = MeasureText("EQUIP CATALYST", 15);
+                DrawText("EQUIP CATALYST", static_cast<int>(btn.x + (btn.width - bw) * 0.5f), static_cast<int>(btn.y + 11), 15, WHITE);
             } else {
-                bool canBuy = (profile_.glimmer >= exotics[i].glimmerCost);
+                bool canBuy = (profile_.glimmer >= exotics[i].glimmerCost && profile_.legendaryShards >= exotics[i].shardCost);
                 DrawRectangleRec(btn, canBuy ? Color{ 30, 88, 60, 255 } : Color{ 48, 30, 35, 255 });
                 char cstr[64];
-                std::snprintf(cstr, sizeof(cstr), "ACQUIRE (%d GLIMMER)", exotics[i].glimmerCost);
-                DrawText(cstr, static_cast<int>(btn.x + 26), static_cast<int>(btn.y + 11), 15, canBuy ? GREEN : RED);
+                if (exotics[i].shardCost > 0) {
+                    std::snprintf(cstr, sizeof(cstr), "ACQUIRE (%dG, %d SHARDS)", exotics[i].glimmerCost, exotics[i].shardCost);
+                } else {
+                    std::snprintf(cstr, sizeof(cstr), "ACQUIRE (%d GLIMMER)", exotics[i].glimmerCost);
+                }
+                int bw = MeasureText(cstr, 14);
+                DrawText(cstr, static_cast<int>(btn.x + (btn.width - bw) * 0.5f), static_cast<int>(btn.y + 12), 14, canBuy ? GREEN : RED);
             }
 
             if (IsButtonClicked(er)) {
@@ -1663,8 +1704,9 @@ void GhostGame::RenderShellHangar() {
                     profile_.equippedExoticPerk = i;
                     SaveData();
                     audio_.PlayUiSelect();
-                } else if (profile_.glimmer >= exotics[i].glimmerCost) {
+                } else if (profile_.glimmer >= exotics[i].glimmerCost && profile_.legendaryShards >= exotics[i].shardCost) {
                     profile_.glimmer -= exotics[i].glimmerCost;
+                    profile_.legendaryShards -= exotics[i].shardCost;
                     profile_.unlockedExotics[i] = true;
                     profile_.equippedExoticPerk = i;
                     SaveData();
@@ -1975,7 +2017,7 @@ void GhostGame::RenderCareerStats() {
     if (IsButtonClicked(tabTri)) { SetScreenState(ScreenState::TRIUMPHS_LOG); audio_.PlayUiSelect(); return; }
 
     char glimBuf[128];
-    std::snprintf(glimBuf, sizeof(glimBuf), "GLIMMER: %d", profile_.glimmer);
+    std::snprintf(glimBuf, sizeof(glimBuf), "GLIMMER: %d   |   SHARDS: %d", profile_.glimmer, profile_.legendaryShards);
     int gbw = MeasureText(glimBuf, 18);
     DrawText(glimBuf, static_cast<int>(uiX + 1210.0f) - gbw, 32, 18, SKYBLUE);
 
@@ -2044,7 +2086,8 @@ void GhostGame::RenderCareerStats() {
     for (bool b : profile_.unlockedTriumphs) if (b) triCount++;
 
     sy = rightCard.y + 48.0f;
-    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "All-Time Glimmer Synthesized:", std::to_string(profile_.totalGlimmerEarnedLifetime) + " G", GOLD);
+    DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "All-Time Glimmer & Shards Earned:",
+                std::to_string(profile_.totalGlimmerEarnedLifetime) + " G  |  " + std::to_string(profile_.totalShardsEarnedLifetime) + " S", GOLD);
     sy += 38.0f;
     DrawStatRow(rightCard.x + 20, sy, rightCard.width - 40, "Exotic Ghost Shells Acquired:", std::to_string(shellCount) + " / " + std::to_string(NUM_SHELLS), SKYBLUE);
     sy += 38.0f;
@@ -2090,8 +2133,8 @@ void GhostGame::RenderTriumphsLog() {
     DrawText("CAREER", static_cast<int>(tabCar.x + (tabCar.width - tcw) * 0.5f), 34, 14, WHITE);
     if (IsButtonClicked(tabCar)) { SetScreenState(ScreenState::CAREER_STATS); audio_.PlayUiSelect(); return; }
 
-    char glimHeader[64];
-    std::snprintf(glimHeader, sizeof(glimHeader), "GLIMMER: %d", profile_.glimmer);
+    char glimHeader[96];
+    std::snprintf(glimHeader, sizeof(glimHeader), "GLIMMER: %d   |   SHARDS: %d", profile_.glimmer, profile_.legendaryShards);
     int ghw = MeasureText(glimHeader, 18);
     DrawText(glimHeader, static_cast<int>(uiX + 1210.0f) - ghw, 32, 18, SKYBLUE);
     DrawLine(static_cast<int>(uiX + 70), 68, static_cast<int>(uiX + 1210), 68, { 255, 255, 255, 55 });
@@ -2272,7 +2315,11 @@ void GhostGame::RenderLightFadedOverlay() {
     std::snprintf(line1, sizeof(line1), "BARRIERS CLEARED: %d   (BEST: %d)",
                   scoreGates_, isNightfallMode_ ? profile_.bestScoreNightfall : profile_.bestScoreStandard);
     std::snprintf(line2, sizeof(line2), "MOTES OF LIGHT HARVESTED: %d", runMotes_);
-    std::snprintf(line3, sizeof(line3), "GLIMMER EARNED THIS RUN: +%d", runGlimmerEarned_);
+    if (isNightfallMode_ || runShardsEarned_ > 0) {
+        std::snprintf(line3, sizeof(line3), "GLIMMER: +%d   |   LEGENDARY SHARDS: +%d", runGlimmerEarned_, runShardsEarned_);
+    } else {
+        std::snprintf(line3, sizeof(line3), "GLIMMER EARNED THIS RUN: +%d", runGlimmerEarned_);
+    }
 
     DrawText(line1, VIRTUAL_WIDTH / 2 - 190, 338, 20, GOLD);
     DrawText(line2, VIRTUAL_WIDTH / 2 - 190, 374, 18, SKYBLUE);

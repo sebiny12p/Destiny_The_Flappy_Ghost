@@ -35,6 +35,7 @@ private:
     void RefreshDailyBounties();
     void ProgressDailyBounty(int bountyType, int count = 1);
     void TriggerVanguardMedal(const char* medalName, int glimmerBonus, Color col = GOLD);
+    void AwardLegendaryShards(int count);
     bool HasUnlockedAnyDrone() const;
     bool HasAffordableLoadoutTab(int tab) const;
     bool HasAnyAffordableUpgrade() const;
@@ -130,6 +131,7 @@ private:
     int streakGates_ = 0;
     int runMotes_ = 0;
     int runGlimmerEarned_ = 0;
+    int runShardsEarned_ = 0;
     int gatesSinceLastBoss_ = 0;
 
     // Screen juice

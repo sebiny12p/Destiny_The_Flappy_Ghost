@@ -35,7 +35,7 @@ Destiny: The Flappy Ghost features two distinct flight protocols tailored for bo
 - **Focus:** Full-scale combat operations featuring **Super Abilities**, Combat Drones, Oracles, Taken Blights, enemy swarms, and Raid Bosses.
 - **Unlock Condition:** Unlocked once you purchase your first **Combat Drone** from the **Loadout -> Drones** tab (starting at 200 Glimmer).
 - **Combat Mechanics:** Charge Super energy from Motes & combat, shatter Boss Overshields with Supers, and fire your Drone with `[C / X]` or the on-screen button.
-- **Rewards:** High risk, high reward — earns **+1.5x Glimmer** on Motes of Light!
+- **Rewards:** High risk, high reward — earns **+1.5x Glimmer** on Motes of Light plus exclusive **Legendary Shards** (`+1` per 10 Nightfall Gates, `+2` per Exotic Engram, `+5` per Raid Boss) required for Xur's Exotic Catalysts, Prismatic, and pinnacle gear!
 
 ---
 
@@ -56,7 +56,7 @@ Tactical abilities work in every mode; Super abilities are tuned specifically fo
 
 ## Loadout & Persistent Progression (`flappy_ghost_save.dat`)
 
-Open **Loadout** from the Director or Game Over screen to equip and unlock gear with harvested Glimmer:
+Open **Loadout** from the Director or Game Over screen to equip and unlock gear with harvested **Glimmer** and Nightfall **Legendary Shards**:
 - **12 Procedural Ghost Shells:** Including *Generalist Shell*, *Sagira's Shell*, *Tyrant Warmind*, *Harpy Vex*, *Ghost of the Deep*, and *Flawless Trials*.
 - **4 Distinct Manual-Fire Combat Drones (Nightfall):**
   1. *Arc Soul Sentinel* (Agile 3-round homing Arc burst)

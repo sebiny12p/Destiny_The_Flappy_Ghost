@@ -22,37 +22,37 @@ constexpr const char* SAVE_FILE_PATH = "flappy_ghost_save.dat";
 #endif
 
 const std::array<GhostShellDef, NUM_SHELLS> SHELL_CATALOG = {{
-    { 0, "GENERALIST SHELL", "Standard Vanguard-issue Ghost shell forged from Traveler plating.", 0,
+    { 0, "GENERALIST SHELL", "Standard Vanguard-issue Ghost shell forged from Traveler plating.", 0, 0,
       { 235, 238, 245, 255 }, { 215, 95, 35, 255 }, { 120, 225, 255, 255 }, { 110, 210, 255, 200 }, 0 },
-    { 1, "SAGIRA'S SHELL", "Geometric brass lattice crafted for Disciples of Osiris on Mercury.", 250,
+    { 1, "SAGIRA'S SHELL", "Geometric brass lattice crafted for Disciples of Osiris on Mercury.", 250, 0,
       { 218, 175, 72, 255 }, { 70, 55, 35, 255 }, { 255, 230, 120, 255 }, { 255, 200, 75, 200 }, 1 },
-    { 2, "TYRANT SHELL", "Submind Rasputin octahedron housing with IKELOS Seraph telemetry.", 400,
+    { 2, "TYRANT SHELL", "Submind Rasputin octahedron housing with IKELOS Seraph telemetry.", 400, 0,
       { 38, 42, 48, 255 }, { 200, 40, 35, 255 }, { 255, 65, 45, 255 }, { 255, 50, 30, 200 }, 2 },
-    { 3, "HARPY SHELL", "Simulated Vex brass chassis resonating with radiolarian fluid.", 550,
+    { 3, "HARPY SHELL", "Simulated Vex brass chassis resonating with radiolarian fluid.", 550, 0,
       { 165, 130, 78, 255 }, { 40, 90, 105, 255 }, { 255, 55, 55, 255 }, { 220, 245, 255, 200 }, 3 },
-    { 4, "GHOST OF THE DEEP", "Calcified Hive chitin bound with iridescent Soulfire runes.", 700,
+    { 4, "GHOST OF THE DEEP", "Calcified Hive chitin bound with iridescent Soulfire runes.", 700, 0,
       { 68, 82, 72, 255 }, { 32, 40, 36, 255 }, { 95, 255, 145, 255 }, { 75, 245, 130, 200 }, 4 },
-    { 5, "FLAWLESS TRIALS SHELL", "Radiant auric hawk wings awarded to Guardians at the Lighthouse.", 850,
+    { 5, "FLAWLESS TRIALS SHELL", "Radiant auric hawk wings awarded to Guardians at the Lighthouse.", 850, 0,
       { 252, 210, 55, 255 }, { 245, 245, 250, 255 }, { 255, 255, 190, 255 }, { 255, 215, 60, 220 }, 5 },
-    { 6, "NINE LIVES SHELL", "Festival of the Lost feline shell with cat ears, whiskers & slit iris.", 1000,
+    { 6, "NINE LIVES SHELL", "Festival of the Lost feline shell with cat ears, whiskers & slit iris.", 1000, 0,
       { 230, 125, 45, 255 }, { 245, 235, 220, 255 }, { 95, 255, 85, 255 }, { 255, 165, 80, 210 }, 6 },
-    { 7, "COSMOS EXOTIC SHELL", "Nebula starlight housing orbited by miniature celestial moons.", 1200,
+    { 7, "COSMOS EXOTIC SHELL", "Nebula starlight housing orbited by miniature celestial moons.", 1200, 0,
       { 125, 65, 235, 255 }, { 55, 195, 255, 255 }, { 245, 180, 255, 255 }, { 165, 110, 255, 220 }, 7 },
-    { 8, "SIVA INFECTED SHELL", "Plaguelands carbon plating entangled in crimson SIVA nanite swarms.", 1400,
+    { 8, "SIVA INFECTED SHELL", "Plaguelands carbon plating entangled in crimson SIVA nanite swarms.", 1400, 0,
       { 24, 24, 28, 255 }, { 235, 25, 35, 255 }, { 255, 40, 40, 255 }, { 245, 30, 40, 220 }, 8 },
-    { 9, "ARMORY FORGED SHELL", "Black Armory Obsidian accelerator with Bergusia radiance rings.", 1650,
+    { 9, "ARMORY FORGED SHELL", "Black Armory Obsidian accelerator with Bergusia radiance rings.", 1650, 8,
       { 30, 32, 38, 255 }, { 195, 28, 48, 255 }, { 110, 245, 255, 255 }, { 220, 40, 65, 220 }, 9 },
-    { 10, "TAKEN KING SHELL", "Ascendant Blight vessel wreathed in shadowy Taken fire and sterile neutrinos.", 1900,
+    { 10, "TAKEN KING SHELL", "Ascendant Blight vessel wreathed in shadowy Taken fire and sterile neutrinos.", 1900, 12,
       { 16, 20, 28, 255 }, { 190, 245, 255, 255 }, { 240, 255, 255, 255 }, { 170, 240, 255, 225 }, 10 },
-    { 11, "TRAVELER'S CHOSEN", "Fractured Shard of the Traveler radiating pure paracausal Light arcs.", 2500,
+    { 11, "TRAVELER'S CHOSEN", "Fractured Shard of the Traveler radiating pure paracausal Light arcs.", 2500, 20,
       { 248, 248, 255, 255 }, { 235, 195, 80, 255 }, { 150, 245, 255, 255 }, { 230, 245, 255, 235 }, 11 }
 }};
 
 const std::array<ExoticPerkDef, NUM_EXOTIC_PERKS> EXOTIC_CATALOG = {{
-    { 0, "STANDARD VANGUARD CORE", "No Exotic Catalyst equipped. Standard Ghost flight telemetry.", 0, SKYBLUE },
-    { 1, "GJALLARHORN WOLFPACK", "Activating Tactical or Super abilities launches homing Wolfpack micro-rockets!", 400, GOLD },
-    { 2, "CRIMSON REDRIX CORE", "Every 8 Motes of Light harvested automatically restores +1 Overshield!", 550, { 255, 65, 75, 255 } },
-    { 3, "RISKRUNNER CONDUCTOR", "Flying close to pillar edges triggers Arc Conductor (+18% Super & +10 Glimmer)!", 650, { 80, 235, 255, 255 } }
+    { 0, "STANDARD VANGUARD CORE", "No Exotic Catalyst equipped. Standard Ghost flight telemetry.", 0, 0, SKYBLUE },
+    { 1, "GJALLARHORN WOLFPACK", "Activating Tactical or Super abilities launches homing Wolfpack micro-rockets!", 400, 10, GOLD },
+    { 2, "CRIMSON REDRIX CORE", "Every 8 Motes of Light harvested automatically restores +1 Overshield!", 550, 12, { 255, 65, 75, 255 } },
+    { 3, "RISKRUNNER CONDUCTOR", "Flying close to pillar edges triggers Arc Conductor (+18% Super & +10 Glimmer)!", 650, 15, { 80, 235, 255, 255 } }
 }};
 
 const std::array<TriumphDef, NUM_TRIUMPHS> TRIUMPH_CATALOG = {{
@@ -90,16 +90,16 @@ const std::array<ShaderDef, NUM_SHADERS> SHADER_CATALOG = {{
 const std::array<CombatDroneDef, NUM_DRONES> DRONE_CATALOG = {{
     { 0, "ARC SOUL SENTINEL",
       "Agile homing 3-round Arc burst ([C / X]). Great for tracking drones & Oracles.",
-      200, 0.45f, { 75, 225, 255, 255 } },
+      200, 0, 0.45f, { 75, 225, 255, 255 } },
     { 1, "HELLION SOLAR MORTAR",
       "Lobbed arcing artillery ([C / X]). Drops heavy 30-dmg Solar AoE explosions!",
-      450, 0.68f, { 255, 145, 35, 255 } },
+      450, 0, 0.68f, { 255, 145, 35, 255 } },
     { 2, "BRIARBINDS VOID SOUL",
       "Shield-breaker seekers ([C / X]). Strips Boss shields & vaporizes enemy shots!",
-      750, 0.58f, { 180, 85, 255, 255 } },
+      750, 8, 0.58f, { 180, 85, 255, 255 } },
     { 3, "NTTE CHRONAL PORTAL",
       "Straight-line rail-laser ([C / X]). Fires ultra-fast piercing timeline beams!",
-      1100, 0.34f, { 130, 245, 255, 255 } }
+      1100, 14, 0.34f, { 130, 245, 255, 255 } }
 }};
 } // namespace
 
@@ -259,11 +259,22 @@ void GhostGame::UnlockTriumph(int triumphIdx) {
     profile_.unlockedTriumphs[triumphIdx] = true;
     const auto& def = TRIUMPH_CATALOG[triumphIdx];
     profile_.glimmer += def.rewardGlimmer;
+    profile_.totalGlimmerEarnedLifetime += def.rewardGlimmer;
+    int bonusShards = (triumphIdx == 6 || triumphIdx == 7) ? 3 : 0;
+    if (bonusShards > 0) {
+        profile_.legendaryShards += bonusShards;
+        profile_.totalShardsEarnedLifetime += bonusShards;
+        runShardsEarned_ += bonusShards;
+    }
     SaveData();
 
     activeToast_.active = true;
     activeToast_.title = std::string("TRIUMPH COMPLETED: ") + def.title;
-    activeToast_.subtitle = std::string(def.description) + " (+" + std::to_string(def.rewardGlimmer) + " Glimmer)";
+    if (bonusShards > 0) {
+        activeToast_.subtitle = std::string(def.description) + " (+" + std::to_string(def.rewardGlimmer) + "G, +" + std::to_string(bonusShards) + " Shards)";
+    } else {
+        activeToast_.subtitle = std::string(def.description) + " (+" + std::to_string(def.rewardGlimmer) + " Glimmer)";
+    }
     activeToast_.timer = 4.2f;
     audio_.PlayExoticPickup();
 }
@@ -347,14 +358,27 @@ void GhostGame::TriggerVanguardMedal(const char* medalName, int glimmerBonus, Co
     activeMedal_.timer = 2.6f;
     activeMedal_.color = col;
     profile_.glimmer += glimmerBonus;
+    profile_.totalGlimmerEarnedLifetime += glimmerBonus;
     runGlimmerEarned_ += glimmerBonus;
+}
+
+void GhostGame::AwardLegendaryShards(int count) {
+    if (count <= 0) return;
+    profile_.legendaryShards += count;
+    profile_.totalShardsEarnedLifetime += count;
+    runShardsEarned_ += count;
 }
 
 bool GhostGame::HasAffordableLoadoutTab(int tab) const {
     if (tab == 0) {
         static constexpr int SUB_COSTS[NUM_SUBCLASSES] = { 0, 0, 0, 500, 500, 1500 };
+        static constexpr int SUB_SHARDS[NUM_SUBCLASSES] = { 0, 0, 0, 0, 0, 15 };
         for (size_t i = 0; i < NUM_SUBCLASSES; ++i) {
-            if (!profile_.unlockedSubclasses[i] && profile_.glimmer >= SUB_COSTS[i]) return true;
+            if (!profile_.unlockedSubclasses[i] &&
+                profile_.glimmer >= SUB_COSTS[i] &&
+                profile_.legendaryShards >= SUB_SHARDS[i]) {
+                return true;
+            }
         }
         return false;
     }
@@ -363,7 +387,9 @@ bool GhostGame::HasAffordableLoadoutTab(int tab) const {
         int startIdx = (tab == 1) ? 0 : 6;
         for (int localIdx = 0; localIdx < 6; ++localIdx) {
             int idx = startIdx + localIdx;
-            if (idx < static_cast<int>(NUM_SHELLS) && !profile_.unlockedShells[idx] && profile_.glimmer >= shells[idx].glimmerCost) {
+            if (idx < static_cast<int>(NUM_SHELLS) && !profile_.unlockedShells[idx] &&
+                profile_.glimmer >= shells[idx].glimmerCost &&
+                profile_.legendaryShards >= shells[idx].shardCost) {
                 return true;
             }
         }
@@ -376,7 +402,11 @@ bool GhostGame::HasAffordableLoadoutTab(int tab) const {
     if (tab == 3) {
         const auto& drones = GetDroneCatalog();
         for (size_t i = 0; i < NUM_DRONES; ++i) {
-            if (!profile_.unlockedDrones[i] && profile_.glimmer >= drones[i].glimmerCost) return true;
+            if (!profile_.unlockedDrones[i] &&
+                profile_.glimmer >= drones[i].glimmerCost &&
+                profile_.legendaryShards >= drones[i].shardCost) {
+                return true;
+            }
         }
         return false;
     }
@@ -390,7 +420,11 @@ bool GhostGame::HasAffordableLoadoutTab(int tab) const {
     if (tab == 5) {
         const auto& exotics = GetExoticCatalog();
         for (size_t i = 0; i < NUM_EXOTIC_PERKS; ++i) {
-            if (!profile_.unlockedExotics[i] && profile_.glimmer >= exotics[i].glimmerCost) return true;
+            if (!profile_.unlockedExotics[i] &&
+                profile_.glimmer >= exotics[i].glimmerCost &&
+                profile_.legendaryShards >= exotics[i].shardCost) {
+                return true;
+            }
         }
         return false;
     }
@@ -424,6 +458,7 @@ void GhostGame::StartNewRun(bool dailyNightfall) {
     streakGates_ = 0;
     runMotes_ = 0;
     runGlimmerEarned_ = 0;
+    runShardsEarned_ = 0;
     gatesSinceLastBoss_ = 0;
     for (std::size_t i = 0; i < NUM_BIOMES; ++i) {
         biomeOrder_[i] = static_cast<BiomeSector>(i);
@@ -1579,6 +1614,12 @@ void GhostGame::UpdatePlayingFixed(float dt) {
             if (streakGates_ >= 5) ProgressDailyBounty(7, 1); // VANGUARD INITIATE
             runGlimmerEarned_ += isNightfallMode_ ? 2 : 1;
             profile_.glimmer += isNightfallMode_ ? 2 : 1;
+            profile_.totalGlimmerEarnedLifetime += isNightfallMode_ ? 2 : 1;
+            if (isNightfallMode_ && scoreGates_ > 0 && (scoreGates_ % 10 == 0)) {
+                AwardLegendaryShards(1);
+                TriggerVanguardMedal("NIGHTFALL MILESTONE // +1 SHARD", 0, Color{ 215, 130, 255, 255 });
+            }
+            if (isNightfallMode_ && scoreGates_ >= 20) UnlockTriumph(7); // NIGHTFALL VANGUARD
 
             if (scoreGates_ >= 10) UnlockTriumph(0);
             if (scoreGates_ >= 60) UnlockTriumph(12); // GRANDMASTER ASCENT
@@ -1675,9 +1716,12 @@ void GhostGame::UpdatePlayingFixed(float dt) {
             } else {
                 runGlimmerEarned_ += 50;
                 profile_.glimmer += 50;
+                profile_.totalGlimmerEarnedLifetime += 50;
                 ghost_.overshieldCharges = std::min(3 + profile_.upgrades.overshieldCapLevel, ghost_.overshieldCharges + 1);
                 if (isNightfallMode_) {
                     ghost_.superEnergy = std::min(100.0f, ghost_.superEnergy + 45.0f);
+                    AwardLegendaryShards(2);
+                    TriggerVanguardMedal("EXOTIC ENGRAM // +2 SHARDS!", 0, GOLD);
                 } else {
                     ghost_.tacticalCooldown = 0.0f; // Instant Tactical charge in Patrol!
                 }
@@ -1964,6 +2008,9 @@ void GhostGame::UpdateBossFixed(float dt) {
         profile_.totalBossesDefeated++;
         runGlimmerEarned_ += 120;
         profile_.glimmer += 120;
+        profile_.totalGlimmerEarnedLifetime += 120;
+        AwardLegendaryShards(5);
+        TriggerVanguardMedal("NIGHTFALL BOSS SLAIN // +5 SHARDS!", 0, GOLD);
         screenShakeTrauma_ = 0.8f;
         flashColor_ = GOLD;
         flashAlpha_ = 0.55f;
