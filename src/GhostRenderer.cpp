@@ -29,12 +29,13 @@ Font LoadCrispUiFont(const std::initializer_list<const char*>& paths, int baseSi
     codepoints[count++] = 8226;
     codepoints[count++] = 8776;
     codepoints[count++] = 10003;
+    unsigned int defaultTexId = GetFontDefault().texture.id;
     for (const char* p : paths) {
 #if !defined(PLATFORM_ANDROID)
         if (!FileExists(p)) continue;
 #endif
         Font f = LoadFontEx(p, baseSize, codepoints, count);
-        if (f.texture.id != 0) {
+        if (f.texture.id != 0 && f.texture.id != defaultTexId) {
             SetTextureFilter(f.texture, TEXTURE_FILTER_BILINEAR);
             return f;
         }
@@ -104,10 +105,17 @@ void GhostGame::RefreshUiFonts(float targetScale) {
     int pxBody  = std::clamp(static_cast<int>(std::round(20.0f * clampedScale)), 24, 128);
     int pxBold  = std::clamp(static_cast<int>(std::round(32.0f * clampedScale)), 36, 176);
     int pxHero  = std::clamp(static_cast<int>(std::round(66.0f * clampedScale)), 64, 256);
+#if defined(PLATFORM_ANDROID)
+    g_uiFontSmall = LoadCrispUiFont({ "ui_medium.ttf", "assets/ui_medium.ttf" }, pxSmall);
+    g_uiFontBody  = LoadCrispUiFont({ "ui_medium.ttf", "assets/ui_medium.ttf" }, pxBody);
+    g_uiFontBold  = LoadCrispUiFont({ "ui_bold.ttf", "assets/ui_bold.ttf" }, pxBold);
+    g_uiFontHero  = LoadCrispUiFont({ "ui_bold.ttf", "assets/ui_bold.ttf" }, pxHero);
+#else
     g_uiFontSmall = LoadCrispUiFont({ "assets/ui_medium.ttf", "ui_medium.ttf", "../assets/ui_medium.ttf", "build/assets/ui_medium.ttf" }, pxSmall);
     g_uiFontBody  = LoadCrispUiFont({ "assets/ui_medium.ttf", "ui_medium.ttf", "../assets/ui_medium.ttf", "build/assets/ui_medium.ttf" }, pxBody);
     g_uiFontBold  = LoadCrispUiFont({ "assets/ui_bold.ttf", "ui_bold.ttf", "../assets/ui_bold.ttf", "build/assets/ui_bold.ttf" }, pxBold);
     g_uiFontHero  = LoadCrispUiFont({ "assets/ui_bold.ttf", "ui_bold.ttf", "../assets/ui_bold.ttf", "build/assets/ui_bold.ttf" }, pxHero);
+#endif
 }
 
 void GhostGame::InitUiFonts() {
@@ -115,10 +123,15 @@ void GhostGame::InitUiFonts() {
 }
 
 void GhostGame::ShutdownUiFonts() {
-    if (g_uiFontSmall.texture.id != 0) { UnloadFont(g_uiFontSmall); g_uiFontSmall = Font{}; }
-    if (g_uiFontBody.texture.id != 0)  { UnloadFont(g_uiFontBody);  g_uiFontBody  = Font{}; }
-    if (g_uiFontBold.texture.id != 0)  { UnloadFont(g_uiFontBold);  g_uiFontBold  = Font{}; }
-    if (g_uiFontHero.texture.id != 0)  { UnloadFont(g_uiFontHero);  g_uiFontHero  = Font{}; }
+    unsigned int defaultTexId = GetFontDefault().texture.id;
+    if (g_uiFontSmall.texture.id != 0 && g_uiFontSmall.texture.id != defaultTexId) { UnloadFont(g_uiFontSmall); }
+    if (g_uiFontBody.texture.id != 0  && g_uiFontBody.texture.id != defaultTexId)  { UnloadFont(g_uiFontBody);  }
+    if (g_uiFontBold.texture.id != 0  && g_uiFontBold.texture.id != defaultTexId)  { UnloadFont(g_uiFontBold);  }
+    if (g_uiFontHero.texture.id != 0  && g_uiFontHero.texture.id != defaultTexId)  { UnloadFont(g_uiFontHero);  }
+    g_uiFontSmall = Font{};
+    g_uiFontBody  = Font{};
+    g_uiFontBold  = Font{};
+    g_uiFontHero  = Font{};
     g_builtFontScale = 0.0f;
 }
 
@@ -213,7 +226,76 @@ void GhostGame::RenderFrame() {
             DrawPolyLinesEx(dronePos, sides, 12.5f * pulseScale, -globalTime_ * 140.0f, 2.0f, droneDef.color);
         }
 
-        // Strand Grapple Tether Line
+        // 1. Voidwalker / Prismatic Spatial Warp Rift & Afterimage Echo
+        if (ghost_.blinkEchoTimer > 0.0f) {
+            float echoRatio = std::clamp(ghost_.blinkEchoTimer / 0.38f, 0.0f, 1.0f);
+            Color riftCol = GetSubclassAccentColor();
+            Color beamCol = { riftCol.r, riftCol.g, riftCol.b, static_cast<unsigned char>(210 * echoRatio) };
+            DrawLineEx(ghost_.blinkEchoPos, ghost_.pos, 5.0f * echoRatio, beamCol);
+            DrawLineEx(ghost_.blinkEchoPos, ghost_.pos, 2.0f * echoRatio, Color{ 255, 255, 255, static_cast<unsigned char>(190 * echoRatio) });
+            DrawPolyLinesEx(ghost_.blinkEchoPos, 4, 24.0f * (1.25f - 0.35f * echoRatio), globalTime_ * 220.0f, 2.2f, beamCol);
+            RenderGhostRig(ghost_.blinkEchoPos, ghost_.radius * 0.92f, ghost_.rotation, 0.65f,
+                           ghost_.shellSpinAngle, ghost_.eyeLookOffset, profile_.equippedShell, echoRatio * 0.50f);
+        }
+
+        // 2. Dawnblade Icarus Hover Jet (Radiant Solar Wings + Golden Plume + Magnet Ring)
+        if (ghost_.solarHoverTimer > 0.0f) {
+            float hovRatio = std::clamp(ghost_.solarHoverTimer / 1.15f, 0.0f, 1.0f);
+            float flapWave = std::sin(globalTime_ * 24.0f) * 6.0f;
+            unsigned char wingA = static_cast<unsigned char>(185 * hovRatio + 45);
+            Color wingOuter = { 255, 140, 30, wingA };
+            Color wingInner = { 255, 230, 120, wingA };
+            DrawTriangle({ ghost_.pos.x - 6.0f, ghost_.pos.y - 4.0f },
+                         { ghost_.pos.x - 46.0f, ghost_.pos.y - 34.0f + flapWave },
+                         { ghost_.pos.x - 26.0f, ghost_.pos.y - 8.0f }, wingOuter);
+            DrawTriangle({ ghost_.pos.x - 6.0f, ghost_.pos.y + 4.0f },
+                         { ghost_.pos.x - 26.0f, ghost_.pos.y + 8.0f },
+                         { ghost_.pos.x - 46.0f, ghost_.pos.y + 34.0f - flapWave }, wingOuter);
+            DrawRectangleGradientH(static_cast<int>(ghost_.pos.x - 68.0f), static_cast<int>(ghost_.pos.y - 8.0f),
+                                   56, 16, BLANK, wingInner);
+            DrawCircleLines(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y),
+                            42.0f + std::sin(globalTime_ * 16.0f) * 4.0f,
+                            Color{ 255, 195, 70, static_cast<unsigned char>(130 * hovRatio) });
+        }
+
+        // 3. Stormcaller Ionic Lightning Surge (Flat Bolt Speed Lines & Crackling Arcs)
+        if (ghost_.arcDashTimer > 0.0f) {
+            float arcRatio = std::clamp(ghost_.arcDashTimer / 0.42f, 0.0f, 1.0f);
+            Color boltCol = { 80, 230, 255, static_cast<unsigned char>(235 * arcRatio) };
+            for (int b = -1; b <= 1; ++b) {
+                Vector2 p0 = { ghost_.pos.x + 18.0f, ghost_.pos.y + b * 11.0f };
+                Vector2 p1 = { ghost_.pos.x - 36.0f, ghost_.pos.y + b * 14.0f + std::sin(globalTime_ * 65.0f + b * 2.1f) * 10.0f };
+                Vector2 p2 = { ghost_.pos.x - 95.0f, ghost_.pos.y + b * 9.0f  - std::cos(globalTime_ * 53.0f + b * 1.7f) * 11.0f };
+                DrawLineEx(p0, p1, 3.0f, WHITE);
+                DrawLineEx(p1, p2, 2.5f, boltCol);
+            }
+            DrawPolyLinesEx(ghost_.pos, 6, 30.0f, globalTime_ * 320.0f, 2.2f, boltCol);
+        }
+
+        // 4. Shadebinder Frost Pulse Shockwave & Bounceable Stasis Ice Floor
+        if (ghost_.stasisPulseTimer > 0.0f) {
+            float prog = 1.0f - std::clamp(ghost_.stasisPulseTimer / 0.50f, 0.0f, 1.0f);
+            float pulseR = 24.0f + prog * 235.0f;
+            unsigned char pA = static_cast<unsigned char>((1.0f - prog) * 220.0f);
+            DrawPolyLinesEx(ghost_.pos, 6, pulseR, prog * 45.0f, 3.0f, Color{ 95, 175, 255, pA });
+            DrawCircleLines(static_cast<int>(ghost_.pos.x), static_cast<int>(ghost_.pos.y), pulseR * 0.82f, Color{ 200, 235, 255, pA });
+        }
+        if (ghost_.stasisFloorTimer > 0.0f) {
+            float flRatio = std::clamp(ghost_.stasisFloorTimer / 0.45f, 0.0f, 1.0f);
+            unsigned char flA = static_cast<unsigned char>(215 * flRatio);
+            float rx0 = ghost_.pos.x - 90.0f;
+            float rx1 = ghost_.pos.x + 150.0f;
+            DrawRectangle(static_cast<int>(rx0), static_cast<int>(ghost_.stasisFloorY + ghost_.radius * 0.5f),
+                          static_cast<int>(rx1 - rx0), 7, Color{ 65, 145, 255, flA });
+            DrawLineEx({ rx0, ghost_.stasisFloorY + ghost_.radius * 0.5f },
+                       { rx1, ghost_.stasisFloorY + ghost_.radius * 0.5f }, 2.5f, Color{ 215, 242, 255, flA });
+            for (int k = 0; k < 5; ++k) {
+                Vector2 shardPos = { rx0 + 24.0f + k * 48.0f, ghost_.stasisFloorY + ghost_.radius * 0.5f + 4.0f };
+                DrawPoly(shardPos, 4, 7.5f, 0.0f, Color{ 125, 200, 255, flA });
+            }
+        }
+
+        // 5. Strand Grapple Tether Line
         if (ghost_.grappleTimer > 0.0f) {
             DrawLineEx(ghost_.pos, ghost_.grappleAnchor, 3.5f, { 65, 245, 130, 235 });
             DrawPoly(ghost_.grappleAnchor, 6, 12.0f, globalTime_ * 160.0f, { 65, 245, 130, 255 });
@@ -839,7 +921,18 @@ void GhostGame::RenderHud() const {
     }
     DrawText(subName, 102, 34, 16, WHITE);
 
-    float tacReady = 1.0f - std::clamp(ghost_.tacticalCooldown / ghost_.tacticalMaxCooldown, 0.0f, 1.0f);
+    bool tacCanCast = (ghost_.tacticalCharges > 0);
+    float tacRechargeFrac = 1.0f - std::clamp(ghost_.tacticalCooldown / std::max(0.05f, ghost_.tacticalMaxCooldown), 0.0f, 1.0f);
+    float tacReady = (ghost_.tacticalCharges >= ghost_.maxTacticalCharges) ? 1.0f : tacRechargeFrac;
+    char tacStatusTxt[32];
+    if (ghost_.maxTacticalCharges > 1) {
+        if (ghost_.tacticalCharges >= 2) std::snprintf(tacStatusTxt, sizeof(tacStatusTxt), "BLINK x2 READY");
+        else if (ghost_.tacticalCharges == 1) std::snprintf(tacStatusTxt, sizeof(tacStatusTxt), "BLINK x1 READY");
+        else std::snprintf(tacStatusTxt, sizeof(tacStatusTxt), "CHARGING...");
+    } else {
+        std::snprintf(tacStatusTxt, sizeof(tacStatusTxt), "%s", tacCanCast ? "BLINK READY" : "CHARGING...");
+    }
+
     if (isNightfallMode_) {
         DrawRectangle(102, 56, 245, 16, { 30, 36, 48, 255 });
         Color superBarCol = (ghost_.superActiveTimer > 0.0f) ? WHITE :
@@ -850,18 +943,18 @@ void GhostGame::RenderHud() const {
         if (ghost_.superActiveTimer > 0.0f) {
             DrawText("SUPER ACTIVE!", 160, 57, 14, BLACK);
         } else if (superRatio >= 1.0f) {
-            DrawText("SUPER READY [F / Q]", 145, 57, 14, BLACK);
+            DrawText("SUPER READY", 164, 57, 14, BLACK);
         }
 
-        DrawRectangle(102, 80, 140, 10, { 30, 36, 48, 255 });
-        DrawRectangle(102, 80, static_cast<int>(140.0f * tacReady), 10, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
-        DrawText((tacReady >= 1.0f) ? "TACTICAL: READY" : "RECHARGING...", 250, 78, 12, LIGHTGRAY);
+        DrawRectangle(102, 80, 132, 10, { 30, 36, 48, 255 });
+        DrawRectangle(102, 80, static_cast<int>(132.0f * tacReady), 10, tacCanCast ? subCol : GRAY);
+        DrawText(tacStatusTxt, 242, 78, 12, tacCanCast ? WHITE : LIGHTGRAY);
     } else {
         DrawText("PATROL // TACTICAL FLIGHT MODE", 102, 56, 13, SKYBLUE);
-        DrawRectangle(102, 78, 155, 12, { 30, 36, 48, 255 });
-        DrawRectangle(102, 78, static_cast<int>(155.0f * tacReady), 12, (tacReady >= 1.0f) ? SKYBLUE : GRAY);
-        DrawRectangleLines(102, 78, 155, 12, { 255, 255, 255, 120 });
-        DrawText((tacReady >= 1.0f) ? "BLINK READY" : "CHARGING...", 264, 78, 12, (tacReady >= 1.0f) ? WHITE : LIGHTGRAY);
+        DrawRectangle(102, 78, 145, 12, { 30, 36, 48, 255 });
+        DrawRectangle(102, 78, static_cast<int>(145.0f * tacReady), 12, tacCanCast ? subCol : GRAY);
+        DrawRectangleLines(102, 78, 145, 12, { 255, 255, 255, 120 });
+        DrawText(tacStatusTxt, 254, 78, 12, tacCanCast ? WHITE : LIGHTGRAY);
     }
 
     for (int i = 0; i < ghost_.overshieldCharges; ++i) {
@@ -924,9 +1017,26 @@ void GhostGame::RenderHud() const {
     Rectangle supBtn = { btnStartX + 244.0f, VIRTUAL_HEIGHT - 92.0f, 112.0f, 62.0f };
 
     bool hasGamepad = IsGamepadAvailable(0);
-    const char* drnHint = hasGamepad ? "[(B) / RT]" : "[C / X]";
-    const char* tacHint = hasGamepad ? "[(X) / LB]" : "[SHIFT / RMB]";
-    const char* supHint = hasGamepad ? "[(Y) / RB]" : "[F / Q]";
+#if defined(PLATFORM_ANDROID)
+    bool showKeyHints = false;
+#else
+    bool showKeyHints = (activeInputDevice_ != "TOUCH SCREEN");
+#endif
+    const char* drnHint = hasGamepad ? "(X) / RT" : "[C]";
+    const char* tacHint = hasGamepad ? "(B) / LB" : "[SHIFT]";
+    const char* supHint = hasGamepad ? "(Y) / RB" : "[F]";
+
+    auto drawCenteredBtnText = [&](Rectangle r, const char* label, const char* keyHint, Color labelCol) {
+        if (showKeyHints) {
+            int lw = MeasureText(label, 15);
+            DrawText(label, static_cast<int>(r.x + (r.width - lw) * 0.5f), static_cast<int>(r.y + 9), 15, labelCol);
+            int kw = MeasureText(keyHint, 12);
+            DrawText(keyHint, static_cast<int>(r.x + (r.width - kw) * 0.5f), static_cast<int>(r.y + 29), 12, LIGHTGRAY);
+        } else {
+            int lw = MeasureText(label, 16);
+            DrawText(label, static_cast<int>(r.x + (r.width - lw) * 0.5f), static_cast<int>(r.y + 16), 16, labelCol);
+        }
+    };
 
     if (isNightfallMode_ && profile_.equippedDrone >= 0 && profile_.equippedDrone < static_cast<int>(NUM_DRONES)) {
         const auto& droneDef = GetDroneCatalog()[profile_.equippedDrone];
@@ -934,24 +1044,34 @@ void GhostGame::RenderHud() const {
         bool drnFeedback = (touchFeedbackDrn_ > 0.0f);
         DrawRectangleRec(drnBtn, drnFeedback ? Color{ 45, 85, 120, 255 } : ((drnReady >= 1.0f) ? Color{ 28, 52, 74, 225 } : Color{ 22, 26, 34, 185 }));
         DrawRectangleLinesEx(drnBtn, drnFeedback ? 2.5f : 2.0f, drnFeedback ? WHITE : ((drnReady >= 1.0f) ? droneDef.color : GRAY));
-        DrawText("FIRE DRONE", static_cast<int>(drnBtn.x + 12), static_cast<int>(drnBtn.y + 12), 14, WHITE);
-        DrawText(drnHint, static_cast<int>(drnBtn.x + (hasGamepad ? 22 : 30)), static_cast<int>(drnBtn.y + 30), 12, LIGHTGRAY);
+        drawCenteredBtnText(drnBtn, "DRONE", drnHint, WHITE);
         DrawRectangle(static_cast<int>(drnBtn.x + 10), static_cast<int>(drnBtn.y + 48), 92, 6, { 18, 22, 30, 255 });
         DrawRectangle(static_cast<int>(drnBtn.x + 10), static_cast<int>(drnBtn.y + 48), static_cast<int>(92.0f * drnReady), 6, droneDef.color);
     }
 
     bool tacFeedback = (touchFeedbackTac_ > 0.0f);
-    DrawRectangleRec(tacBtn, tacFeedback ? Color{ 55, 105, 155, 255 } : ((tacReady >= 1.0f) ? Color{ 35, 65, 95, 210 } : Color{ 25, 28, 35, 180 }));
-    DrawRectangleLinesEx(tacBtn, tacFeedback ? 2.5f : 2.0f, tacFeedback ? WHITE : ((tacReady >= 1.0f) ? SKYBLUE : GRAY));
-    DrawText("BLINK / DASH", static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 14), 14, WHITE);
-    DrawText(tacHint, static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 34), 12, LIGHTGRAY);
+    DrawRectangleRec(tacBtn, tacFeedback ? Color{ 55, 105, 155, 255 } : (tacCanCast ? Color{ 32, 58, 86, 220 } : Color{ 25, 28, 35, 180 }));
+    DrawRectangleLinesEx(tacBtn, tacFeedback ? 2.5f : 2.0f, tacFeedback ? WHITE : (tacCanCast ? subCol : GRAY));
+    drawCenteredBtnText(tacBtn, (ghost_.tacticalCharges >= 2) ? "BLINK x2" : "BLINK", tacHint, tacCanCast ? WHITE : LIGHTGRAY);
+    if (ghost_.maxTacticalCharges == 2) {
+        float seg0 = (ghost_.tacticalCharges >= 1) ? 1.0f : tacRechargeFrac;
+        float seg1 = (ghost_.tacticalCharges >= 2) ? 1.0f : ((ghost_.tacticalCharges == 1) ? tacRechargeFrac : 0.0f);
+        DrawRectangle(static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 48), 44, 6, { 18, 22, 30, 255 });
+        DrawRectangle(static_cast<int>(tacBtn.x + 58), static_cast<int>(tacBtn.y + 48), 44, 6, { 18, 22, 30, 255 });
+        DrawRectangle(static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 48), static_cast<int>(44.0f * seg0), 6, (seg0 >= 1.0f) ? subCol : GRAY);
+        DrawRectangle(static_cast<int>(tacBtn.x + 58), static_cast<int>(tacBtn.y + 48), static_cast<int>(44.0f * seg1), 6, (seg1 >= 1.0f) ? subCol : GRAY);
+    } else {
+        DrawRectangle(static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 48), 92, 6, { 18, 22, 30, 255 });
+        DrawRectangle(static_cast<int>(tacBtn.x + 10), static_cast<int>(tacBtn.y + 48), static_cast<int>(92.0f * tacReady), 6, tacCanCast ? subCol : GRAY);
+    }
 
     if (isNightfallMode_) {
         bool supFeedback = (touchFeedbackSup_ > 0.0f);
         DrawRectangleRec(supBtn, supFeedback ? Color{ 145, 115, 35, 255 } : ((superRatio >= 1.0f) ? Color{ 95, 75, 20, 230 } : Color{ 25, 28, 35, 180 }));
         DrawRectangleLinesEx(supBtn, supFeedback ? 2.5f : 2.0f, supFeedback ? WHITE : ((superRatio >= 1.0f) ? GOLD : GRAY));
-        DrawText("CAST SUPER", static_cast<int>(supBtn.x + 12), static_cast<int>(supBtn.y + 14), 14, (superRatio >= 1.0f || supFeedback) ? GOLD : GRAY);
-        DrawText(supHint, static_cast<int>(supBtn.x + (hasGamepad ? 24 : 32)), static_cast<int>(supBtn.y + 34), 12, LIGHTGRAY);
+        drawCenteredBtnText(supBtn, "SUPER", supHint, (superRatio >= 1.0f || supFeedback) ? GOLD : LIGHTGRAY);
+        DrawRectangle(static_cast<int>(supBtn.x + 10), static_cast<int>(supBtn.y + 48), 92, 6, { 18, 22, 30, 255 });
+        DrawRectangle(static_cast<int>(supBtn.x + 10), static_cast<int>(supBtn.y + 48), static_cast<int>(92.0f * superRatio), 6, (superRatio >= 1.0f) ? GOLD : subCol);
     }
 
     // First-Run Control Hint Pill (fades cleanly after 4.5s on a player's very first run)
@@ -961,16 +1081,16 @@ void GhostGame::RenderHud() const {
         unsigned char txtA = static_cast<unsigned char>(fade * 245.0f);
 #if defined(PLATFORM_ANDROID)
         const char* hint = isNightfallMode_
-            ? "CONTROLS: Tap Screen = Flap  |  [BLINK/DASH] & [SUPER]: Combat  |  [FIRE DRONE]: Shoot"
-            : "CONTROLS: Tap Anywhere = Flap  |  Tap [BLINK / DASH] to Phase Through Hazards";
+            ? "CONTROLS: Tap Screen = Flap  |  [BLINK] & [SUPER]: Abilities  |  [DRONE]: Shoot"
+            : "CONTROLS: Tap Anywhere = Flap  |  Tap [BLINK] for Subclass Blink";
 #else
         const char* hint = hasGamepad
             ? (isNightfallMode_
                 ? "CONTROLS: [(A)] Flap  |  [(B)/LB] Blink  |  [(Y)/RB] Super  |  [(X)/RT] Drone"
-                : "CONTROLS: [(A)] Flap  |  [(B)/LB] Tactical Blink")
+                : "CONTROLS: [(A)] Flap  |  [(B)/LB] Subclass Blink")
             : (isNightfallMode_
                 ? "CONTROLS: [SPACE / Click] Flap  |  [SHIFT / RMB] Blink  |  [F / Q] Super  |  [C / X] Drone"
-                : "CONTROLS: [SPACE / Click] Flap  |  [SHIFT / RMB] Tactical Blink");
+                : "CONTROLS: [SPACE / Click] Flap  |  [SHIFT / RMB] Subclass Blink");
 #endif
         int hw = MeasureText(hint, 14);
         DrawRectangle(VIRTUAL_WIDTH / 2 - hw / 2 - 18, 86, hw + 36, 32, { 10, 14, 24, bgA });
@@ -1264,28 +1384,28 @@ void GhostGame::RenderSubclassArmory() {
 
     const SubCard cards[NUM_SUBCLASSES] = {
         { 0, "VOIDWALKER", "VOID LIGHT",
-          "TACTICAL [BLINK]: Short phase teleport (0.32s) through an immediate barrier ahead.",
+          "BLINK [ASTROCYTE WARP]: Instant 145px spatial teleport forward past barriers + Void echo.",
           "NIGHTFALL SUPER [NOVA BOMB]: Hurls a Void singularity clearing bosses, shields & 1 barrier.",
           0, 0, { 175, 85, 255, 255 } },
         { 1, "DAWNBLADE", "SOLAR LIGHT",
-          "TACTICAL [ICARUS DASH]: Stabilize momentum, hover glide & phase through hazards.",
+          "BLINK [ICARUS HOVER JET]: 1.15s zero-G horizontal Solar cruise + 2.25x Mote vacuum.",
           "NIGHTFALL SUPER [DAYBREAK]: Every flap hurls homing Solar blades & burns enemy fire.",
           0, 0, { 255, 145, 35, 255 } },
         { 2, "STORMCALLER", "ARC LIGHT",
-          "TACTICAL [IONIC BLINK]: High-voltage phase dash with rapid vertical recovery.",
+          "BLINK [IONIC SURGE]: Flat lightning bolt dash, chain-jolts nearby threats & refunds CD on gate.",
           "NIGHTFALL SUPER [CHAOS REACH]: Aimable Arc laser melting bosses, enemies & Oracles.",
           0, 0, { 75, 220, 255, 255 } },
         { 3, "SHADEBINDER", "STASIS DARKNESS",
-          "TACTICAL [FROST PULSE]: Freezes moving Vex lasers, Oracles & Boss shots for 2.5s.",
+          "BLINK [FROST PULSE]: 3s hazard time-freeze + conjures a bounceable Stasis ice rail below.",
           "NIGHTFALL SUPER [WINTER'S WRATH]: Freezes hazards & shatters all foes/shots into Motes.",
           500, 0, { 70, 130, 255, 255 } },
         { 4, "THREADRUNNER", "STRAND DARKNESS",
-          "TACTICAL [GRAPPLE]: Launches a Strand grapple line ahead to swing & phase upward.",
+          "BLINK [STRAND GRAPPLE]: Fires an upward grapple anchor ahead to swing & phase cleanly.",
           "NIGHTFALL SUPER [NEEDLESTORM]: Unleashes a 12-Threadling swarm hunting foes & Bosses.",
           500, 0, { 65, 245, 130, 255 } },
         { 5, "TRANSCENDENT", "PRISMATIC",
-          "TACTICAL [PRISMATIC SURGE]: Freezes obstacles & surges with Light + Dark phase.",
-          "NIGHTFALL SUPER [TRANSCENDENCE]: 4x Tactical recharge + dual Light/Dark homing bursts!",
+          "BLINK [2 CHARGES]: Dual-charge 90px spatial micro-warp + 1.6s Stasis freeze & seekers!",
+          "NIGHTFALL SUPER [TRANSCENDENCE]: 4x Blink recharge + dual Light/Dark homing bursts!",
           1500, 15, { 255, 125, 235, 255 } }
     };
 

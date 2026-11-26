@@ -476,6 +476,9 @@ void GhostGame::StartNewRun(bool dailyNightfall) {
     ghost_.pos = { 280.0f, VIRTUAL_HEIGHT * 0.5f };
     ghost_.vel = { 0.0f, -180.0f };
     ghost_.tacticalMaxCooldown = std::max(1.4f, 3.2f - profile_.upgrades.phaseCooldownLevel * 0.32f);
+    ghost_.maxTacticalCharges = (static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::PRISMATIC_TRANSCENDENT) ? 2 : 1;
+    ghost_.tacticalCharges = ghost_.maxTacticalCharges;
+    ghost_.tacticalCooldown = 0.0f;
     ghost_.overshieldCharges = profile_.upgrades.overshieldCapLevel;
     ghost_.superEnergy = isNightfallMode_ ? 25.0f : 0.0f;
     ghost_.superActiveTimer = 0.0f;
@@ -591,6 +594,7 @@ bool GhostGame::IsButtonClicked(Rectangle rect) const {
 
 void GhostGame::TriggerFlap() {
     ghost_.vel.y = -435.0f;
+    ghost_.arcDashTimer = 0.0f; // Manual flap cleanly exits flat Arc bolt lock if desired
     ghost_.shellExpand = 1.0f;
     audio_.PlayFlap();
 
@@ -606,10 +610,14 @@ void GhostGame::TriggerFlap() {
 }
 
 void GhostGame::TriggerTacticalAbility() {
-    if (ghost_.tacticalCooldown > 0.0f) return;
+    if (ghost_.tacticalCharges <= 0) return;
+
+    ghost_.tacticalCharges--;
+    if (ghost_.tacticalCooldown <= 0.0f) {
+        ghost_.tacticalCooldown = ghost_.tacticalMaxCooldown;
+    }
 
     profile_.totalBlinkTeleports++;
-    ghost_.tacticalCooldown = ghost_.tacticalMaxCooldown;
     ghost_.shellExpand = 1.6f;
     audio_.PlayBlink();
     ProgressDailyBounty(3, 1); // PHASE DRIFTER
@@ -620,6 +628,31 @@ void GhostGame::TriggerTacticalAbility() {
 
     Color accent = GetSubclassAccentColor();
 
+    auto shiftWorldForward = [&](float warpDist) {
+        nextObstacleSpawnX_ -= warpDist;
+        distanceMeters_ += warpDist * 0.025f;
+        for (auto& o : obstacles_) {
+            if (o.active) o.x -= warpDist;
+        }
+        for (auto& c : collectibles_) {
+            if (!c.active) continue;
+            if (c.pos.x >= ghost_.pos.x - 12.0f && c.pos.x <= ghost_.pos.x + warpDist + 16.0f &&
+                std::abs(c.pos.y - ghost_.pos.y) < 56.0f) {
+                c.pos = ghost_.pos; // Collect Motes/Engrams along the blink path!
+            } else {
+                c.pos.x -= warpDist;
+            }
+        }
+        for (auto& e : enemies_) {
+            if (e.active) e.pos.x -= warpDist;
+        }
+        for (auto& pr : projectiles_) {
+            if (pr.active && !pr.friendly) pr.pos.x -= warpDist;
+        }
+        ghost_.blinkEchoPos = { ghost_.pos.x - std::min(135.0f, warpDist), ghost_.pos.y };
+        ghost_.blinkEchoTimer = 0.38f;
+    };
+
     // Exotic Perk: Gjallarhorn Wolfpack spawns 3 homing micro-rockets on every tactical ability in Nightfall!
     if (isNightfallMode_ && static_cast<ExoticPerk>(profile_.equippedExoticPerk) == ExoticPerk::GJALLARHORN_WOLFPACK) {
         for (int w = -1; w <= 1; ++w) {
@@ -629,41 +662,91 @@ void GhostGame::TriggerTacticalAbility() {
     }
 
     if (sub == LightSubclass::VOID_WALKER) {
-        // Voidwalker Blink: Focused short phase through an immediate hazard (0.32s phase, slight vertical nudge)
-        // No longer warps entire world back or teleports past multiple obstacles automatically
-        ghost_.phaseTimer = 0.32f;
-        ghost_.vel.y = -90.0f;
-        SpawnParticleBurst(ghost_.pos, 22, accent, 70.0f, 240.0f, 5.0f, 0.35f);
+        // Voidwalker Astrocyte Blink: True instant 145px spatial teleport forward through barriers, leaving a Void Rift Echo!
+        SpawnParticleBurst(ghost_.pos, 20, accent, 60.0f, 220.0f, 5.0f, 0.35f);
+        shiftWorldForward(145.0f);
+        ghost_.phaseTimer = 0.30f;
+        ghost_.vel.y = -105.0f;
+        SpawnParticleBurst(ghost_.pos, 26, WHITE, 80.0f, 280.0f, 5.5f, 0.38f);
         flashColor_ = accent;
-        flashAlpha_ = 0.25f;
+        flashAlpha_ = 0.28f;
     } else if (sub == LightSubclass::SOLAR_DAWN) {
-        ghost_.phaseTimer = 0.65f;
+        // Dawnblade Icarus Hover Jet: 1.15s anti-gravity horizontal Solar cruise + 2.25x Mote vacuum!
+        ghost_.solarHoverTimer = 1.15f;
+        ghost_.phaseTimer = 0.55f;
         ghost_.vel.y = 0.0f;
         SpawnParticleBurst(ghost_.pos, 32, accent, 100.0f, 360.0f, 6.5f, 0.50f);
         if (isNightfallMode_) {
             for (int i = -1; i <= 1; ++i) {
                 SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y },
-                                { 650.0f, i * 110.0f }, 12.0f, accent, true, false);
+                                { 680.0f, i * 110.0f }, 12.0f, accent, true, false);
             }
         }
     } else if (sub == LightSubclass::ARC_CALLER) {
+        // Stormcaller Ionic Lightning Surge: 0.42s flat high-velocity bolt dash + chain-jolts nearby threats!
+        ghost_.arcDashTimer = 0.42f;
         ghost_.phaseTimer = 0.50f;
-        ghost_.vel.y = -150.0f;
-        SpawnParticleBurst(ghost_.pos, 26, accent, 120.0f, 380.0f, 5.5f, 0.40f);
+        ghost_.vel.y = 0.0f;
+        SpawnParticleBurst(ghost_.pos, 30, accent, 140.0f, 420.0f, 5.5f, 0.42f);
+        screenShakeTrauma_ = std::max(screenShakeTrauma_, 0.28f);
+
+        // Chain-jolt enemy projectiles, Oracles/Blights, and nearby enemies within 185px
+        for (auto& pr : projectiles_) {
+            if (pr.active && !pr.friendly && Vector2Distance(ghost_.pos, pr.pos) < 185.0f) {
+                SpawnParticleBurst(pr.pos, 10, accent, 50.0f, 180.0f, 4.0f, 0.28f);
+                pr.active = false;
+            }
+        }
+        for (auto& o : obstacles_) {
+            if (o.active && !o.oracleDestroyed &&
+                (o.kind == ObstacleKind::ROTATING_ORACLE || o.kind == ObstacleKind::TAKEN_BLIGHT_WELL)) {
+                Vector2 np = { o.x + o.width * 0.5f, o.gapCenterY };
+                if (Vector2Distance(ghost_.pos, np) < 185.0f) {
+                    o.oracleDestroyed = true;
+                    SpawnParticleBurst(np, 20, accent, 70.0f, 260.0f, 5.0f, 0.40f);
+                    SpawnCollectible(np, CollectibleKind::MOTE_OF_LIGHT);
+                }
+            }
+        }
+        for (auto& e : enemies_) {
+            if (e.active && Vector2Distance(ghost_.pos, e.pos) < 185.0f) {
+                e.active = false;
+                SpawnParticleBurst(e.pos, 22, accent, 80.0f, 280.0f, 5.5f, 0.40f);
+                SpawnCollectible(e.pos, CollectibleKind::MOTE_OF_LIGHT);
+                runGlimmerEarned_ += 10;
+                profile_.glimmer += 10;
+            }
+        }
         if (isNightfallMode_) {
-            SpawnProjectile({ ghost_.pos.x + 24.0f, ghost_.pos.y }, { 850.0f, 0.0f }, 15.0f, accent, true, false);
+            SpawnProjectile({ ghost_.pos.x + 24.0f, ghost_.pos.y }, { 920.0f, 0.0f }, 15.0f, accent, true, false, 20.0f, false, false, false, true);
         }
     } else if (sub == LightSubclass::STASIS_SHADEBINDER) {
-        // Stasis Frost Pulse: Freezes all moving obstacles, Oracles, and enemy projectiles for 2.5s!
+        // Shadebinder Frost Pulse & Ice Aegis: 3.0s time-freeze shockwave + conjures a bounceable Stasis Ice Floor below!
         ghost_.phaseTimer = 0.45f;
-        ghost_.stasisFreezeTimer = 2.5f;
-        ghost_.vel.y = -80.0f;
+        ghost_.stasisFreezeTimer = 3.0f;
+        ghost_.stasisPulseTimer = 0.50f;
+        ghost_.stasisFloorY = std::min(VIRTUAL_HEIGHT - 68.0f, ghost_.pos.y + 46.0f);
+        ghost_.stasisFloorTimer = 1.90f;
+        ghost_.vel.y = -115.0f;
         SpawnParticleBurst(ghost_.pos, 38, accent, 90.0f, 360.0f, 6.5f, 0.55f);
         for (auto& o : obstacles_) {
-            if (o.active) o.frozenByStasis = true;
+            if (o.active) {
+                o.frozenByStasis = true;
+                if (!o.oracleDestroyed && (o.kind == ObstacleKind::ROTATING_ORACLE || o.kind == ObstacleKind::TAKEN_BLIGHT_WELL)) {
+                    Vector2 np = { o.x + o.width * 0.5f, o.gapCenterY };
+                    if (Vector2Distance(ghost_.pos, np) < 210.0f) {
+                        o.oracleDestroyed = true;
+                        SpawnParticleBurst(np, 20, accent, 70.0f, 250.0f, 5.0f, 0.40f);
+                        SpawnCollectible(np, CollectibleKind::MOTE_OF_LIGHT);
+                    }
+                }
+            }
         }
         for (auto& pr : projectiles_) {
-            if (pr.active && !pr.friendly) pr.active = false;
+            if (pr.active && !pr.friendly) {
+                SpawnParticleBurst(pr.pos, 8, accent, 40.0f, 150.0f, 3.8f, 0.25f);
+                pr.active = false;
+            }
         }
         flashColor_ = accent;
         flashAlpha_ = 0.30f;
@@ -678,17 +761,22 @@ void GhostGame::TriggerTacticalAbility() {
             SpawnProjectile({ ghost_.pos.x + 20.0f, ghost_.pos.y }, { 700.0f, 0.0f }, 11.0f, accent, true, true);
         }
     } else if (sub == LightSubclass::PRISMATIC_TRANSCENDENT) {
-        // Prismatic Transcendence Surge: Freezes laser obstacles + phase surge!
-        ghost_.phaseTimer = 0.70f;
-        ghost_.stasisFreezeTimer = 2.0f;
-        ghost_.vel.y = -220.0f;
-        SpawnParticleBurst(ghost_.pos, 42, accent, 120.0f, 420.0f, 7.0f, 0.60f);
+        // Prismatic Transcendent Step (2 Charges!): 90px spatial micro-warp + 1.6s Stasis freeze + Light/Dark seekers!
+        SpawnParticleBurst(ghost_.pos, 24, SKYBLUE, 80.0f, 260.0f, 5.5f, 0.40f);
+        shiftWorldForward(90.0f);
+        ghost_.phaseTimer = 0.52f;
+        ghost_.stasisFreezeTimer = std::max(ghost_.stasisFreezeTimer, 1.6f);
+        ghost_.vel.y = -175.0f;
+        for (auto& o : obstacles_) {
+            if (o.active) o.frozenByStasis = true;
+        }
+        SpawnParticleBurst(ghost_.pos, 36, accent, 110.0f, 380.0f, 6.5f, 0.55f);
         if (isNightfallMode_) {
             SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y - 14.0f }, { 880.0f, -40.0f }, 14.0f, SKYBLUE, true, true);
             SpawnProjectile({ ghost_.pos.x + 22.0f, ghost_.pos.y + 14.0f }, { 880.0f,  40.0f }, 14.0f, { 255, 140, 40, 255 }, true, true);
         }
         flashColor_ = accent;
-        flashAlpha_ = 0.40f;
+        flashAlpha_ = 0.35f;
     }
 }
 
@@ -789,6 +877,7 @@ void GhostGame::TriggerSuperAbility() {
         // Transcendence: 4.5s+ frenzy—instantly recharges Tactical (4x faster cooldown!), freezes moving hazards,
         // clears enemy shots & strips Boss Overshields while launching Light + Darkness bursts!
         ghost_.superActiveTimer = 4.5f + upg * 0.35f;
+        ghost_.tacticalCharges = ghost_.maxTacticalCharges;
         ghost_.tacticalCooldown = 0.0f;
         ghost_.stasisFreezeTimer = 2.6f;
         for (auto& o : obstacles_) {
@@ -1454,10 +1543,15 @@ void GhostGame::UpdatePlayingFixed(float dt) {
     distanceMeters_ += (scrollSpeed_ * 0.025f) * dt;
 
     float targetSpeed = (isNightfallMode_ ? 340.0f : 310.0f) + std::min(130.0f, scoreGates_ * 1.65f);
-    if (ghost_.stasisFreezeTimer > 0.0f) {
-        targetSpeed *= 0.72f; // Stasis slows incoming barrier velocity!
+    if (ghost_.arcDashTimer > 0.0f) {
+        targetSpeed *= 1.60f; // Stormcaller Ionic Surge rockets horizontally!
+        scrollSpeed_ = Lerp(scrollSpeed_, targetSpeed, 14.0f * dt);
+    } else {
+        if (ghost_.stasisFreezeTimer > 0.0f) {
+            targetSpeed *= 0.72f; // Stasis slows incoming barrier velocity!
+        }
+        scrollSpeed_ = Lerp(scrollSpeed_, targetSpeed, 2.5f * dt);
     }
-    scrollSpeed_ = Lerp(scrollSpeed_, targetSpeed, 2.5f * dt);
 
     BiomeSector currentBiome = GetCurrentBiome();
     if (currentBiome != lastBiome_) {
@@ -1474,8 +1568,28 @@ void GhostGame::UpdatePlayingFixed(float dt) {
     float tacDecayRate = (isNightfallMode_ && ghost_.superActiveTimer > 0.0f &&
                           static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::PRISMATIC_TRANSCENDENT)
                          ? 4.0f : 1.0f;
-    if (ghost_.tacticalCooldown > 0.0f) ghost_.tacticalCooldown = std::max(0.0f, ghost_.tacticalCooldown - tacDecayRate * dt);
+    if (ghost_.tacticalCharges < ghost_.maxTacticalCharges) {
+        ghost_.tacticalCooldown -= tacDecayRate * dt;
+        if (ghost_.tacticalCooldown <= 0.0f) {
+            ghost_.tacticalCharges++;
+            if (ghost_.tacticalCharges < ghost_.maxTacticalCharges) {
+                ghost_.tacticalCooldown = ghost_.tacticalMaxCooldown;
+            } else {
+                ghost_.tacticalCooldown = 0.0f;
+            }
+        }
+    } else {
+        ghost_.tacticalCooldown = 0.0f;
+    }
     if (ghost_.phaseTimer > 0.0f) ghost_.phaseTimer = std::max(0.0f, ghost_.phaseTimer - dt);
+    if (ghost_.blinkEchoTimer > 0.0f) {
+        ghost_.blinkEchoTimer = std::max(0.0f, ghost_.blinkEchoTimer - dt);
+        ghost_.blinkEchoPos.x -= scrollSpeed_ * dt;
+    }
+    if (ghost_.solarHoverTimer > 0.0f) ghost_.solarHoverTimer = std::max(0.0f, ghost_.solarHoverTimer - dt);
+    if (ghost_.arcDashTimer > 0.0f) ghost_.arcDashTimer = std::max(0.0f, ghost_.arcDashTimer - dt);
+    if (ghost_.stasisPulseTimer > 0.0f) ghost_.stasisPulseTimer = std::max(0.0f, ghost_.stasisPulseTimer - dt);
+    if (ghost_.stasisFloorTimer > 0.0f) ghost_.stasisFloorTimer = std::max(0.0f, ghost_.stasisFloorTimer - dt);
     if (ghost_.grappleTimer > 0.0f) {
         ghost_.grappleTimer = std::max(0.0f, ghost_.grappleTimer - dt);
         ghost_.grappleAnchor.x -= scrollSpeed_ * dt;
@@ -1557,13 +1671,31 @@ void GhostGame::UpdatePlayingFixed(float dt) {
         ghost_.vel.y > 40.0f && holdGlide) {
         gravity = 420.0f;
     }
-    if (ghost_.phaseTimer > 0.0f) {
+    if (ghost_.arcDashTimer > 0.0f) {
+        // Stormcaller Ionic Surge: Zero-drop flat lightning rail!
+        gravity = 0.0f;
+        ghost_.vel.y = 0.0f;
+    } else if (ghost_.solarHoverTimer > 0.0f) {
+        // Dawnblade Icarus Hover Jet: Anti-gravity cruise (still allows upward flaps!)
+        gravity = 65.0f;
+        if (ghost_.vel.y > 0.0f) {
+            ghost_.vel.y *= std::max(0.0f, 1.0f - 10.0f * dt);
+        }
+    } else if (ghost_.phaseTimer > 0.0f) {
         gravity *= 0.35f;
     }
 
     ghost_.vel.y += gravity * dt;
     ghost_.vel.y = std::clamp(ghost_.vel.y, -620.0f, 680.0f);
     ghost_.pos.y += ghost_.vel.y * dt;
+
+    // Shadebinder Stasis Ice Floor safety bounce!
+    if (ghost_.stasisFloorTimer > 0.0f && ghost_.pos.y >= ghost_.stasisFloorY && ghost_.vel.y > 0.0f) {
+        ghost_.pos.y = ghost_.stasisFloorY;
+        ghost_.vel.y = -365.0f;
+        audio_.PlayFlap();
+        SpawnParticleBurst({ ghost_.pos.x, ghost_.stasisFloorY }, 22, { 90, 175, 255, 255 }, 60.0f, 240.0f, 5.0f, 0.38f);
+    }
 
     ghost_.rotation = Lerp(ghost_.rotation, std::clamp(ghost_.vel.y * 0.065f, -32.0f, 45.0f), 12.0f * dt);
     ghost_.shellExpand = Lerp(ghost_.shellExpand, (ghost_.superActiveTimer > 0.0f ? 0.65f : 0.0f), 6.5f * dt);
@@ -1635,13 +1767,18 @@ void GhostGame::UpdatePlayingFixed(float dt) {
             if (runGlimmerEarned_ >= 100) UnlockTriumph(11); // LIGHT HARVESTER
             if (profile_.totalGlimmerEarnedLifetime >= 3000) UnlockTriumph(14); // THE TRAVELER'S CHOSEN
 
+            // Stormcaller Ionic Surge: Clearing a gate mid-dash refunds 0.65s Blink cooldown!
+            if (ghost_.arcDashTimer > 0.0f && ghost_.tacticalCooldown > 0.0f) {
+                ghost_.tacticalCooldown = std::max(0.05f, ghost_.tacticalCooldown - 0.65f);
+            }
+
             // Riskrunner Perk: Close call near barrier edge grants +18% Nightfall Super (or -0.6s Tactical CD in Patrol) & +10 Glimmer
             if (static_cast<ExoticPerk>(profile_.equippedExoticPerk) == ExoticPerk::RISKRUNNER_CONDUCTOR) {
                 if (std::abs(ghost_.pos.y - gapTop) < 38.0f || std::abs(ghost_.pos.y - gapBottom) < 38.0f) {
                     if (isNightfallMode_) {
                         ghost_.superEnergy = std::min(100.0f, ghost_.superEnergy + 18.0f);
-                    } else {
-                        ghost_.tacticalCooldown = std::max(0.0f, ghost_.tacticalCooldown - 0.6f);
+                    } else if (ghost_.tacticalCharges < ghost_.maxTacticalCharges) {
+                        ghost_.tacticalCooldown = std::max(0.05f, ghost_.tacticalCooldown - 0.6f);
                     }
                     TriggerVanguardMedal("ARC CONDUCTOR // CLOSE CALL!", 10, SKYBLUE);
                     SpawnParticleBurst(ghost_.pos, 20, SKYBLUE, 60.0f, 220.0f, 5.0f, 0.35f);
@@ -1690,6 +1827,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
 
     float magnetRadius = 95.0f + profile_.upgrades.lightMagnetLevel * 32.0f;
     if (ghost_.superActiveTimer > 0.0f) magnetRadius *= 1.85f;
+    if (ghost_.solarHoverTimer > 0.0f) magnetRadius *= 2.25f; // Dawnblade Icarus Hover vacuums nearby Motes!
 
     for (auto& c : collectibles_) {
         if (!c.active) continue;
@@ -1732,6 +1870,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
                     AwardLegendaryShards(2);
                     TriggerVanguardMedal("EXOTIC ENGRAM // +2 SHARDS!", 0, GOLD);
                 } else {
+                    ghost_.tacticalCharges = ghost_.maxTacticalCharges;
                     ghost_.tacticalCooldown = 0.0f; // Instant Tactical charge in Patrol!
                 }
                 ghost_.overshieldCharges = std::min(3, ghost_.overshieldCharges + 1);

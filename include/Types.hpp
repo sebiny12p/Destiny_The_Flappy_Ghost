@@ -228,10 +228,21 @@ struct GhostPlayer {
     float shellSpinAngle = 0.0f;
     Vector2 eyeLookOffset = { 4.0f, 0.0f };
 
-    // Tactical ability
+    // Tactical ability (Subclass Blink)
+    int tacticalCharges = 1;
+    int maxTacticalCharges = 1;
     float tacticalCooldown = 0.0f;
     float tacticalMaxCooldown = 3.2f;
     float phaseTimer = 0.0f;
+
+    // Distinct Subclass Blink States & VFX
+    Vector2 blinkEchoPos = { 0.0f, 0.0f };
+    float blinkEchoTimer = 0.0f;
+    float solarHoverTimer = 0.0f;
+    float arcDashTimer = 0.0f;
+    float stasisPulseTimer = 0.0f;
+    float stasisFloorY = 0.0f;
+    float stasisFloorTimer = 0.0f;
 
     // Strand Grapple Anchor
     float grappleTimer = 0.0f;

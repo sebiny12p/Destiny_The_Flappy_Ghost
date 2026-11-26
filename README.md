@@ -43,14 +43,14 @@ Destiny: The Flappy Ghost features two distinct flight protocols tailored for bo
 
 Tactical abilities work in every mode; Super abilities are tuned specifically for **Nightfall Strike** combat:
 
-| Subclass | Affinity | Tactical Ability | Nightfall Super Ability |
+| Subclass | Affinity | Subclass Blink Ability | Nightfall Super Ability |
 | :--- | :--- | :--- | :--- |
-| **Voidwalker** | Void Light | **Blink:** Short phase teleport (0.32s) | **Nova Bomb:** Massive Void orb shattering shields & clearing 1 hazard |
-| **Dawnblade** | Solar Light | **Icarus Dash:** Hover glide & hazard phase | **Daybreak:** Twin homing Solar blades on every flap + aura shield |
-| **Stormcaller** | Arc Light | **Ionic Blink:** High-voltage phase dash | **Chaos Reach:** Aimable Arc laser melting enemies, Oracles & Bosses |
-| **Shadebinder** | Stasis Darkness | **Frost Pulse:** Freezes lasers & boss fire | **Winter's Wrath:** Freezes hazards & shatters all foes/shots into Motes |
-| **Threadrunner** | Strand Darkness | **Grapple:** Forward-upward grapple swing | **Needlestorm:** 12+ homing Threadlings hunting foes & Bosses |
-| **Transcendent** | Prismatic | **Prismatic Surge:** Freezes lasers + phase | **Transcendence:** 4x Tactical recharge + dual Light/Dark bursts |
+| **Voidwalker** | Void Light | **Astrocyte Blink:** Instant `145px` forward spatial teleport + Void echo | **Nova Bomb:** Massive Void orb shattering shields & clearing 1 hazard |
+| **Dawnblade** | Solar Light | **Icarus Hover Jet:** `1.15s` zero-G horizontal Solar cruise + `2.25x` Mote vacuum | **Daybreak:** Twin homing Solar blades on every flap + aura shield |
+| **Stormcaller** | Arc Light | **Ionic Surge:** Flat lightning bolt dash, chain-jolts nearby threats & refunds CD on gate | **Chaos Reach:** Aimable Arc laser melting enemies, Oracles & Bosses |
+| **Shadebinder** | Stasis Darkness | **Frost Pulse:** `3.0s` hazard freeze + conjures a bounceable Stasis ice rail below | **Winter's Wrath:** Freezes hazards & shatters all foes/shots into Motes |
+| **Threadrunner** | Strand Darkness | **Strand Grapple:** Fires an upward grapple anchor ahead to swing & phase | **Needlestorm:** 12+ homing Threadlings hunting foes & Bosses |
+| **Transcendent** | Prismatic | **Transcendent Step (2 Charges):** Dual-charge `90px` warp + `1.6s` freeze & seekers | **Transcendence:** 4x Blink recharge + dual Light/Dark bursts |
 
 ---
 
