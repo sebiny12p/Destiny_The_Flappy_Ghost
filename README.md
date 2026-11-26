@@ -1,6 +1,6 @@
 # Destiny: The Flappy Ghost
 
-A high-performance, cross-platform (Windows & Android) C++20 arcade action game built with **Raylib 5.0**. Pilot an articulated polyhedral Ghost across **8 shuffled Destiny biomes**, harvest Motes of Light, attune across 6 Light and Darkness subclasses, weave through Vex laser grids, command 4 distinct Combat Drones, battle **8 unique Nightfall bosses**, unlock 12 exotic Shaders & 16 Vanguard Triumphs, and conquer Nightfall strikes.
+A high-performance, cross-platform (Windows & Android) C++20 arcade action game built with **Raylib 5.0**. Pilot an articulated polyhedral Ghost across **8 shuffled Destiny biomes**, harvest Motes of Light, attune across 6 Light, Darkness, and Prismatic subclasses, weave through Vex laser grids, command 4 manual-fire Combat Drones, battle **8 unique Nightfall Raid Bosses**, and collect Exotic Shaders, Catalysts, and Vanguard Triumphs.
 
 > **Studio:** Sebiny Labs  
 > **IP Disclaimer:** Non-commercial fan tribute created for educational and portfolio purposes. *Destiny*, *Ghost*, *The Traveler*, and related IP are trademarks and copyright of **Bungie, Inc.**  
@@ -10,38 +10,27 @@ A high-performance, cross-platform (Windows & Android) C++20 arcade action game 
 
 ---
 
-## What's New in the Latest Release
-
-- 🎨 **Expanded Shader Wardrobe (12 Exotic Shaders):** Scrollable Tower catalog featuring *Midnight Exigent*, *Calus' Selected*, *Gambit Jadestone*, *Neopop Wave*, *Amethyst Veil*, *Desert Gold*, *Bergusian Night*, *Carminica*, *Cinderchar*, *Butterbark*, *Boreal Defiant*, and *Monochromatic*.
-- 🏆 **16 Vanguard Triumphs:** Scrollable triumph dossier with real-time progress bars, completion checkmarks, toast pop-ups, and Glimmer bounties.
-- 📊 **Lifetime Career Stats Dossier:** Real-time telemetry tracking lifetime flight distance, motes harvested, supers unleashed, nightfalls conquered, favorite shell, and favorite subclass.
-- 🎵 **Expanded Soundtrack Jukebox:** 4 authentic Destiny action tracks (*The Last Array*, *Sepiks Redux*, *Shadowkeep / Hashladun*, and *The Witch Queen*) with in-game track selector and mute toggles.
-- ⚙️ **System Settings & Accessibility:** Fullscreen toggle (`F11 / Alt+Enter`), left-handed touch controls, screen flash accessibility toggles, auto-pause on window focus loss, smooth `0.75s` unpause speed ramp-in, and native gamepad support.
-- ✨ **Streamlined Hub & Crisp Typography:** Anti-aliased `Roboto` UI rendering, clean 4-button Director hub (`PLAY`, `LOADOUT`, `RECORDS`, `SETTINGS`), `Q`/`E` (`LB`/`RB`) tab cycling, and live `"!"` upgrade badges.
-
----
-
 ## Game Modes
 
-Destiny: The Flappy Ghost features two distinct flight protocols tailored for both casual exploration and hardcore combat:
+*Destiny: The Flappy Ghost* features two distinct flight protocols tailored for both pure aerial precision and full-scale combat:
 
 ### 1. Vanguard Patrol (Pure Flight & Precision)
-- **Focus:** Pure skill-based aerial navigation, barrier weaving, and tactical blinks.
-- **Rules:** Supers, Combat Drones, and lethal Oracles/Taken Blights are disabled so your Patrol high score strictly rewards precision flying and tactical timing.
+- **Focus:** Skill-based aerial navigation, barrier weaving, and subclass Blink mastery.
+- **Rules:** Supers, Combat Drones, and lethal Oracles/Taken Blights are disabled so Patrol high scores strictly reward precision flying and tactical Blink timing.
 - **Hostiles:** Enemies appear only as rare scenic encounters.
-- **Entry:** Unlocked and playable from your very first launch directly from the Director.
+- **Entry:** Unlocked and playable immediately from the Director.
 
 ### 2. Nightfall Strike (High-Intensity Combat & Supers)
-- **Focus:** Full-scale combat operations featuring **Super Abilities**, Combat Drones, Oracles, Taken Blights, enemy swarms, and Raid Bosses.
-- **Unlock Condition:** Unlocked once you purchase your first **Combat Drone** from the **Loadout -> Drones** tab (starting at 200 Glimmer).
-- **Combat Mechanics:** Charge Super energy from Motes & combat, shatter Boss Overshields with Supers, and fire your Drone with `[C / X]` or the on-screen button.
-- **Rewards:** High risk, high reward — earns **+1.5x Glimmer** on Motes of Light plus exclusive **Legendary Shards** (`+1` per 10 Nightfall Gates, `+2` per Exotic Engram, `+5` per Raid Boss) required for Xur's Exotic Catalysts, Prismatic, and pinnacle gear!
+- **Focus:** Full-scale combat operations featuring **Super Abilities**, manual-fire Combat Drones, Oracles, Taken Blights, enemy swarms, and Raid Boss encounters.
+- **Unlock Condition:** Unlocked once you purchase your first **Combat Drone** from **Loadout -> Drones** (starting at 200 Glimmer).
+- **Combat Mechanics:** Charge Super energy from Motes & combat, shatter Boss Overshields with Supers, and fire your Drone with `[C / X]` or the `[DRONE]` button.
+- **Rewards:** Earns **+1.5x Glimmer** on Motes of Light plus exclusive **Legendary Shards** (`+1` per 10 Nightfall Gates, `+2` per Exotic Engram, `+5` per Raid Boss, `+3` per Nightfall Triumph) used to unlock Prismatic, Xur's Exotic Catalysts, and pinnacle gear.
 
 ---
 
-## Guardian Subclasses (Light & Darkness)
+## Guardian Subclasses (Light, Darkness & Prismatic)
 
-Tactical abilities work in every mode; Super abilities are tuned specifically for **Nightfall Strike** combat:
+Each subclass features a mechanically distinct **Blink** usable in both modes, plus a dedicated **Nightfall Super**:
 
 | Subclass | Affinity | Subclass Blink Ability | Nightfall Super Ability |
 | :--- | :--- | :--- | :--- |
@@ -54,24 +43,26 @@ Tactical abilities work in every mode; Super abilities are tuned specifically fo
 
 ---
 
-## Loadout & Persistent Progression (`flappy_ghost_save.dat`)
+## Loadout, Economy & Persistent Progression (`flappy_ghost_save.dat`)
 
-Open **Loadout** from the Director or Game Over screen to equip and unlock gear with harvested **Glimmer** and Nightfall **Legendary Shards**:
+Open **Loadout** and **Records** from the Director to customize your Ghost and track career milestones using harvested **Glimmer** and Nightfall **Legendary Shards**:
+
 - **12 Procedural Ghost Shells:** Including *Generalist Shell*, *Sagira's Shell*, *Tyrant Warmind*, *Harpy Vex*, *Ghost of the Deep*, and *Flawless Trials*.
-- **4 Distinct Manual-Fire Combat Drones (Nightfall):**
-  1. *Arc Soul Sentinel* (Agile 3-round homing Arc burst)
-  2. *Hellion Solar Mortar* (Parabolic arcing 30-dmg Solar AoE artillery clearing nearby foes & shots)
-  3. *Briarbinds Void Soul* (Shield-breaker Void seekers that shatter Boss Overshields & vaporize enemy fire)
-  4. *NTTE Chronal Portal* (Ultra-fast straight-line piercing precision Chronal rail-beams)
-- **12 Exotic Shaders:** Full scrollable palette wardrobe with live polyhedral shell preview.
-- **16 Vanguard Triumphs:** Scrollable triumph ledger with lore bounties and achievement toasts.
-- **Exotic Mods:** Mote Magnetism, Overshield Recharging, and Glimmer Boosters.
+- **4 Manual-Fire Combat Drones (Nightfall):**
+  1. *Arc Soul Sentinel* — Agile 3-round homing Arc burst.
+  2. *Hellion Solar Mortar* — Parabolic arcing 30-dmg Solar AoE artillery clearing nearby foes & shots.
+  3. *Briarbinds Void Soul* — Shield-breaker Void seekers that shatter Boss Overshields & vaporize enemy fire.
+  4. *NTTE Chronal Portal* — Ultra-fast straight-line piercing precision Chronal rail-beams.
+- **12 Exotic Shaders:** Scrollable Tower wardrobe (*Midnight Exigent*, *Calus' Selected*, *Gambit Jadestone*, *Neopop Wave*, *Amethyst Veil*, *Desert Gold*, *Bergusian Night*, *Carminica*, *Cinderchar*, *Butterbark*, *Boreal Defiant*, and *Monochromatic*) with live polyhedral shell preview.
+- **Exotic Catalysts & Core Upgrades:** Xur's Exotic Catalysts (*Gjallarhorn Wolfpack*, *Riskrunner Conductor*, *Crimson Redrix*) plus Mote Magnetism, Overshield Capacity, Blink Cooldown, and Super Efficiency upgrades.
+- **16 Vanguard Triumphs & Daily Bounties:** Scrollable triumph ledger with real-time progress bars, completion toasts, and rotating daily objectives.
+- **Lifetime Career Stats Dossier:** Tracks lifetime gates cleared, Motes harvested, Supers unleashed, Nightfalls conquered, Legendary Shards earned, favorite shell, and favorite subclass.
 
 ---
 
-## 8 Shuffled Destiny Biomes & Unique Nightfall Bosses
+## 8 Shuffled Destiny Biomes & Raid Bosses
 
-Every run shuffles the biome order so each flight starts in a fresh realm and cycles through all 8 sectors:
+Every run shuffles the sector order so each flight starts in a fresh realm and cycles across all 8 Destiny locations:
 
 1. **Cosmodrome Ruins (Fallen):** Rusted Golden-Age steel (`Sepiks Prime` — 3-bolt Void spread fan).
 2. **The Vault of Glass (Vex Network):** Teal radiolarian brass & Vex lasers (`The Templar` — rotating shield arcs & dual laser rails).
@@ -81,6 +72,15 @@ Every run shuffles the biome order so each flight starts in a fresh realm and cy
 6. **Europa // BrayTech Exoscience:** Glacial ice-blue & cryo lasers (`Atraks-1` — aggressive darting & fast Stasis twin-lances).
 7. **Savathun's Throne World (Lucent):** Alabaster bone & luminous teal (`Savathun` — moth wings & 4-bolt Lucent Blade Storm).
 8. **The Pale Heart (Inside The Traveler):** Prismatic gold/rose/cyan resonance (`The Witness` — monolith rings & 5-way Prismatic Barrage).
+
+---
+
+## Audio, Presentation & Accessibility
+
+- **Soundtrack Jukebox:** 4 action tracks (*The Last Array*, *Sepiks Redux*, *Shadowkeep / Hashladun*, and *The Witch Queen*) with real-time track switching and volume sliders.
+- **Crisp Native-Resolution Rendering:** Renders natively at display resolution with `4x MSAA` anti-aliasing and dynamically scaled `Roboto` typography across PC and high-DPI Android screens.
+- **Accessibility & QOL:** Borderless native fullscreen (`F11 / Alt+Enter`), left-handed touch layout, screen-shake and screen-flash toggles, automatic pause on window focus loss, smooth `0.75s` unpause speed ramp-in, `Q`/`E` (`LB`/`RB`) tab cycling, and live `"!"` upgrade badges.
+
 ---
 
 ## Controls
@@ -88,9 +88,9 @@ Every run shuffles the biome order so each flight starts in a fresh realm and cy
 | Action | PC (Keyboard & Mouse) | Gamepad (Xbox / PS) | Android / Touch |
 | :--- | :--- | :--- | :--- |
 | **Flap / Jump** | `SPACE` / `W` / `UP` / `Left Click` | `A` / `Cross` | Tap Screen |
-| **Tactical Ability / Blink** | `SHIFT` / `E` / `Right Click` | `B` / `Circle` or `LB` / `L1` | Tap `[BLINK / DASH]` Button |
-| **Cast Super Ability** | `F` / `Q` | `Y` / `Triangle` or `RB` / `R1` | Tap `[SUPER]` Button |
-| **Fire Combat Drone (Nightfall)** | `C` / `X` | `RT` / `R2` or `X` / `Square` | Tap `[DRONE FIRE]` Button |
+| **Subclass Blink** | `SHIFT` / `E` / `Right Click` | `B` / `Circle` or `LB` / `L1` | Tap `[BLINK]` Button |
+| **Cast Super (Nightfall)** | `F` / `Q` | `Y` / `Triangle` or `RB` / `R1` | Tap `[SUPER]` Button |
+| **Fire Drone (Nightfall)** | `C` / `X` | `RT` / `R2` or `X` / `Square` | Tap `[DRONE]` Button |
 | **Pause / Back** | `ESC` / `P` | `START` / `B` | Tap Top-Right `[II]` Button |
 | **Cycle Menu Tabs** | `Q` / `E` | `LB` / `RB` (`L1` / `R1`) | Tap Tab Header |
 | **Soundtrack Selector** | `N` (Next Track) / `M` (Mute) | `R-Stick Click` or Settings | Via Settings Menu |
@@ -102,8 +102,8 @@ Every run shuffles the biome order so each flight starts in a fresh realm and cy
 
 - **Engine:** Raylib 5.0 in modern C++20.
 - **Physics Loop:** Deterministic fixed-timestep accumulator running at `120 Hz`.
-- **Memory Management:** Zero runtime heap allocations during gameplay; pre-allocated object pools for obstacles, projectiles, and 1,024 particle nodes.
-- **PRNG:** Deterministic `PCG32` generator ensuring predictable trajectory verification and seed generation.
+- **Memory Management:** Zero runtime heap allocations during gameplay; pre-allocated object pools for obstacles, projectiles, collectibles, and 1,024 particle nodes.
+- **PRNG:** Deterministic `PCG32` generator for seeded daily runs and reproducible obstacle trajectories.
 - **Cross-Platform:** Native builds for Windows 64-bit and Android `arm64-v8a` (OpenGL ES 2.0 / 3.0).
 
 ---
@@ -123,4 +123,4 @@ Requires Android SDK + NDK (`r26b`+):
 ```cmd
 cmd.exe /c Build_Android_APK.bat
 ```
-Output: `FlappyGhost.apk` (aligned and signed with v2/v3 signatures, ready for direct USB sideloading).
+Output: `FlappyGhost.apk` (aligned and signed with v2/v3 signatures, ready for direct sideloading).
