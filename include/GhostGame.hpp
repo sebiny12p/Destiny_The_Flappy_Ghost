@@ -28,6 +28,9 @@ public:
 
 private:
     float virtualWidth_ = 1280.0f;
+    float uiScale_ = 1.0f;
+    float uiOffsetX_ = 0.0f;
+    float uiOffsetY_ = 0.0f;
     // Persistence
     void LoadSaveData();
     void SaveData() const;
@@ -76,6 +79,7 @@ private:
 
     // Rendering (implemented in GhostRenderer.cpp)
     void InitUiFonts();
+    void RefreshUiFonts(float targetScale);
     void ShutdownUiFonts();
     void RenderFrame();
     void RenderStarfieldAndBackdrop() const;

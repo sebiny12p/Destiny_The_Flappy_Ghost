@@ -13,17 +13,22 @@
 namespace FlappyGhost {
 
 namespace {
+Font g_uiFontSmall{};
 Font g_uiFontBody{};
 Font g_uiFontBold{};
+Font g_uiFontHero{};
+float g_builtFontScale = 0.0f;
+float g_activeUiScale = 1.0f;
 
 Font LoadCrispUiFont(const std::initializer_list<const char*>& paths, int baseSize) {
-    int codepoints[232];
+    int codepoints[236];
     int count = 0;
     for (int cp = 32; cp <= 255; ++cp) codepoints[count++] = cp;
     codepoints[count++] = 8211;
     codepoints[count++] = 8212;
     codepoints[count++] = 8226;
     codepoints[count++] = 8776;
+    codepoints[count++] = 10003;
     for (const char* p : paths) {
 #if !defined(PLATFORM_ANDROID)
         if (!FileExists(p)) continue;
@@ -37,9 +42,16 @@ Font LoadCrispUiFont(const std::initializer_list<const char*>& paths, int baseSi
     return Font{};
 }
 
+const Font& PickUiFont(int fontSize) {
+    if (fontSize <= 14) return (g_uiFontSmall.texture.id != 0) ? g_uiFontSmall : g_uiFontBody;
+    if (fontSize <= 19) return g_uiFontBody;
+    if (fontSize <= 34) return (g_uiFontBold.texture.id != 0) ? g_uiFontBold : g_uiFontBody;
+    return (g_uiFontHero.texture.id != 0) ? g_uiFontHero : g_uiFontBold;
+}
+
 int MeasureGameText(const char* text, int fontSize) {
     if (!text || !text[0]) return 0;
-    const Font& f = (fontSize >= 20) ? g_uiFontBold : g_uiFontBody;
+    const Font& f = PickUiFont(fontSize);
     if (f.texture.id == 0) return ::MeasureText(text, fontSize);
     float scaledFs = static_cast<float>(fontSize) * 1.10f;
     float spacing = std::max(0.5f, static_cast<float>(fontSize) * 0.03f);
@@ -49,17 +61,22 @@ int MeasureGameText(const char* text, int fontSize) {
 
 void DrawGameText(const char* text, int posX, int posY, int fontSize, Color color) {
     if (!text || !text[0]) return;
-    const Font& f = (fontSize >= 20) ? g_uiFontBold : g_uiFontBody;
+    const Font& f = PickUiFont(fontSize);
     if (f.texture.id == 0) {
         ::DrawText(text, posX, posY, fontSize, color);
         return;
     }
+    float sc = std::max(0.5f, g_activeUiScale);
     float scaledFs = static_cast<float>(fontSize) * 1.10f;
     float spacing = std::max(0.5f, static_cast<float>(fontSize) * 0.03f);
-    Vector2 pos = { static_cast<float>(posX), static_cast<float>(posY) - scaledFs * 0.06f };
+    Vector2 pos = {
+        std::round(static_cast<float>(posX) * sc) / sc,
+        std::round((static_cast<float>(posY) - scaledFs * 0.06f) * sc) / sc
+    };
     if (color.a > 40 && (static_cast<int>(color.r) + static_cast<int>(color.g) + static_cast<int>(color.b)) > 95) {
         unsigned char shA = static_cast<unsigned char>(std::min(220, static_cast<int>(color.a * 0.72f)));
-        DrawTextEx(f, text, { pos.x + 1.0f, pos.y + 1.0f }, scaledFs, spacing, { 0, 0, 0, shA });
+        float px1 = std::max(1.0f, std::round(sc * 0.85f)) / sc;
+        DrawTextEx(f, text, { pos.x + px1, pos.y + px1 }, scaledFs, spacing, { 0, 0, 0, shA });
     }
     DrawTextEx(f, text, pos, scaledFs, spacing, color);
 }
@@ -75,24 +92,34 @@ void DrawUpgradeBadge(Rectangle r, float globalTime) {
 }
 } // namespace
 
+void GhostGame::RefreshUiFonts(float targetScale) {
+    float clampedScale = std::clamp(targetScale, 0.75f, 4.0f);
+    g_activeUiScale = clampedScale;
+    if (g_uiFontBody.texture.id != 0 && std::abs(clampedScale - g_builtFontScale) < 0.08f) {
+        return;
+    }
+    ShutdownUiFonts();
+    g_builtFontScale = clampedScale;
+    int pxSmall = std::clamp(static_cast<int>(std::round(15.0f * clampedScale)), 18, 96);
+    int pxBody  = std::clamp(static_cast<int>(std::round(20.0f * clampedScale)), 24, 128);
+    int pxBold  = std::clamp(static_cast<int>(std::round(32.0f * clampedScale)), 36, 176);
+    int pxHero  = std::clamp(static_cast<int>(std::round(66.0f * clampedScale)), 64, 256);
+    g_uiFontSmall = LoadCrispUiFont({ "assets/ui_medium.ttf", "ui_medium.ttf", "../assets/ui_medium.ttf", "build/assets/ui_medium.ttf" }, pxSmall);
+    g_uiFontBody  = LoadCrispUiFont({ "assets/ui_medium.ttf", "ui_medium.ttf", "../assets/ui_medium.ttf", "build/assets/ui_medium.ttf" }, pxBody);
+    g_uiFontBold  = LoadCrispUiFont({ "assets/ui_bold.ttf", "ui_bold.ttf", "../assets/ui_bold.ttf", "build/assets/ui_bold.ttf" }, pxBold);
+    g_uiFontHero  = LoadCrispUiFont({ "assets/ui_bold.ttf", "ui_bold.ttf", "../assets/ui_bold.ttf", "build/assets/ui_bold.ttf" }, pxHero);
+}
+
 void GhostGame::InitUiFonts() {
-    if (g_uiFontBody.texture.id == 0) {
-        g_uiFontBody = LoadCrispUiFont({ "assets/ui_medium.ttf", "ui_medium.ttf", "../assets/ui_medium.ttf", "build/assets/ui_medium.ttf" }, 34);
-    }
-    if (g_uiFontBold.texture.id == 0) {
-        g_uiFontBold = LoadCrispUiFont({ "assets/ui_bold.ttf", "ui_bold.ttf", "../assets/ui_bold.ttf", "build/assets/ui_bold.ttf" }, 68);
-    }
+    RefreshUiFonts(uiScale_);
 }
 
 void GhostGame::ShutdownUiFonts() {
-    if (g_uiFontBody.texture.id != 0) {
-        UnloadFont(g_uiFontBody);
-        g_uiFontBody = Font{};
-    }
-    if (g_uiFontBold.texture.id != 0) {
-        UnloadFont(g_uiFontBold);
-        g_uiFontBold = Font{};
-    }
+    if (g_uiFontSmall.texture.id != 0) { UnloadFont(g_uiFontSmall); g_uiFontSmall = Font{}; }
+    if (g_uiFontBody.texture.id != 0)  { UnloadFont(g_uiFontBody);  g_uiFontBody  = Font{}; }
+    if (g_uiFontBold.texture.id != 0)  { UnloadFont(g_uiFontBold);  g_uiFontBold  = Font{}; }
+    if (g_uiFontHero.texture.id != 0)  { UnloadFont(g_uiFontHero);  g_uiFontHero  = Font{}; }
+    g_builtFontScale = 0.0f;
 }
 
 #define MeasureText MeasureGameText
@@ -140,7 +167,8 @@ void DrawTextWrapped(const char* text, int x, int y, int maxWidth, int fontSize,
 
 void GhostGame::RenderFrame() {
     UpdateVirtualResolution();
-    BeginTextureMode(targetRenderTex_);
+
+    BeginDrawing();
     ClearBackground(BLACK);
 
     Vector2 shakeOffset = { 0.0f, 0.0f };
@@ -150,13 +178,13 @@ void GhostGame::RenderFrame() {
         shakeOffset.y = std::cos(globalTime_ * 53.0f) * mag;
     }
 
-    Camera2D cam{};
-    cam.offset = shakeOffset;
-    cam.target = { 0.0f, 0.0f };
-    cam.rotation = 0.0f;
-    cam.zoom = 1.0f;
+    Camera2D worldCam{};
+    worldCam.offset = { uiOffsetX_ + shakeOffset.x * uiScale_, uiOffsetY_ + shakeOffset.y * uiScale_ };
+    worldCam.target = { 0.0f, 0.0f };
+    worldCam.rotation = 0.0f;
+    worldCam.zoom = uiScale_;
 
-    BeginMode2D(cam);
+    BeginMode2D(worldCam);
 
     RenderStarfieldAndBackdrop();
 
@@ -235,6 +263,14 @@ void GhostGame::RenderFrame() {
 
     EndMode2D();
 
+    Camera2D uiCam{};
+    uiCam.offset = { uiOffsetX_, uiOffsetY_ };
+    uiCam.target = { 0.0f, 0.0f };
+    uiCam.rotation = 0.0f;
+    uiCam.zoom = uiScale_;
+
+    BeginMode2D(uiCam);
+
     if (flashAlpha_ > 0.0f && profile_.screenFlashes) {
         Color fc = flashColor_;
         fc.a = static_cast<unsigned char>(std::clamp(flashAlpha_ * 255.0f, 0.0f, 255.0f));
@@ -267,14 +303,16 @@ void GhostGame::RenderFrame() {
 
     RenderTriumphToast();
 
-    EndTextureMode();
+    EndMode2D();
 
-    BeginDrawing();
-    ClearBackground(BLACK);
-    Rectangle src = { 0.0f, 0.0f, static_cast<float>(targetRenderTex_.texture.width),
-                      -static_cast<float>(targetRenderTex_.texture.height) };
-    Rectangle dst = { 0.0f, 0.0f, static_cast<float>(GetScreenWidth()), static_cast<float>(GetScreenHeight()) };
-    DrawTexturePro(targetRenderTex_.texture, src, dst, { 0.0f, 0.0f }, 0.0f, WHITE);
+    if (uiOffsetY_ > 0.5f) {
+        int sw = GetScreenWidth();
+        int sh = GetScreenHeight();
+        int bar = static_cast<int>(std::ceil(uiOffsetY_));
+        DrawRectangle(0, 0, sw, bar, BLACK);
+        DrawRectangle(0, sh - bar, sw, bar + 2, BLACK);
+    }
+
     EndDrawing();
 }
 
@@ -1595,7 +1633,12 @@ void GhostGame::RenderShellHangar() {
             listDragMoved_ = false;
         }
 
-        BeginScissorMode(static_cast<int>(uiX + 50), 180, 1150, static_cast<int>(SHADER_VIEWPORT_H));
+        float scX = static_cast<float>(GetScreenWidth()) / std::max(1.0f, static_cast<float>(GetRenderWidth()));
+        float scY = static_cast<float>(GetScreenHeight()) / std::max(1.0f, static_cast<float>(GetRenderHeight()));
+        BeginScissorMode(static_cast<int>(std::round((uiOffsetX_ + (uiX + 50.0f) * uiScale_) * scX)),
+                         static_cast<int>(std::round((uiOffsetY_ + 180.0f * uiScale_) * scY)),
+                         static_cast<int>(std::round(1150.0f * uiScale_ * scX)),
+                         static_cast<int>(std::round(SHADER_VIEWPORT_H * uiScale_ * scY)));
         const auto& shaders = GetShaderCatalog();
         for (int i = 0; i < static_cast<int>(NUM_SHADERS); ++i) {
             float itemY = 185.0f + (i / 2) * 125.0f - shaderScrollY_;
@@ -2200,7 +2243,12 @@ void GhostGame::RenderTriumphsLog() {
         listDragging_ = false;
     }
 
-    BeginScissorMode(static_cast<int>(uiX + 60), 225, 1140, static_cast<int>(TRIUMPH_VIEWPORT_H));
+    float scX = static_cast<float>(GetScreenWidth()) / std::max(1.0f, static_cast<float>(GetRenderWidth()));
+    float scY = static_cast<float>(GetScreenHeight()) / std::max(1.0f, static_cast<float>(GetRenderHeight()));
+    BeginScissorMode(static_cast<int>(std::round((uiOffsetX_ + (uiX + 60.0f) * uiScale_) * scX)),
+                     static_cast<int>(std::round((uiOffsetY_ + 225.0f * uiScale_) * scY)),
+                     static_cast<int>(std::round(1140.0f * uiScale_ * scX)),
+                     static_cast<int>(std::round(TRIUMPH_VIEWPORT_H * uiScale_ * scY)));
     const auto& cat = GetTriumphCatalog();
     for (int i = 0; i < static_cast<int>(NUM_TRIUMPHS); ++i) {
         int col = i % 2;
