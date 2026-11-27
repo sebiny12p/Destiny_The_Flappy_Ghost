@@ -9,6 +9,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if (ANDROID)
     set(PLATFORM "Android" CACHE STRING "" FORCE)
     set(GRAPHICS "GRAPHICS_API_OPENGL_ES2" CACHE STRING "" FORCE)
+elseif (EMSCRIPTEN)
+    set(PLATFORM "Web" CACHE STRING "" FORCE)
+    set(GRAPHICS "GRAPHICS_API_OPENGL_ES2" CACHE STRING "" FORCE)
 endif()
 
 # Reuse cached raylib source if available on this machine for fast local builds,
@@ -52,12 +55,23 @@ else()
     add_executable(FlappyGhost ${SOURCES})
     target_include_directories(FlappyGhost PRIVATE include)
     target_link_libraries(FlappyGhost PRIVATE raylib)
-    add_custom_target(copy_assets ALL
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_CURRENT_SOURCE_DIR}/assets
-            ${CMAKE_CURRENT_BINARY_DIR}/assets
-    )
-    add_dependencies(FlappyGhost copy_assets)
+    if (EMSCRIPTEN)
+        set_target_properties(FlappyGhost PROPERTIES SUFFIX ".html")
+        target_link_options(FlappyGhost PRIVATE
+            "-sUSE_GLFW=3"
+            "-sALLOW_MEMORY_GROWTH=1"
+            "-sTOTAL_STACK=4MB"
+            "--preload-file" "${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets"
+            "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/web_shell.html"
+        )
+    else()
+        add_custom_target(copy_assets ALL
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_CURRENT_SOURCE_DIR}/assets
+                ${CMAKE_CURRENT_BINARY_DIR}/assets
+        )
+        add_dependencies(FlappyGhost copy_assets)
+    endif()
 endif()
 
 if (WIN32)

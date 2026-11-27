@@ -1,10 +1,19 @@
 #include "GhostGame.hpp"
 #include "raylib.h"
+#if defined(PLATFORM_WEB)
+#include <emscripten/emscripten.h>
+static void RunWebFrame(void* arg) {
+    static_cast<FlappyGhost::GhostGame*>(arg)->RunFrame();
+}
+#endif
 
 int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
 #if defined(PLATFORM_ANDROID)
     InitWindow(0, 0, "Destiny: The Flappy Ghost | Sebiny Labs");
+#elif defined(PLATFORM_WEB)
+    InitWindow(FlappyGhost::VIRTUAL_WIDTH, FlappyGhost::VIRTUAL_HEIGHT,
+               "Destiny: The Flappy Ghost | Sebiny Labs");
 #else
     InitWindow(FlappyGhost::VIRTUAL_WIDTH, FlappyGhost::VIRTUAL_HEIGHT,
                "Destiny: The Flappy Ghost | Sebiny Labs");
@@ -40,9 +49,13 @@ int main() {
     FlappyGhost::GhostGame game;
     game.Init();
 
+#if defined(PLATFORM_WEB)
+    emscripten_set_main_loop_arg(RunWebFrame, &game, 0, 1);
+#else
     while (!WindowShouldClose()) {
         game.RunFrame();
     }
+#endif
 
     game.Shutdown();
     CloseWindow();

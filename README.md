@@ -4,7 +4,8 @@ A high-performance, cross-platform (Windows & Android) C++20 arcade action game 
 
 > **Studio:** Sebiny Labs  
 > **IP Disclaimer:** Non-commercial fan tribute created for educational and portfolio purposes. *Destiny*, *Ghost*, *The Traveler*, and related IP are trademarks and copyright of **Bungie, Inc.**  
-> **Playable Builds:** [Download Windows `.zip` & Android `.apk` (GitHub Releases)](https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/releases)
+> **Play Instantly in Browser:** [**▶ Launch WebAssembly Build (GitHub Pages)**](https://sebiny12p.github.io/Portfolio/play/flappy-ghost/)  
+> **Playable Downloads:** [Download Windows `.zip` & Android `.apk` (GitHub Releases)](https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/releases)
 
 ![Destiny: The Flappy Ghost Gameplay](docs/gameplay.gif)
 
@@ -124,3 +125,11 @@ Requires Android SDK + NDK (`r26b`+):
 cmd.exe /c Build_Android_APK.bat
 ```
 Output: `FlappyGhost.apk` (aligned and signed with v2/v3 signatures, ready for direct sideloading).
+
+### WebAssembly (Browser / WebGL) Build
+Requires Emscripten SDK (`emsdk`):
+```cmd
+emcmake cmake -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
+ninja -C build-web
+```
+Output: `build-web/FlappyGhost.{html,js,wasm,data}`.

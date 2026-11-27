@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Destiny: The Flappy Ghost 1.0 — Play in Browser | Sebiny Labs</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060912;
+      color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      height: 46px;
+      background: rgba(10, 14, 26, 0.95);
+      border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 0.86rem;
+      z-index: 10;
+    }
+    .left, .right { display: flex; align-items: center; gap: 10px; }
+    .badge {
+      font-family: monospace; font-size: 0.72rem; padding: 2px 7px; border-radius: 5px;
+      background: rgba(56, 189, 248, 0.14); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+    a.btn, button.btn {
+      background: rgba(30, 41, 59, 0.9); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.3);
+      padding: 5px 11px; border-radius: 7px; font-size: 0.8rem; font-weight: 600;
+      text-decoration: none; cursor: pointer;
+    }
+    a.btn:hover, button.btn:hover { border-color: #38bdf8; color: #fff; }
+    #stage {
+      flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
+      background: #000;
+    }
+    canvas.emscripten {
+      width: 100%; height: 100%; max-width: 100vw; max-height: calc(100vh - 46px);
+      aspect-ratio: 16 / 9; object-fit: contain; outline: none; display: block;
+    }
+    #loader {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 14px; background: #060912; z-index: 5;
+    }
+    .bar-bg { width: 260px; height: 8px; background: #1e293b; border-radius: 99px; overflow: hidden; }
+    #bar-fill { width: 15%; height: 100%; background: linear-gradient(90deg, #38bdf8, #a78bfa); transition: width 0.2s; }
+    #status-txt { font-family: monospace; font-size: 0.82rem; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="left">
+      <a class="btn" href="https://sebiny12p.github.io/Portfolio/">&larr; Portfolio</a>
+      <strong>Destiny: The Flappy Ghost 1.0</strong>
+      <span class="badge">C++20 &middot; WebAssembly</span>
+    </div>
+    <div class="right">
+      <a class="btn" href="https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/releases/tag/v1.0" target="_blank" rel="noopener">Download PC / APK</a>
+      <button class="btn" onclick="goFull()">&#x26F6; Fullscreen</button>
+    </div>
+  </header>
+  <div id="stage">
+    <div id="loader">
+      <div style="font-weight:700; color:#38bdf8;">INITIALIZING GHOST TELEMETRY (WASM)...</div>
+      <div class="bar-bg"><div id="bar-fill"></div></div>
+      <div id="status-txt">Downloading assets...</div>
+    </div>
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+  </div>
+  <script>
+    function goFull() {
+      const c = document.getElementById('canvas');
+      if (c.requestFullscreen) c.requestFullscreen();
+      c.focus();
+    }
+    var Module = {
+      canvas: (function() {
+        var c = document.getElementById('canvas');
+        c.addEventListener('webglcontextlost', function(e) { alert('WebGL context lost. Reload page.'); e.preventDefault(); }, false);
+        c.addEventListener('pointerdown', function() { c.focus(); });
+        return c;
+      })(),
+      setStatus: function(text) {
+        var st = document.getElementById('status-txt');
+        var ld = document.getElementById('loader');
+        var bf = document.getElementById('bar-fill');
+        if (!text) { ld.style.display = 'none'; document.getElementById('canvas').focus(); return; }
+        st.textContent = text;
+        var m = text.match(/\((\d+(\.\d+)?)\/(\d+)\)/);
+        if (m) bf.style.width = Math.min(100, Math.round((parseFloat(m[1]) / parseFloat(m[3])) * 100)) + '%';
+      },
+      totalDependencies: 0,
+      monitorRunDependencies: function(left) {
+        this.totalDependencies = Math.max(this.totalDependencies, left);
+        Module.setStatus(left ? 'Loading (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : '');
+      }
+    };
+    window.addEventListener('keydown', function(e) {
+      if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(e.code) > -1) e.preventDefault();
+    }, { passive: false });
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

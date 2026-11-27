@@ -1198,7 +1198,7 @@ void GhostGame::UpdateFrameInput() {
     }
 
     if (IsKeyPressed(KEY_F11) || (IsKeyDown(KEY_LEFT_ALT) && IsKeyPressed(KEY_ENTER))) {
-#if !defined(PLATFORM_ANDROID)
+#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_WEB)
         ToggleBorderlessWindowed();
 #else
         ToggleFullscreen();
@@ -2189,7 +2189,7 @@ void GhostGame::RunFrame() {
         screenTransitionCooldown_ = std::max(0.0f, screenTransitionCooldown_ - frameDt);
     }
 
-#if !defined(PLATFORM_ANDROID)
+#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_WEB)
     if (state_ == ScreenState::PLAYING && (!IsWindowFocused() || IsWindowMinimized())) {
         unpauseRampTimer_ = 0.0f;
         SetScreenState(ScreenState::PAUSED);
