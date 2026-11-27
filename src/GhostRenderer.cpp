@@ -21,6 +21,41 @@ float g_builtFontScale = 0.0f;
 int g_builtTextSizeMode = -1;
 float g_activeUiScale = 1.0f;
 int g_uiTextSizeMode = 0; // 0 = Normal, 1 = Large, 2 = Extra Large
+float g_curVirtualWidth = 1280.0f;
+
+struct UiBoxTracker {
+    std::array<Rectangle, 24> boxes{};
+    int count = 0;
+    void Reset(float vw) {
+        count = 0;
+        g_curVirtualWidth = vw;
+    }
+    void Push(Rectangle r) {
+        if (r.width < 54.0f || r.width > g_curVirtualWidth - 24.0f || r.height < 24.0f || r.height > 680.0f) return;
+        for (int i = 0; i < count; ++i) {
+            if (std::abs(boxes[i].x - r.x) < 2.0f && std::abs(boxes[i].y - r.y) < 2.0f && std::abs(boxes[i].height - r.height) < 2.0f) {
+                if (r.width > boxes[i].width) boxes[i].width = r.width;
+                return;
+            }
+        }
+        if (count < static_cast<int>(boxes.size())) {
+            boxes[count++] = r;
+        } else {
+            for (int i = 1; i < count; ++i) boxes[i - 1] = boxes[i];
+            boxes[count - 1] = r;
+        }
+    }
+} g_uiBoxes;
+
+void DrawTrackedRect(int posX, int posY, int width, int height, Color color) {
+    g_uiBoxes.Push({ static_cast<float>(posX), static_cast<float>(posY), static_cast<float>(width), static_cast<float>(height) });
+    ::DrawRectangle(posX, posY, width, height, color);
+}
+
+void DrawTrackedRectRec(Rectangle rec, Color color) {
+    g_uiBoxes.Push(rec);
+    ::DrawRectangleRec(rec, color);
+}
 
 float GetAdaptiveTextScale(int fontSize, int mode = g_uiTextSizeMode) {
     if (mode <= 0) return 1.0f;
@@ -106,7 +141,39 @@ void DrawGameTextScaled(const char* text, int posX, int posY, int fontSize, floa
 }
 
 void DrawGameText(const char* text, int posX, int posY, int fontSize, Color color) {
-    DrawGameTextScaled(text, posX, posY, fontSize, GetAdaptiveTextScale(fontSize), color);
+    if (!text || !text[0]) return;
+    float boost = GetAdaptiveTextScale(fontSize);
+    int w = MeasureGameTextScaled(text, fontSize, boost);
+
+    int bestIdx = -1;
+    float bestWidth = 1e9f;
+    for (int i = g_uiBoxes.count - 1; i >= 0; --i) {
+        const Rectangle& b = g_uiBoxes.boxes[i];
+        if (posX >= b.x - 4.0f && posX < b.x + b.width - 12.0f &&
+            posY >= b.y - 1.0f && posY <= b.y + b.height - 6.0f) {
+            if (b.width < bestWidth) {
+                bestWidth = b.width;
+                bestIdx = i;
+            }
+        }
+    }
+    if (bestIdx >= 0) {
+        const Rectangle& b = g_uiBoxes.boxes[bestIdx];
+        float rightLimit = b.x + b.width - 8.0f;
+        if (static_cast<float>(posX + w) > rightLimit && w > 0) {
+            int clampedX = std::max(posX, static_cast<int>(std::ceil(b.x + 6.0f)));
+            float availW = std::max(24.0f, rightLimit - static_cast<float>(clampedX));
+            float fitScale = availW / static_cast<float>(w);
+            boost = std::max(0.62f, boost * fitScale);
+            if (posX < static_cast<int>(b.x + 10.0f) && b.width <= 340.0f) {
+                int newW = MeasureGameTextScaled(text, fontSize, boost);
+                posX = static_cast<int>(b.x + (b.width - newW) * 0.5f);
+            } else {
+                posX = clampedX;
+            }
+        }
+    }
+    DrawGameTextScaled(text, posX, posY, fontSize, boost, color);
 }
 
 void DrawUpgradeBadge(Rectangle r, float globalTime) {
@@ -169,6 +236,8 @@ void GhostGame::ShutdownUiFonts() {
 
 #define MeasureText MeasureGameText
 #define DrawText DrawGameText
+#define DrawRectangle DrawTrackedRect
+#define DrawRectangleRec DrawTrackedRectRec
 
 namespace {
 void DrawTextWrapped(const char* text, int x, int y, int maxWidth, int fontSize, int lineHeight, Color color) {
@@ -249,6 +318,7 @@ void DrawTextWrapped(const char* text, int x, int y, int maxWidth, int fontSize,
 
 void GhostGame::RenderFrame() {
     UpdateVirtualResolution();
+    g_uiBoxes.Reset(VIRTUAL_WIDTH);
 
     BeginDrawing();
     ClearBackground(BLACK);
@@ -1849,16 +1919,19 @@ void GhostGame::RenderShellHangar() {
             Rectangle btn = { sr.x + 96.0f, sr.y + 54.0f, 220.0f, 36.0f };
             if (equipped) {
                 DrawRectangleRec(btn, GOLD);
-                DrawText("EQUIPPED SHADER", static_cast<int>(btn.x + 36), static_cast<int>(btn.y + 10), 14, BLACK);
+                int bw = MeasureText("EQUIPPED SHADER", 14);
+                DrawText("EQUIPPED SHADER", static_cast<int>(btn.x + (btn.width - bw) * 0.5f), static_cast<int>(btn.y + 10), 14, BLACK);
             } else if (unlocked) {
                 DrawRectangleRec(btn, Color{ 38, 68, 98, 255 });
-                DrawText("APPLY SHADER", static_cast<int>(btn.x + 52), static_cast<int>(btn.y + 10), 14, WHITE);
+                int bw = MeasureText("APPLY SHADER", 14);
+                DrawText("APPLY SHADER", static_cast<int>(btn.x + (btn.width - bw) * 0.5f), static_cast<int>(btn.y + 10), 14, WHITE);
             } else {
                 bool canBuy = (profile_.glimmer >= shaders[i].glimmerCost);
                 DrawRectangleRec(btn, canBuy ? Color{ 30, 88, 60, 255 } : Color{ 48, 30, 35, 255 });
                 char cstr[64];
                 std::snprintf(cstr, sizeof(cstr), "PURCHASE (%d G)", shaders[i].glimmerCost);
-                DrawText(cstr, static_cast<int>(btn.x + 38), static_cast<int>(btn.y + 10), 14, canBuy ? GREEN : RED);
+                int bw = MeasureText(cstr, 14);
+                DrawText(cstr, static_cast<int>(btn.x + (btn.width - bw) * 0.5f), static_cast<int>(btn.y + 10), 14, canBuy ? GREEN : RED);
             }
 
             if (shaderReleaseTap && itemY >= 140.0f && itemY <= 570.0f && CheckCollisionPointRec(shaderTapPos, sr)) {
@@ -2405,7 +2478,8 @@ void GhostGame::RenderTriumphsLog() {
 
         char rStr[32];
         std::snprintf(rStr, sizeof(rStr), done ? "CLAIMED" : "+%d G", bounty.rewardGlimmer);
-        DrawText(rStr, static_cast<int>(br.x + 300), static_cast<int>(br.y + 68), 13, done ? GREEN : GOLD);
+        int rsw = MeasureText(rStr, 13);
+        DrawText(rStr, static_cast<int>(br.x + br.width - 14.0f - rsw), static_cast<int>(br.y + 68), 13, done ? GREEN : GOLD);
     }
 
     // --- SECTION 2: PERMANENT VANGUARD TRIUMPHS (With smooth scrolling & scrollbar) ---
@@ -2466,7 +2540,8 @@ void GhostGame::RenderTriumphsLog() {
 
         char rew[48];
         std::snprintf(rew, sizeof(rew), done ? "CLAIMED" : "+%d G", cat[i].rewardGlimmer);
-        DrawText(rew, static_cast<int>(tr.x + 445), static_cast<int>(tr.y + 20), 14, done ? GREEN : SKYBLUE);
+        int rw = MeasureText(rew, 14);
+        DrawText(rew, static_cast<int>(tr.x + tr.width - 16.0f - rw), static_cast<int>(tr.y + 20), 14, done ? GREEN : SKYBLUE);
     }
     EndScissorMode();
 
@@ -2556,9 +2631,6 @@ void GhostGame::RenderLightFadedOverlay() {
     int ftw = MeasureText(fadedText, 44);
     DrawText(fadedText, (VIRTUAL_WIDTH - ftw) / 2, 224, 44, WHITE);
 
-    DrawRectangle(VIRTUAL_WIDTH / 2 - 230, 318, 460, 140, { 16, 20, 32, 235 });
-    DrawRectangleLinesEx({ VIRTUAL_WIDTH / 2.0f - 230.0f, 318.0f, 460.0f, 140.0f }, 1.5f, GRAY);
-
     char line1[96], line2[96], line3[96];
     std::snprintf(line1, sizeof(line1), "BARRIERS CLEARED: %d   (BEST: %d)",
                   scoreGates_, isNightfallMode_ ? profile_.bestScoreNightfall : profile_.bestScoreStandard);
@@ -2569,9 +2641,14 @@ void GhostGame::RenderLightFadedOverlay() {
         std::snprintf(line3, sizeof(line3), "GLIMMER EARNED THIS RUN: +%d", runGlimmerEarned_);
     }
 
-    DrawText(line1, VIRTUAL_WIDTH / 2 - 190, 338, 20, GOLD);
-    DrawText(line2, VIRTUAL_WIDTH / 2 - 190, 374, 18, SKYBLUE);
-    DrawText(line3, VIRTUAL_WIDTH / 2 - 190, 408, 18, WHITE);
+    int sumW = std::max(480, std::max({ MeasureText(line1, 20), MeasureText(line2, 18), MeasureText(line3, 18) }) + 64);
+    float sumX = VIRTUAL_WIDTH * 0.5f - sumW * 0.5f;
+    DrawRectangle(static_cast<int>(sumX), 318, sumW, 140, { 16, 20, 32, 235 });
+    DrawRectangleLinesEx({ sumX, 318.0f, static_cast<float>(sumW), 140.0f }, 1.5f, GRAY);
+
+    DrawText(line1, static_cast<int>(sumX + 32), 338, 20, GOLD);
+    DrawText(line2, static_cast<int>(sumX + 32), 374, 18, SKYBLUE);
+    DrawText(line3, static_cast<int>(sumX + 32), 408, 18, WHITE);
 
 #if defined(PLATFORM_ANDROID)
     bool touchClean = true;
@@ -2619,7 +2696,8 @@ void GhostGame::RenderLightFadedOverlay() {
 void GhostGame::RenderTriumphToast() const {
     if (!activeToast_.active) return;
 
-    float w = 620.0f;
+    float w = std::clamp(static_cast<float>(std::max(MeasureText(activeToast_.title.c_str(), 18), MeasureText(activeToast_.subtitle.c_str(), 14)) + 88),
+                         620.0f, static_cast<float>(VIRTUAL_WIDTH) - 60.0f);
     float x = (VIRTUAL_WIDTH - w) * 0.5f;
     float y = VIRTUAL_HEIGHT - 125.0f;
 
