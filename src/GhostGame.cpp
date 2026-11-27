@@ -228,6 +228,7 @@ void GhostGame::LoadSaveData() {
                 }
                 profile_.equippedExoticPerk = std::clamp(profile_.equippedExoticPerk, 0, static_cast<int>(NUM_EXOTIC_PERKS) - 1);
                 profile_.equippedShader = std::clamp(profile_.equippedShader, 0, static_cast<int>(NUM_SHADERS) - 1);
+                profile_.textSize = std::clamp(profile_.textSize, 0, 2);
                 if (profile_.equippedDrone >= 0) {
                     profile_.equippedDrone = std::clamp(profile_.equippedDrone, 0, static_cast<int>(NUM_DRONES) - 1);
                     if (!profile_.unlockedDrones[profile_.equippedDrone]) {

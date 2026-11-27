@@ -79,7 +79,7 @@ Every run shuffles the sector order so each flight starts in a fresh realm and c
 
 - **Soundtrack Jukebox:** 4 action tracks (*The Last Array*, *Sepiks Redux*, *Shadowkeep / Hashladun*, and *The Witch Queen*) with real-time track switching and volume sliders.
 - **Crisp Native-Resolution Rendering:** Renders natively at display resolution with `4x MSAA` anti-aliasing and dynamically scaled `Roboto` typography across PC and high-DPI Android screens.
-- **Accessibility & QOL:** Borderless native fullscreen (`F11 / Alt+Enter`), left-handed touch layout, screen-shake and screen-flash toggles, automatic pause on window focus loss, smooth `0.75s` unpause speed ramp-in, `Q`/`E` (`LB`/`RB`) tab cycling, and live `"!"` upgrade badges.
+- **Accessibility & QOL:** 3-tier UI Text Size scaling (`Normal` / `Large` / `Extra Large`), borderless native fullscreen (`F11 / Alt+Enter`), left-handed touch layout, screen-shake and screen-flash toggles, automatic pause on window focus loss, smooth `0.75s` unpause speed ramp-in, `Q`/`E` (`LB`/`RB`) tab cycling, and live `"!"` upgrade badges.
 
 ---
 

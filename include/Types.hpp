@@ -217,6 +217,7 @@ struct SaveProfile {
     int totalBountiesCompleted = 0;
     int legendaryShards = 0;
     int totalShardsEarnedLifetime = 0;
+    int textSize = 0; // 0 = Normal (100%), 1 = Large (115%), 2 = Extra Large (125%)
 };
 
 struct GhostPlayer {
