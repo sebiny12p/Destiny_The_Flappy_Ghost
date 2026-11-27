@@ -5,7 +5,8 @@ A high-performance, cross-platform (Windows & Android) C++20 arcade action game 
 > **Studio:** Sebiny Labs  
 > **IP Disclaimer:** Non-commercial fan tribute created for educational and portfolio purposes. *Destiny*, *Ghost*, *The Traveler*, and related IP are trademarks and copyright of **Bungie, Inc.**  
 > **Play Instantly in Browser:** [**▶ Launch WebAssembly Build (GitHub Pages)**](https://sebiny12p.github.io/Portfolio/play/flappy-ghost/)  
-> **Playable Downloads:** [Download Windows `.zip` & Android `.apk` (GitHub Releases)](https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/releases)
+> **Playable Downloads:** [Download Windows `.zip` & Android `.apk` (GitHub Releases)](https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/releases)  
+> **Engineering Case Study:** [Read `ARCHITECTURE.md` (120 Hz Loop, PCG32 Envelope Math & NDK/WASM Pipeline)](ARCHITECTURE.md)
 
 ![Destiny: The Flappy Ghost Gameplay](docs/gameplay.gif)
 
