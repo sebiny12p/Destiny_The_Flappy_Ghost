@@ -1,5 +1,9 @@
 # Destiny: The Flappy Ghost
 
+[![C++20 & WebAssembly CI](https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/actions/workflows/ci.yml/badge.svg)](https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/actions/workflows/ci.yml)
+[![Play in Browser](https://img.shields.io/badge/Play_in_Browser-WebAssembly-10b981?logo=webassembly&logoColor=white)](https://sebiny12p.github.io/Portfolio/play/flappy-ghost/)
+[![Language](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus&logoColor=white)](ARCHITECTURE.md)
+
 A high-performance, cross-platform (Windows & Android) C++20 arcade action game built with **Raylib 5.0**. Pilot an articulated polyhedral Ghost across **8 shuffled Destiny biomes**, harvest Motes of Light, attune across 6 Light, Darkness, and Prismatic subclasses, weave through Vex laser grids, command 4 manual-fire Combat Drones, battle **8 unique Nightfall Raid Bosses**, and collect Exotic Shaders, Catalysts, and Vanguard Triumphs.
 
 > **Studio:** Sebiny Labs  

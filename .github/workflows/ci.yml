@@ -1,0 +1,49 @@
+name: C++20 & WebAssembly CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  native-cpp20:
+    name: Native C++20 / OpenGL Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenGL & X11 build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libgl1-mesa-dev
+
+      - name: Configure & Build (CMake + Ninja, C++20 Release)
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j 4
+          test -f build/FlappyGhost
+
+  webassembly:
+    name: Emscripten WebAssembly / WebGL Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Emscripten SDK
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build
+
+      - name: Configure & Build WebAssembly Target
+        run: |
+          emcmake cmake -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ninja -C build-web
+          test -f build-web/FlappyGhost.wasm
+          test -f build-web/FlappyGhost.data
