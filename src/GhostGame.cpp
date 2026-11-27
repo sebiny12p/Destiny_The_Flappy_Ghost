@@ -12,6 +12,26 @@
 #include <vector>
 #include <cstring>
 
+#if defined(PLATFORM_WEB)
+#include <emscripten/emscripten.h>
+EM_JS(int, GhostWebTouchCount, (), {
+    var t = window.__sebinyTouches;
+    return t ? t.length : 0;
+});
+EM_JS(int, GhostWebTouchId, (int idx), {
+    var t = window.__sebinyTouches;
+    return (t && idx >= 0 && idx < t.length) ? (t[idx].id | 0) : 0;
+});
+EM_JS(float, GhostWebTouchNX, (int idx), {
+    var t = window.__sebinyTouches;
+    return (t && idx >= 0 && idx < t.length) ? +t[idx].nx : 0.0;
+});
+EM_JS(float, GhostWebTouchNY, (int idx), {
+    var t = window.__sebinyTouches;
+    return (t && idx >= 0 && idx < t.length) ? +t[idx].ny : 0.0;
+});
+#endif
+
 namespace FlappyGhost {
 
 namespace {
@@ -557,11 +577,35 @@ Vector2 GhostGame::ToVirtualCoords(Vector2 screenPos) const {
     };
 }
 
+int GhostGame::GetActiveTouchCount() const {
+#if defined(PLATFORM_WEB)
+    return GhostWebTouchCount();
+#else
+    return GetTouchPointCount();
+#endif
+}
+
+int GhostGame::GetActiveTouchId(int idx) const {
+#if defined(PLATFORM_WEB)
+    return GhostWebTouchId(idx);
+#else
+    return GetTouchPointId(idx);
+#endif
+}
+
+Vector2 GhostGame::GetActiveTouchVirtualPos(int idx) const {
+#if defined(PLATFORM_WEB)
+    return { GhostWebTouchNX(idx) * virtualWidth_, GhostWebTouchNY(idx) * 720.0f };
+#else
+    return ToVirtualCoords(GetTouchPosition(idx));
+#endif
+}
+
 bool GhostGame::IsRectHovered(Rectangle rect) const {
     if (CheckCollisionPointRec(GetVirtualMousePos(), rect)) return true;
-    int tc = GetTouchPointCount();
+    int tc = GetActiveTouchCount();
     for (int i = 0; i < tc; ++i) {
-        if (CheckCollisionPointRec(ToVirtualCoords(GetTouchPosition(i)), rect)) return true;
+        if (CheckCollisionPointRec(GetActiveTouchVirtualPos(i), rect)) return true;
     }
     return false;
 }
@@ -579,14 +623,14 @@ bool GhostGame::IsButtonClicked(Rectangle rect) const {
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetVirtualMousePos(), padded)) {
         return true;
     }
-    int tc = GetTouchPointCount();
+    int tc = GetActiveTouchCount();
     for (int i = 0; i < tc; ++i) {
-        int tid = GetTouchPointId(i);
+        int tid = GetActiveTouchId(i);
         bool isNew = true;
         for (int p = 0; p < prevTouchCount_; ++p) {
             if (prevTouchIds_[p] == tid) { isNew = false; break; }
         }
-        if (isNew && CheckCollisionPointRec(ToVirtualCoords(GetTouchPosition(i)), padded)) {
+        if (isNew && CheckCollisionPointRec(GetActiveTouchVirtualPos(i), padded)) {
             return true;
         }
     }
@@ -1208,7 +1252,7 @@ void GhostGame::UpdateFrameInput() {
     if (IsGamepadAvailable(0)) {
         activeInputDevice_ = GetGamepadName(0);
         if (activeInputDevice_.empty()) activeInputDevice_ = "GAMEPAD CONTROLLER";
-    } else if (GetTouchPointCount() > 0) {
+    } else if (GetActiveTouchCount() > 0) {
         activeInputDevice_ = "TOUCH SCREEN";
     } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ESCAPE) ||
                IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) {
@@ -1236,15 +1280,15 @@ void GhostGame::UpdateFrameInput() {
             newPresses.push_back({ GetVirtualMousePos() });
         }
 
-        int tc = GetTouchPointCount();
+        int tc = GetActiveTouchCount();
         for (int i = 0; i < tc; ++i) {
-            int tid = GetTouchPointId(i);
+            int tid = GetActiveTouchId(i);
             bool isNew = true;
             for (int p = 0; p < prevTouchCount_; ++p) {
                 if (prevTouchIds_[p] == tid) { isNew = false; break; }
             }
             if (isNew) {
-                newPresses.push_back({ ToVirtualCoords(GetTouchPosition(i)) });
+                newPresses.push_back({ GetActiveTouchVirtualPos(i) });
             }
         }
 
@@ -1253,7 +1297,7 @@ void GhostGame::UpdateFrameInput() {
         if (hasGamepad) {
             activeInputDevice_ = GetGamepadName(0);
             if (activeInputDevice_.empty()) activeInputDevice_ = "GAMEPAD CONTROLLER";
-        } else if (GetTouchPointCount() > 0) {
+        } else if (GetActiveTouchCount() > 0) {
             activeInputDevice_ = "TOUCH SCREEN";
         } else if (GetKeyPressed() > 0 || IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             activeInputDevice_ = "KEYBOARD & MOUSE";
@@ -1334,19 +1378,25 @@ void GhostGame::UpdateFrameInput() {
         bool hasGamepad = IsGamepadAvailable(0);
         bool padSkip = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT));
         if (splashTimer_ >= 2.4f || IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) ||
-            IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0 || GetKeyPressed() > 0 || padSkip) {
+            IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetActiveTouchCount() > 0 || GetKeyPressed() > 0 || padSkip) {
             SetScreenState(ScreenState::TITLE_FRONT_PAGE);
         }
     } else if (state_ == ScreenState::TITLE_FRONT_PAGE) {
-        bool hasGamepad = IsGamepadAvailable(0);
-        bool padStart = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT));
-        if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_E) || padStart) {
-            SetScreenState(ScreenState::TITLE_DIRECTOR);
-            audio_.PlayUiSelect();
-        } else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0) {
-            Rectangle enterArea = { VIRTUAL_WIDTH / 2.0f - 260.0f, 540.0f, 520.0f, 60.0f };
-            Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
-            if (CheckCollisionPointRec(p, enterArea)) {
+        if (screenTransitionCooldown_ <= 0.0f) {
+            bool hasGamepad = IsGamepadAvailable(0);
+            bool padStart = hasGamepad && (IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_MIDDLE_RIGHT));
+            bool newTouch = false;
+            int tc = GetActiveTouchCount();
+            for (int i = 0; i < tc; ++i) {
+                int tid = GetActiveTouchId(i);
+                bool seen = false;
+                for (int p = 0; p < prevTouchCount_; ++p) {
+                    if (prevTouchIds_[p] == tid) { seen = true; break; }
+                }
+                if (!seen) { newTouch = true; break; }
+            }
+            if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_F) || IsKeyPressed(KEY_E) ||
+                IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || newTouch || padStart) {
                 SetScreenState(ScreenState::TITLE_DIRECTOR);
                 audio_.PlayUiSelect();
             }
@@ -1502,10 +1552,10 @@ void GhostGame::UpdateFrameInput() {
     }
 
     // Store active touch IDs for frame transition detection
-    int curTc = GetTouchPointCount();
+    int curTc = GetActiveTouchCount();
     prevTouchCount_ = std::min(curTc, static_cast<int>(prevTouchIds_.size()));
     for (int i = 0; i < prevTouchCount_; ++i) {
-        prevTouchIds_[i] = GetTouchPointId(i);
+        prevTouchIds_[i] = GetActiveTouchId(i);
     }
 }
 
@@ -1666,7 +1716,7 @@ void GhostGame::UpdatePlayingFixed(float dt) {
 
     // Ghost Physics
     float gravity = 1180.0f;
-    bool holdGlide = IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0 ||
+    bool holdGlide = IsKeyDown(KEY_SPACE) || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetActiveTouchCount() > 0 ||
                      (IsGamepadAvailable(0) && IsGamepadButtonDown(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN));
     if (static_cast<LightSubclass>(profile_.selectedSubclass) == LightSubclass::SOLAR_DAWN &&
         ghost_.vel.y > 40.0f && holdGlide) {

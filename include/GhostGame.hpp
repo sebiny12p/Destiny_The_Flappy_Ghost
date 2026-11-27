@@ -74,6 +74,9 @@ private:
     const char* GetBiomeName(BiomeSector b) const;
     Vector2 GetVirtualMousePos() const;
     Vector2 ToVirtualCoords(Vector2 screenPos) const;
+    int GetActiveTouchCount() const;
+    int GetActiveTouchId(int idx) const;
+    Vector2 GetActiveTouchVirtualPos(int idx) const;
     bool IsButtonClicked(Rectangle rect) const;
     bool IsRectHovered(Rectangle rect) const;
 

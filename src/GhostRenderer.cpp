@@ -21,41 +21,6 @@ float g_builtFontScale = 0.0f;
 int g_builtTextSizeMode = -1;
 float g_activeUiScale = 1.0f;
 int g_uiTextSizeMode = 0; // 0 = Normal, 1 = Large, 2 = Extra Large
-float g_curVirtualWidth = 1280.0f;
-
-struct UiBoxTracker {
-    std::array<Rectangle, 24> boxes{};
-    int count = 0;
-    void Reset(float vw) {
-        count = 0;
-        g_curVirtualWidth = vw;
-    }
-    void Push(Rectangle r) {
-        if (r.width < 54.0f || r.width > g_curVirtualWidth - 24.0f || r.height < 24.0f || r.height > 680.0f) return;
-        for (int i = 0; i < count; ++i) {
-            if (std::abs(boxes[i].x - r.x) < 2.0f && std::abs(boxes[i].y - r.y) < 2.0f && std::abs(boxes[i].height - r.height) < 2.0f) {
-                if (r.width > boxes[i].width) boxes[i].width = r.width;
-                return;
-            }
-        }
-        if (count < static_cast<int>(boxes.size())) {
-            boxes[count++] = r;
-        } else {
-            for (int i = 1; i < count; ++i) boxes[i - 1] = boxes[i];
-            boxes[count - 1] = r;
-        }
-    }
-} g_uiBoxes;
-
-void DrawTrackedRect(int posX, int posY, int width, int height, Color color) {
-    g_uiBoxes.Push({ static_cast<float>(posX), static_cast<float>(posY), static_cast<float>(width), static_cast<float>(height) });
-    ::DrawRectangle(posX, posY, width, height, color);
-}
-
-void DrawTrackedRectRec(Rectangle rec, Color color) {
-    g_uiBoxes.Push(rec);
-    ::DrawRectangleRec(rec, color);
-}
 
 float GetAdaptiveTextScale(int fontSize, int mode = g_uiTextSizeMode) {
     if (mode <= 0) return 1.0f;
@@ -142,38 +107,7 @@ void DrawGameTextScaled(const char* text, int posX, int posY, int fontSize, floa
 
 void DrawGameText(const char* text, int posX, int posY, int fontSize, Color color) {
     if (!text || !text[0]) return;
-    float boost = GetAdaptiveTextScale(fontSize);
-    int w = MeasureGameTextScaled(text, fontSize, boost);
-
-    int bestIdx = -1;
-    float bestWidth = 1e9f;
-    for (int i = g_uiBoxes.count - 1; i >= 0; --i) {
-        const Rectangle& b = g_uiBoxes.boxes[i];
-        if (posX >= b.x - 4.0f && posX < b.x + b.width - 12.0f &&
-            posY >= b.y - 1.0f && posY <= b.y + b.height - 6.0f) {
-            if (b.width < bestWidth) {
-                bestWidth = b.width;
-                bestIdx = i;
-            }
-        }
-    }
-    if (bestIdx >= 0) {
-        const Rectangle& b = g_uiBoxes.boxes[bestIdx];
-        float rightLimit = b.x + b.width - 8.0f;
-        if (static_cast<float>(posX + w) > rightLimit && w > 0) {
-            int clampedX = std::max(posX, static_cast<int>(std::ceil(b.x + 6.0f)));
-            float availW = std::max(24.0f, rightLimit - static_cast<float>(clampedX));
-            float fitScale = availW / static_cast<float>(w);
-            boost = std::max(0.62f, boost * fitScale);
-            if (posX < static_cast<int>(b.x + 10.0f) && b.width <= 340.0f) {
-                int newW = MeasureGameTextScaled(text, fontSize, boost);
-                posX = static_cast<int>(b.x + (b.width - newW) * 0.5f);
-            } else {
-                posX = clampedX;
-            }
-        }
-    }
-    DrawGameTextScaled(text, posX, posY, fontSize, boost, color);
+    DrawGameTextScaled(text, posX, posY, fontSize, GetAdaptiveTextScale(fontSize), color);
 }
 
 void DrawUpgradeBadge(Rectangle r, float globalTime) {
@@ -236,8 +170,6 @@ void GhostGame::ShutdownUiFonts() {
 
 #define MeasureText MeasureGameText
 #define DrawText DrawGameText
-#define DrawRectangle DrawTrackedRect
-#define DrawRectangleRec DrawTrackedRectRec
 
 namespace {
 void DrawTextWrapped(const char* text, int x, int y, int maxWidth, int fontSize, int lineHeight, Color color) {
@@ -318,7 +250,6 @@ void DrawTextWrapped(const char* text, int x, int y, int maxWidth, int fontSize,
 
 void GhostGame::RenderFrame() {
     UpdateVirtualResolution();
-    g_uiBoxes.Reset(VIRTUAL_WIDTH);
 
     BeginDrawing();
     ClearBackground(BLACK);
@@ -1858,11 +1789,11 @@ void GhostGame::RenderShellHangar() {
         float trackY = 185.0f;
         float trackH = SHADER_VIEWPORT_H;
         Rectangle shaderViewport = { uiX + 50.0f, 180.0f, 1150.0f, SHADER_VIEWPORT_H };
-        bool ptrDown = (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0);
+        bool ptrDown = (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetActiveTouchCount() > 0);
         bool shaderReleaseTap = false;
         Vector2 shaderTapPos{};
         if (ptrDown) {
-            Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
+            Vector2 p = (GetActiveTouchCount() > 0) ? GetActiveTouchVirtualPos(0) : GetVirtualMousePos();
             Rectangle trackHit = { trackX - 24.0f, trackY - 10.0f, 52.0f, trackH + 20.0f };
             if (maxShaderScroll > 0.0f && CheckCollisionPointRec(p, trackHit)) {
                 float frac = std::clamp((p.y - trackY) / trackH, 0.0f, 1.0f);
@@ -2125,8 +2056,8 @@ void GhostGame::RenderSettingsView() {
         DrawText(pct, static_cast<int>(track.x + track.width + 16.0f), static_cast<int>(track.y + 2.0f), 16, WHITE);
 
         // Interaction
-        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0) {
-            Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetActiveTouchCount() > 0) {
+            Vector2 p = (GetActiveTouchCount() > 0) ? GetActiveTouchVirtualPos(0) : GetVirtualMousePos();
             Rectangle hit = { track.x - 10.0f, track.y - 10.0f, track.width + 20.0f, track.height + 20.0f };
             if (CheckCollisionPointRec(p, hit)) {
                 val = std::clamp((p.x - track.x) / track.width, 0.0f, 1.0f);
@@ -2497,9 +2428,9 @@ void GhostGame::RenderTriumphsLog() {
     float tTrackY = 228.0f;
     float tTrackH = TRIUMPH_VIEWPORT_H;
     Rectangle triumphViewport = { uiX + 60.0f, 225.0f, 1140.0f, TRIUMPH_VIEWPORT_H };
-    bool tPtrDown = (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetTouchPointCount() > 0);
+    bool tPtrDown = (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetActiveTouchCount() > 0);
     if (maxTriumphScroll > 0.0f && tPtrDown) {
-        Vector2 p = (GetTouchPointCount() > 0) ? ToVirtualCoords(GetTouchPosition(0)) : GetVirtualMousePos();
+        Vector2 p = (GetActiveTouchCount() > 0) ? GetActiveTouchVirtualPos(0) : GetVirtualMousePos();
         Rectangle trackHit = { tTrackX - 24.0f, tTrackY - 10.0f, 52.0f, tTrackH + 20.0f };
         if (CheckCollisionPointRec(p, trackHit)) {
             float frac = std::clamp((p.y - tTrackY) / tTrackH, 0.0f, 1.0f);

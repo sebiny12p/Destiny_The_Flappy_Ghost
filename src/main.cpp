@@ -8,7 +8,11 @@ static void RunWebFrame(void* arg) {
 #endif
 
 int main() {
+#if defined(PLATFORM_WEB)
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
+#else
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
+#endif
 #if defined(PLATFORM_ANDROID)
     InitWindow(0, 0, "Destiny: The Flappy Ghost | Sebiny Labs");
 #elif defined(PLATFORM_WEB)

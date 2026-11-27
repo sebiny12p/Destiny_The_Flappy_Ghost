@@ -2,96 +2,248 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Destiny: The Flappy Ghost 1.0 — Play in Browser | Sebiny Labs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Destiny: The Flappy Ghost 1.0 — Sebiny Labs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       width: 100%; height: 100%;
-      background: #060912;
-      color: #f1f5f9;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #050713;
+      color: #f4f7ff;
+      font-family: 'Inter', system-ui, sans-serif;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      overscroll-behavior: none;
     }
     header {
-      height: 46px;
-      background: rgba(10, 14, 26, 0.95);
-      border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+      height: 50px;
+      flex-shrink: 0;
+      background: rgba(5, 7, 19, 0.88);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 16px;
-      font-size: 0.86rem;
+      padding: 0 18px;
+      gap: 10px;
       z-index: 10;
     }
-    .left, .right { display: flex; align-items: center; gap: 10px; }
+    .left, .right { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .brand-title span { color: #8b5cf6; }
     .badge {
-      font-family: monospace; font-size: 0.72rem; padding: 2px 7px; border-radius: 5px;
-      background: rgba(56, 189, 248, 0.14); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);
+      font-family: 'Orbitron', monospace;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(34, 211, 238, 0.08);
+      color: #22d3ee;
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      white-space: nowrap;
     }
     a.btn, button.btn {
-      background: rgba(30, 41, 59, 0.9); color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.3);
-      padding: 5px 11px; border-radius: 7px; font-size: 0.8rem; font-weight: 600;
-      text-decoration: none; cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.03);
+      color: #a9b5d2;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-family: 'Orbitron', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
     }
-    a.btn:hover, button.btn:hover { border-color: #38bdf8; color: #fff; }
+    a.btn:hover, button.btn:hover {
+      border-color: rgba(139, 92, 246, 0.4);
+      color: #f4f7ff;
+      background: rgba(139, 92, 246, 0.1);
+    }
+    button.btn.primary {
+      background: linear-gradient(135deg, #7c3aed, #0ea5e9);
+      color: #fff;
+      border: none;
+    }
     #stage {
-      flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
-      background: #000;
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #02030a;
+      overflow: hidden;
+      touch-action: none;
     }
     canvas.emscripten {
-      width: 100%; height: 100%; max-width: 100vw; max-height: calc(100vh - 46px);
-      aspect-ratio: 16 / 9; object-fit: contain; outline: none; display: block;
+      display: block;
+      outline: none;
+      touch-action: none;
+      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.65);
     }
     #loader {
-      position: absolute; inset: 0; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 14px; background: #060912; z-index: 5;
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: radial-gradient(circle at 50% 35%, rgba(139, 92, 246, 0.14), #050713 65%);
+      z-index: 5;
     }
-    .bar-bg { width: 260px; height: 8px; background: #1e293b; border-radius: 99px; overflow: hidden; }
-    #bar-fill { width: 15%; height: 100%; background: linear-gradient(90deg, #38bdf8, #a78bfa); transition: width 0.2s; }
-    #status-txt { font-family: monospace; font-size: 0.82rem; color: #94a3b8; }
+    .loader-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      color: #22d3ee;
+      text-transform: uppercase;
+    }
+    .bar-bg { width: 260px; height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden; }
+    #bar-fill { width: 15%; height: 100%; background: linear-gradient(90deg, #8b5cf6, #22d3ee); transition: width 0.2s; }
+    #status-txt { font-size: 12px; color: #7280a2; }
+    @media (max-width: 640px) {
+      .badge, .dl-btn { display: none !important; }
+      header { height: 44px; padding: 0 12px; }
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="left">
-      <a class="btn" href="https://sebiny12p.github.io/Portfolio/">&larr; Portfolio</a>
-      <strong>Destiny: The Flappy Ghost 1.0</strong>
+      <a class="btn" tabindex="-1" href="https://sebiny12p.github.io/Portfolio/">&larr; Portfolio</a>
+      <div class="brand-title"><span>Destiny</span> Flappy Ghost</div>
       <span class="badge">C++20 &middot; WebAssembly</span>
     </div>
     <div class="right">
-      <a class="btn" href="https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/releases/tag/v1.0" target="_blank" rel="noopener">Download PC / APK</a>
-      <button class="btn" onclick="goFull()">&#x26F6; Fullscreen</button>
+      <a class="btn dl-btn" tabindex="-1" href="https://github.com/sebiny12p/Destiny_The_Flappy_Ghost/releases/tag/v1.0" target="_blank" rel="noopener">PC / APK</a>
+      <button class="btn primary" type="button" tabindex="-1" onclick="this.blur(); goFull();">Fullscreen</button>
     </div>
   </header>
   <div id="stage">
     <div id="loader">
-      <div style="font-weight:700; color:#38bdf8;">INITIALIZING GHOST TELEMETRY (WASM)...</div>
+      <div class="loader-title">Initializing Ghost Telemetry</div>
       <div class="bar-bg"><div id="bar-fill"></div></div>
       <div id="status-txt">Downloading assets...</div>
     </div>
-    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+    <canvas class="emscripten" id="canvas" width="1280" height="720" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
   </div>
   <script>
-    function goFull() {
-      const c = document.getElementById('canvas');
-      if (c.requestFullscreen) c.requestFullscreen();
-      c.focus();
+    window.__sebinyTouches = [];
+
+    function fitCanvas() {
+      var stage = document.getElementById('stage');
+      var c = document.getElementById('canvas');
+      if (!stage || !c) return;
+      var sw = stage.clientWidth || window.innerWidth;
+      var sh = stage.clientHeight || (window.innerHeight - 50);
+      var w = sw;
+      var h = sw * (9 / 16);
+      if (h > sh) {
+        h = sh;
+        w = sh * (16 / 9);
+      }
+      c.style.width = Math.max(160, Math.floor(w)) + 'px';
+      c.style.height = Math.max(90, Math.floor(h)) + 'px';
     }
+
+    window.addEventListener('resize', fitCanvas);
+    window.addEventListener('orientationchange', function() { setTimeout(fitCanvas, 80); });
+    document.addEventListener('fullscreenchange', function() { setTimeout(fitCanvas, 50); });
+    fitCanvas();
+
+    function unlockWebAudio() {
+      try {
+        if (window.Module && Module.miniaudio && Module.miniaudio.devices) {
+          for (var i = 0; i < Module.miniaudio.devices.length; i++) {
+            var d = Module.miniaudio.devices[i];
+            if (d && d.webaudio && d.webaudio.state === 'suspended') d.webaudio.resume();
+          }
+        }
+      } catch (_) {}
+    }
+
+    function goFull() {
+      var st = document.getElementById('stage');
+      var c = document.getElementById('canvas');
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen();
+      } else if (st && st.requestFullscreen) {
+        st.requestFullscreen();
+      } else if (c && c.requestFullscreen) {
+        c.requestFullscreen();
+      }
+      setTimeout(function() { fitCanvas(); if (c) c.focus(); }, 60);
+    }
+
+    (function setupTouchBridge() {
+      var stage = document.getElementById('stage');
+      var c = document.getElementById('canvas');
+      function updateTouches(e) {
+        if (e.cancelable) e.preventDefault();
+        unlockWebAudio();
+        if (c && document.activeElement !== c) c.focus();
+        var r = c.getBoundingClientRect();
+        var rw = Math.max(1, r.width);
+        var rh = Math.max(1, r.height);
+        var list = [];
+        for (var i = 0; i < e.touches.length && list.length < 10; i++) {
+          var t = e.touches[i];
+          var nx = (t.clientX - r.left) / rw;
+          var ny = (t.clientY - r.top) / rh;
+          list.push({
+            id: ((t.identifier | 0) + 1),
+            nx: Math.max(0, Math.min(1, nx)),
+            ny: Math.max(0, Math.min(1, ny))
+          });
+        }
+        window.__sebinyTouches = list;
+      }
+      stage.addEventListener('touchstart', updateTouches, { passive: false });
+      stage.addEventListener('touchmove', updateTouches, { passive: false });
+      stage.addEventListener('touchend', updateTouches, { passive: false });
+      stage.addEventListener('touchcancel', function(e) {
+        if (e.cancelable) e.preventDefault();
+        window.__sebinyTouches = [];
+      }, { passive: false });
+      window.addEventListener('blur', function() { window.__sebinyTouches = []; });
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) window.__sebinyTouches = [];
+      });
+    })();
+
     var Module = {
       canvas: (function() {
         var c = document.getElementById('canvas');
         c.addEventListener('webglcontextlost', function(e) { alert('WebGL context lost. Reload page.'); e.preventDefault(); }, false);
-        c.addEventListener('pointerdown', function() { c.focus(); });
+        c.addEventListener('pointerdown', function() { unlockWebAudio(); c.focus(); });
         return c;
       })(),
       setStatus: function(text) {
         var st = document.getElementById('status-txt');
         var ld = document.getElementById('loader');
         var bf = document.getElementById('bar-fill');
-        if (!text) { ld.style.display = 'none'; document.getElementById('canvas').focus(); return; }
+        if (!text) { ld.style.display = 'none'; fitCanvas(); document.getElementById('canvas').focus(); return; }
         st.textContent = text;
         var m = text.match(/\((\d+(\.\d+)?)\/(\d+)\)/);
         if (m) bf.style.width = Math.min(100, Math.round((parseFloat(m[1]) / parseFloat(m[3])) * 100)) + '%';
@@ -102,9 +254,15 @@
         Module.setStatus(left ? 'Loading (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')' : '');
       }
     };
+
     window.addEventListener('keydown', function(e) {
-      if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(e.code) > -1) e.preventDefault();
-    }, { passive: false });
+      if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab'].indexOf(e.code) > -1) {
+        if (document.activeElement && document.activeElement.tagName === 'BUTTON') {
+          document.activeElement.blur();
+        }
+        e.preventDefault();
+      }
+    }, { capture: true, passive: false });
   </script>
   {{{ SCRIPT }}}
 </body>
