@@ -60,7 +60,9 @@ else()
         target_link_options(FlappyGhost PRIVATE
             "-sUSE_GLFW=3"
             "-sALLOW_MEMORY_GROWTH=1"
+            "-sINITIAL_MEMORY=134217728"
             "-sTOTAL_STACK=4MB"
+            "-sEXPORTED_RUNTIME_METHODS=HEAPF32"
             "--preload-file" "${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets"
             "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/web_shell.html"
         )
