@@ -16,7 +16,7 @@ int main() {
 #if defined(PLATFORM_ANDROID)
     InitWindow(0, 0, "Destiny: The Flappy Ghost | Sebiny Labs");
 #elif defined(PLATFORM_WEB)
-    InitWindow(FlappyGhost::VIRTUAL_WIDTH, FlappyGhost::VIRTUAL_HEIGHT,
+    InitWindow(1920, 1080,
                "Destiny: The Flappy Ghost | Sebiny Labs");
 #else
     InitWindow(FlappyGhost::VIRTUAL_WIDTH, FlappyGhost::VIRTUAL_HEIGHT,
